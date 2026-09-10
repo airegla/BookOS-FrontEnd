@@ -82,6 +82,111 @@ function ResultadoBlock({ resultado }) {
       </div>
     );
   }
+  if (resultado.modo === 'composicion' && Array.isArray(resultado.items)) {
+    return (
+      <div>
+        <div className="text-xs text-muted mb-1">Composicion por {resultado.campo}</div>
+        {resultado.items.slice(0, 10).map((i) => (
+          <div key={i.tema || i.editorial} className="text-xs py-0.5 flex justify-between">
+            <span>{i.tema || i.editorial}</span>
+            <span className="font-mono">{i.titulos} titulos · {i.stock} un.</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (resultado.modo === 'resumen' && resultado.items) {
+    return (
+      <div className="text-xs space-y-0.5">
+        <div className="font-medium">{resultado.titulo}</div>
+        {Object.entries(resultado.items).map(([clave, valor]) => (
+          <div key={clave} className="flex justify-between">
+            <span className="text-muted">{clave}</span>
+            <span className="font-mono">{typeof valor === 'number' ? valor.toLocaleString('es-AR') : String(valor)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (resultado.modo === 'resumen_ventas' && resultado.items) {
+    const { comprobantes, facturado, porTipo } = resultado.items;
+    return (
+      <div className="text-xs">
+        <div className="font-medium">{comprobantes} comprobantes por ${Number(facturado).toLocaleString('es-AR')} ({resultado.dias} dias)</div>
+        {Object.entries(porTipo).map(([tipo, d]) => (
+          <div key={tipo} className="flex justify-between">
+            <span>{tipo}</span>
+            <span className="font-mono">{d.comprobantes} · ${Number(d.total).toLocaleString('es-AR')}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (resultado.modo === 'resumen_remitos' && resultado.items) {
+    const { totalRemitos, unidades, faltantes, ingresosPorMes } = resultado.items;
+    return (
+      <div className="text-xs">
+        <div className="font-medium">{totalRemitos} remitos · {unidades} unidades · {faltantes} faltantes</div>
+        {Object.entries(ingresosPorMes).map(([mes, u]) => (
+          <div key={mes} className="flex justify-between">
+            <span className="font-mono">{mes}</span>
+            <span>{u} un.</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (resultado.modo === 'top_vendidos' && Array.isArray(resultado.items)) {
+    return (
+      <div>
+        {resultado.items.slice(0, 8).map((i) => (
+          <div key={i.ean13} className="text-xs py-0.5 flex justify-between">
+            <span>{i.titulo}</span>
+            <span className="font-mono">{i.cantidad} un.</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (resultado.modo === 'marcadores' && Array.isArray(resultado.marcadores)) {
+    return (
+      <div>
+        {resultado.marcadores.map((m) => (
+          <div key={m.id} className="text-xs py-0.5">
+            <span className="font-mono">{m.id}</span> <span className="text-muted">— {m.descripcion}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (resultado.modo === 'perfil_cliente') {
+    return (
+      <div className="text-xs space-y-1">
+        <div className="font-medium">{resultado.cliente.nombre} · doc {resultado.cliente.documento || '—'}</div>
+        <div>Interacciones: {resultado.interacciones.length}</div>
+        {resultado.interacciones.slice(0, 5).map((i) => (
+          <div key={i.id} className="flex justify-between">
+            <span className="agente-badge">{i.relacion}</span>
+            <span className="font-mono">{i.entidad} · {Number(i.peso).toFixed(2)}</span>
+          </div>
+        ))}
+        <div className="pt-1">Ventas recientes: {resultado.ventas.length}</div>
+      </div>
+    );
+  }
+  if (resultado.modo === 'interacciones_cliente' && Array.isArray(resultado.interacciones)) {
+    return (
+      <div className="text-xs space-y-1">
+        <div className="font-medium">{resultado.cliente.nombre}</div>
+        {resultado.interacciones.map((i) => (
+          <div key={i.id} className="flex justify-between">
+            <span className="agente-badge">{i.relacion}</span>
+            <span className="font-mono">{i.entidad} · {Number(i.peso).toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (Array.isArray(resultado)) {
     return <div className="text-xs">{resultado.length} articulos.</div>;
   }

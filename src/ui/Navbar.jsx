@@ -4,7 +4,7 @@
 //   Usuarios | Desarrollo. Cambiar de pagina NO borra trabajo (estado en React).
 
 const ITEMS = [
-  'Catalogo', 'Ventas', 'Remitos', 'Config', 'Empresa', 'Usuarios', 'Desarrollo',
+  'Catalogo', 'Ventas', 'Remitos', 'Clientes', 'Config', 'Empresa', 'Usuarios', 'Desarrollo',
 ];
 
 export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {

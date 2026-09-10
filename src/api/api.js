@@ -36,6 +36,7 @@ export const clientesApi = {
   crear: (datos) => axiosClient.post('/clientes', datos),
   actualizar: (id, datos) => axiosClient.put(`/clientes/${id}`, datos),
   eliminar: (id) => axiosClient.delete(`/clientes/${id}`),
+  interacciones: (id) => axiosClient.get(`/clientes/${id}/interacciones`),
 };
 
 export const configApi = {
