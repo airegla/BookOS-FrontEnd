@@ -1,0 +1,151 @@
+// BookOS - CajaPage.jsx
+// ruta: bookos/frontend/src/pages/CajaPage.jsx
+// descripcion: arqueo de caja y cierre Z (reglas de bookerp). Estado del turno,
+//   movimientos manuales, cierre con diferencia y historial. Integrado al
+//   Secretario (contexto de caja).
+
+import { useEffect, useState } from 'react';
+import Table from '../ui/Table';
+import Modal from '../ui/Modal';
+import Input from '../ui/Input';
+import DebugTag from '../ui/DebugTag';
+import { cajaApi } from '../api/api';
+import { useAppContext } from '../AppContext';
+
+const MONEDA = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
+
+function Tarjeta({ titulo, valor, color }) {
+  return (
+    <div className="card p-3">
+      <div className="text-xs uppercase tracking-widest text-muted">{titulo}</div>
+      <div className="text-lg font-semibold" style={color ? { color } : {}}>{valor}</div>
+    </div>
+  );
+}
+
+export default function CajaPage() {
+  const [actual, setActual] = useState(null);
+  const [cierres, setCierres] = useState([]);
+  const [form, setForm] = useState({ tipo: 'INGRESO', concepto: '', monto: '', metodoPago: 'EFECTIVO' });
+  const [cierreForm, setCierreForm] = useState({ saldoRealDeclarado: '', montoApertura: '', observaciones: '' });
+  const [cerrarAbierto, setCerrarAbierto] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const { setContextoActual, pedirConsulta } = useAppContext();
+
+  const cargar = async () => {
+    try {
+      const res = await cajaApi.actual();
+      setActual(res.data);
+      const hist = await cajaApi.cierres();
+      setCierres(hist.data || []);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  useEffect(() => { cargar(); }, []); // eslint-disable-line
+
+  useEffect(() => {
+    if (actual) setContextoActual({ vista: 'caja', totales: actual.totales });
+  }, [actual]); // eslint-disable-line
+
+  const registrar = async () => {
+    try {
+      await cajaApi.movimiento(form);
+      setMensaje('Movimiento registrado ✓');
+      setForm({ tipo: 'INGRESO', concepto: '', monto: '', metodoPago: 'EFECTIVO' });
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const cerrarCaja = async () => {
+    try {
+      const res = await cajaApi.cerrar(cierreForm);
+      setMensaje(`Cierre Z #${res.data.cierreId} ✓ diferencia ${MONEDA(res.data.diferencia)}`);
+      setCerrarAbierto(false);
+      setCierreForm({ saldoRealDeclarado: '', montoApertura: '', observaciones: '' });
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const columnas = [
+    { clave: 'tipo', titulo: 'Tipo' },
+    { clave: 'concepto', titulo: 'Concepto' },
+    { clave: 'monto', titulo: 'Monto', render: (m) => <span style={{ color: m.tipo === 'EGRESO' ? 'var(--danger)' : 'var(--success)' }}>{MONEDA(m.monto)}</span> },
+    { clave: 'metodoPago', titulo: 'Metodo' },
+  ];
+
+  const columnasCierres = [
+    { clave: 'id', titulo: 'ID' },
+    { clave: 'fecha', titulo: 'Fecha', render: (c) => new Date(c.createdAt).toLocaleString('es-AR') },
+    { clave: 'totalVentas', titulo: 'Total ventas', render: (c) => MONEDA(c.totalVentas) },
+    { clave: 'diferenciaEfectivo', titulo: 'Diferencia', render: (c) => <span style={{ color: Number(c.diferenciaEfectivo) === 0 ? 'var(--muted)' : 'var(--danger)' }}>{MONEDA(c.diferenciaEfectivo)}</span> },
+  ];
+
+  return (
+    <div>
+      <DebugTag nombre="CajaPage" />
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">Caja</h2>
+        <div className="flex gap-2">
+          <button type="button" className="btn btn-ghost" onClick={() => pedirConsulta('¿Como esta la caja? Dame un resumen del turno abierto.')}>Preguntar al Secretario</button>
+          <button type="button" className="btn btn-primary" onClick={() => setCerrarAbierto(true)}>Cierre Z</button>
+        </div>
+      </div>
+
+      {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
+
+      {actual && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <Tarjeta titulo="Saldo teorico efectivo" valor={MONEDA(actual.totales.saldoTeoricoEfectivo)} />
+          <Tarjeta titulo="Ingresos efectivo" valor={MONEDA(actual.totales.ingresosEfectivo)} color="var(--success)" />
+          <Tarjeta titulo="Egresos efectivo" valor={MONEDA(actual.totales.egresosEfectivo)} color="var(--danger)" />
+          <Tarjeta titulo="Total ventas dia" valor={MONEDA(actual.totales.totalVentasDia)} />
+          <Tarjeta titulo="Tarjetas" valor={MONEDA(actual.totales.totalTarjetas)} />
+          <Tarjeta titulo="Transferencias" valor={MONEDA(actual.totales.totalTransferencias)} />
+          <Tarjeta titulo="Cheques" valor={MONEDA(actual.totales.totalCheques)} />
+        </div>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <div className="card p-4">
+          <h3 className="font-semibold mb-3">Movimiento manual</h3>
+          <div className="flex gap-2 mb-3">
+            <select className="input-os" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
+              <option value="INGRESO">INGRESO</option>
+              <option value="EGRESO">EGRESO</option>
+            </select>
+            <select className="input-os" value={form.metodoPago} onChange={(e) => setForm({ ...form, metodoPago: e.target.value })}>
+              <option value="EFECTIVO">EFECTIVO</option>
+              <option value="TARJETA">TARJETA</option>
+              <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+              <option value="CHEQUE">CHEQUE</option>
+            </select>
+          </div>
+          <Input label="Concepto" value={form.concepto} onChange={(e) => setForm({ ...form, concepto: e.target.value })} />
+          <Input label="Monto" type="number" value={form.monto} onChange={(e) => setForm({ ...form, monto: e.target.value })} />
+          <button type="button" className="btn btn-primary" onClick={registrar}>Registrar</button>
+        </div>
+        <div className="card p-4">
+          <h3 className="font-semibold mb-3">Movimientos del turno</h3>
+          <Table columnas={columnas} filas={actual ? actual.movimientos.slice(0, 15) : []} vacio="Sin movimientos" />
+        </div>
+      </div>
+
+      <h3 className="font-semibold mb-2">Historial de cierres Z</h3>
+      <Table columnas={columnasCierres} filas={cierres} vacio="Sin cierres" />
+
+      <Modal abierto={cerrarAbierto} onClose={() => setCerrarAbierto(false)} titulo="Cierre Z (arqueo)" ancho="420px"
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setCerrarAbierto(false)}>Cancelar</button>
+            <button type="button" className="btn btn-primary" onClick={cerrarCaja}>Cerrar caja</button>
+          </>
+        }
+      >
+        <Input label="Saldo real declarado (efectivo)" type="number" value={cierreForm.saldoRealDeclarado} onChange={(e) => setCierreForm({ ...cierreForm, saldoRealDeclarado: e.target.value })} />
+        <Input label="Monto de apertura" type="number" value={cierreForm.montoApertura} onChange={(e) => setCierreForm({ ...cierreForm, montoApertura: e.target.value })} />
+        <Input label="Observaciones" value={cierreForm.observaciones} onChange={(e) => setCierreForm({ ...cierreForm, observaciones: e.target.value })} />
+        <p className="text-xs text-muted">Al cerrar se vincula el turno y se asienta el ajuste por sobrante/faltante automatico.</p>
+      </Modal>
+    </div>
+  );
+}

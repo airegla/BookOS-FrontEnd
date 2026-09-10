@@ -27,8 +27,31 @@ export const ventasApi = {
 export const remitosApi = {
   crear: (payload) => axiosClient.post('/remitos', payload),
   cruzar: (id) => axiosClient.post(`/remitos/${id}/cruzar`),
+  confirmar: (id) => axiosClient.post(`/remitos/${id}/confirmar`),
+  anular: (id) => axiosClient.post(`/remitos/${id}/anular`),
   listar: (params = {}) => axiosClient.get('/remitos', { params }),
   obtener: (id) => axiosClient.get(`/remitos/${id}`),
+};
+
+export const cajaApi = {
+  actual: () => axiosClient.get('/caja/actual'),
+  movimiento: (datos) => axiosClient.post('/caja/manual', datos),
+  cerrar: (datos) => axiosClient.post('/caja/cerrar', datos),
+  cierres: () => axiosClient.get('/caja/cierres'),
+  detalleCierre: (id) => axiosClient.get(`/caja/cierres/${id}`),
+};
+
+export const proveedoresApi = {
+  listar: (params = {}) => axiosClient.get('/proveedores', { params }),
+  crear: (datos) => axiosClient.post('/proveedores', datos),
+  actualizar: (id, datos) => axiosClient.put(`/proveedores/${id}`, datos),
+  eliminar: (id) => axiosClient.delete(`/proveedores/${id}`),
+};
+
+export const comprasApi = {
+  crear: (payload) => axiosClient.post('/compras', payload),
+  anular: (id) => axiosClient.post(`/compras/${id}/anular`),
+  listar: (params = {}) => axiosClient.get('/compras', { params }),
 };
 
 export const clientesApi = {

@@ -9,6 +9,9 @@ import AgenteChatBlock from './blocks/AgenteChatBlock';
 import CatalogoPage from './pages/CatalogoPage';
 import VentasPage from './pages/VentasPage';
 import RemitosPage from './pages/RemitosPage';
+import CajaPage from './pages/CajaPage';
+import ComprasPage from './pages/ComprasPage';
+import ProveedoresPage from './pages/ProveedoresPage';
 import ClientesPage from './pages/ClientesPage';
 import ConfigPage from './pages/ConfigPage';
 import EmpresaPage from './pages/EmpresaPage';
@@ -103,6 +106,9 @@ export default function App() {
           {vista === 'Catalogo' && <CatalogoPage />}
           {vista === 'Ventas' && <VentasPage />}
           {vista === 'Remitos' && <RemitosPage />}
+          {vista === 'Caja' && <CajaPage />}
+          {vista === 'Compras' && <ComprasPage />}
+          {vista === 'Proveedores' && <ProveedoresPage />}
           {vista === 'Clientes' && <ClientesPage />}
           {vista === 'Config' && <ConfigPage esAdmin={esAdmin} />}
           {vista === 'Empresa' && <EmpresaPage />}
