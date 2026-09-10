@@ -14,6 +14,15 @@ export function AppProvider({ children }) {
   const [clienteIdActivo, setClienteIdActivo] = useState(null);
   // Pedido de consulta programado desde cualquier vista ("Preguntar al Secretario").
   const [consultaAutomatica, setConsultaAutomatica] = useState(null);
+  // Bus de instrucciones: el Secretario "opera sobre la vista" emitiendo una
+  // instruccion que la pagina activa escucha y aplica (refrescar, agregar item...).
+  const [instruccionVista, setInstruccionVista] = useState(null);
+  // CSV adjuntado desde una vista para que el Secretario lo procese con la tool que corresponda.
+  const [csvAdjunto, setCsvAdjunto] = useState(null);
+
+  const emitirInstruccion = (instruccion) => {
+    setInstruccionVista({ ...instruccion, ts: Date.now() });
+  };
 
   return (
     <AppContext.Provider value={{
@@ -25,6 +34,10 @@ export function AppProvider({ children }) {
       setClienteIdActivo,
       consultaAutomatica,
       pedirConsulta: setConsultaAutomatica,
+      instruccionVista,
+      emitirInstruccion,
+      csvAdjunto,
+      setCsvAdjunto,
     }}>
       {children}
     </AppContext.Provider>

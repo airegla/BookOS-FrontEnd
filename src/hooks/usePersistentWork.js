@@ -9,7 +9,7 @@ export default function usePersistentWork(clave, valorInicial) {
   const [valor, setValor] = useState(() => {
     try {
       const guardado = localStorage.getItem(`bookos_borrador_${clave}`);
-      return guardado ? JSON.parse(guardado) : valorInicial;
+      return guardado ? { ...valorInicial, ...JSON.parse(guardado) } : valorInicial;
     } catch (err) {
       return valorInicial;
     }

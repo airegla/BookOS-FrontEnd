@@ -6,7 +6,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { agenteApi } from '../api/api';
 
-export default function useAgenteStream() {
+export default function useAgenteStream(onHerramienta) {
   const [mensajes, setMensajes] = useState([]);
   const [estado, setEstado] = useState('');
   const [candidatos, setCandidatos] = useState([]);
@@ -61,6 +61,7 @@ export default function useAgenteStream() {
               setMensajes((prev) => [...prev, { rol: 'agente', resultado: payload }]);
             } else if (evento === 'herramienta') {
               setMensajes((prev) => [...prev, { rol: 'herramienta', nombre: payload.nombre, ok: payload.ok }]);
+              if (onHerramienta && payload.resultado) onHerramienta(payload.resultado);
             } else if (evento === 'error') {
               setMensajes((prev) => [...prev, { rol: 'agente', texto: `⚠️ ${payload.message}` }]);
             }
@@ -81,7 +82,7 @@ export default function useAgenteStream() {
       setEstado('');
       setCargando(false);
     }
-  }, [cargando]);
+  }, [cargando, onHerramienta]);
 
   return { mensajes, estado, candidatos, textoActual, cargando, enviar };
 }

@@ -13,15 +13,44 @@ export const catalogoApi = {
   listar: (params = {}) => axiosClient.get('/catalogo', { params }),
   buscar: (q, limite = 30) => axiosClient.get('/catalogo/buscar', { params: { q, limite } }),
   obtenerPorEan: (ean13) => axiosClient.get(`/catalogo/ean/${ean13}`),
+  autocomplete: (q) => axiosClient.get('/catalogo/autocomplete', { params: { q } }),
+  f7: (q) => axiosClient.get('/catalogo/f7', { params: { q } }),
+  buscarExacto: (codigo) => axiosClient.get('/catalogo/buscarExacto', { params: { codigo } }),
+  kardex: (id) => axiosClient.get(`/catalogo/${id}/kardex`),
   crear: (datos) => axiosClient.post('/catalogo', datos),
   actualizar: (id, datos) => axiosClient.put(`/catalogo/${id}`, datos),
   eliminar: (id) => axiosClient.delete(`/catalogo/${id}`),
+};
+
+export const autoresApi = {
+  listar: (params = {}) => axiosClient.get('/autores', { params }),
+  crear: (datos) => axiosClient.post('/autores', datos),
+  actualizar: (id, datos) => axiosClient.put(`/autores/${id}`, datos),
+  eliminar: (id) => axiosClient.delete(`/autores/${id}`),
+};
+
+export const materiasApi = {
+  listar: (params = {}) => axiosClient.get('/materias', { params }),
+  crear: (datos) => axiosClient.post('/materias', datos),
+  actualizar: (id, datos) => axiosClient.put(`/materias/${id}`, datos),
+  eliminar: (id) => axiosClient.delete(`/materias/${id}`),
+};
+
+export const editorialesApi = {
+  listar: (params = {}) => axiosClient.get('/editoriales', { params }),
+  buscar: (q) => axiosClient.get('/editoriales/buscar', { params: { q } }),
+  resolver: (isbn) => axiosClient.get('/editoriales/resolver', { params: { isbn } }),
+  crear: (datos) => axiosClient.post('/editoriales', datos),
+  actualizar: (id, datos) => axiosClient.put(`/editoriales/${id}`, datos),
+  eliminar: (id) => axiosClient.delete(`/editoriales/${id}`),
 };
 
 export const ventasApi = {
   procesar: (payload) => axiosClient.post('/ventas/procesar', payload),
   listar: (params = {}) => axiosClient.get('/ventas', { params }),
   obtener: (id) => axiosClient.get(`/ventas/${id}`),
+  anular: (id) => axiosClient.post(`/ventas/${id}/anular`),
+  pendientes: () => axiosClient.get('/ventas/pendientes'),
 };
 
 export const remitosApi = {
@@ -52,6 +81,14 @@ export const comprasApi = {
   crear: (payload) => axiosClient.post('/compras', payload),
   anular: (id) => axiosClient.post(`/compras/${id}/anular`),
   listar: (params = {}) => axiosClient.get('/compras', { params }),
+};
+
+export const pedidosProveedorApi = {
+  crear: (payload) => axiosClient.post('/pedidos-proveedor', payload),
+  listar: (params = {}) => axiosClient.get('/pedidos-proveedor', { params }),
+  obtener: (id) => axiosClient.get(`/pedidos-proveedor/${id}`),
+  anular: (id) => axiosClient.post(`/pedidos-proveedor/${id}/anular`),
+  confirmar: (id, payload = {}) => axiosClient.post(`/pedidos-proveedor/${id}/confirmar`, payload),
 };
 
 export const clientesApi = {
@@ -88,6 +125,95 @@ export const propuestasApi = {
 export const auditoriaApi = {
   ranking: (limite = 30) => axiosClient.get('/auditoria/ranking', { params: { limite } }),
   llm: (limite = 30) => axiosClient.get('/auditoria/llm', { params: { limite } }),
+};
+
+export const exportacionApi = {
+  csv: (payload) => axiosClient.post('/exportacion/csv', payload),
+  pdf: (payload) => axiosClient.post('/exportacion/pdf', payload),
+};
+
+export const ctaCteApi = {
+  estadoCuenta: (params = {}) => axiosClient.get('/ctacte', { params }),
+  registrarRecibo: (payload) => axiosClient.post('/ctacte/recibos', payload),
+  anularRecibo: (movimientoId) => axiosClient.post(`/ctacte/recibos/${movimientoId}/anular`),
+  observar: (payload) => axiosClient.post('/ctacte/observar', payload),
+};
+
+export const observacionesApi = {
+  documento: (payload) => axiosClient.post('/observaciones/documento', payload),
+  editorial: (id) => axiosClient.post('/observaciones/editorial', { id }),
+  buscar: (consulta, limite = 5) => axiosClient.get('/observaciones/buscar', { params: { consulta, limite } }),
+};
+
+export const transportesApi = {
+  listar: () => axiosClient.get('/transportes'),
+  crear: (datos) => axiosClient.post('/transportes', datos),
+  actualizar: (id, datos) => axiosClient.put(`/transportes/${id}`, datos),
+  eliminar: (id) => axiosClient.delete(`/transportes/${id}`),
+};
+
+export const depositosApi = {
+  listar: () => axiosClient.get('/depositos'),
+  crear: (datos) => axiosClient.post('/depositos', datos),
+  actualizar: (id, datos) => axiosClient.put(`/depositos/${id}`, datos),
+  stock: (id) => axiosClient.get(`/depositos/${id}/stock`),
+};
+
+export const mayoristaApi = {
+  resumen: () => axiosClient.get('/mayorista/resumen'),
+  listarRemitos: (params = {}) => axiosClient.get('/mayorista/remitos', { params }),
+  listarVentas: (params = {}) => axiosClient.get('/mayorista/ventas', { params }),
+  listarDevoluciones: (params = {}) => axiosClient.get('/mayorista/devoluciones', { params }),
+  listarSabanas: (params = {}) => axiosClient.get('/mayorista/sabanas', { params }),
+  listarAjustes: (params = {}) => axiosClient.get('/mayorista/ajustes', { params }),
+  crearRemito: (payload) => axiosClient.post('/mayorista/remitos', payload),
+  crearVenta: (payload) => axiosClient.post('/mayorista/ventas', payload),
+  crearDevolucion: (payload) => axiosClient.post('/mayorista/devoluciones', payload),
+  crearSabana: (payload) => axiosClient.post('/mayorista/sabanas', payload),
+  crearAjuste: (payload) => axiosClient.post('/mayorista/ajustes', payload),
+};
+
+export const consignaApi = {
+  liquidaciones: (params = {}) => axiosClient.get('/liquidaciones', { params }),
+  crearLiquidacion: (payload) => axiosClient.post('/liquidaciones', payload),
+  obtenerLiquidacion: (id) => axiosClient.get(`/liquidaciones/${id}`),
+  anularLiquidacion: (id) => axiosClient.post(`/liquidaciones/${id}/anular`),
+  facturarLiquidacion: (id, compraId) => axiosClient.post(`/liquidaciones/${id}/facturar`, { compraId }),
+  previsualizarConciliacion: (payload) => axiosClient.post('/conciliaciones/previsualizar', payload),
+  guardarConciliacion: (payload) => axiosClient.post('/conciliaciones', payload),
+  listarConciliaciones: () => axiosClient.get('/conciliaciones'),
+  anularConciliacion: (id) => axiosClient.post(`/conciliaciones/${id}/anular`),
+  registrarDevolucion: (payload) => axiosClient.post('/devoluciones', payload),
+  listarDevoluciones: (params = {}) => axiosClient.get('/devoluciones', { params }),
+  anularDevolucion: (id) => axiosClient.post(`/devoluciones/${id}/anular`),
+};
+
+export const inventarioApi = {
+  stock: (params = {}) => axiosClient.get('/inventario', { params }),
+  transferir: (payload) => axiosClient.post('/inventario/transferir', payload),
+  ajustar: (payload) => axiosClient.post('/inventario/ajustar', payload),
+};
+
+export const newsletterApi = {
+  listar: (params = {}) => axiosClient.get('/newsletter', { params }),
+  suscribir: (payload) => axiosClient.post('/newsletter', payload),
+  darDeBaja: (email) => axiosClient.delete(`/newsletter/${encodeURIComponent(email)}`),
+};
+
+export const parametrosApi = {
+  metodosPago: () => axiosClient.get('/parametros/metodos-pago'),
+  crearMetodoPago: (payload) => axiosClient.post('/parametros/metodos-pago', payload),
+  actualizarMetodoPago: (id, payload) => axiosClient.put(`/parametros/metodos-pago/${id}`, payload),
+  eliminarMetodoPago: (id) => axiosClient.delete(`/parametros/metodos-pago/${id}`),
+};
+
+export const importadorApi = {
+  importarCatalogo: (payload) => axiosClient.post('/importador/catalogo', payload),
+  historial: () => axiosClient.get('/importador'),
+};
+
+export const manualApi = {
+  obtener: () => axiosClient.get('/manual'),
 };
 
 export const agenteApi = {

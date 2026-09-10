@@ -1,52 +1,84 @@
 // BookOS - RemitosPage.jsx
 // ruta: bookos/frontend/src/pages/RemitosPage.jsx
-// descripcion: ingreso de remitos + cruce de faltantes. Al abrir un remito se
-//   inyecta su JSON al Secretario; tambien se puede cruzar con $faltantes_remito.
+// descripcion: ingreso de remitos en esquema "cabecera + tabla de items" + cruce
+//   de faltantes. Interconectado con el Secretario: inyecta el borrador y escucha
+//   instrucciones (refrescar, cruzar) para que el agente opere la vista.
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
-import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
-import { remitosApi } from '../api/api';
+import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
+import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
+import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
+import { remitosApi, proveedoresApi } from '../api/api';
+import { mapearFilas } from '../utils/csv';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
 
 export default function RemitosPage() {
   const [remitos, setRemitos] = useState([]);
-  const [borrador, setBorrador, limpiarBorrador] = usePersistentWork('remito', { proveedor: '', items: [] });
+  const [proveedores, setProveedores] = useState([]);
+  const [borrador, setBorrador, limpiarBorrador] = usePersistentWork('remito', { proveedor: '', numero: '', fecha: '', observaciones: '', items: [] });
   const [itemEan, setItemEan] = useState('');
   const [itemCantidad, setItemCantidad] = useState('');
   const [itemCosto, setItemCosto] = useState('');
   const [detalle, setDetalle] = useState(null);
   const [verRemito, setVerRemito] = useState(null);
   const [mensaje, setMensaje] = useState('');
-  const { setContextoActual, pedirConsulta } = useAppContext();
+  const { setContextoActual, pedirConsulta, instruccionVista } = useAppContext();
 
   const cargar = async () => {
-    const res = await remitosApi.listar({ page: 1, limit: 50 });
-    setRemitos(res.data || []);
+    try {
+      const [res, prov] = await Promise.all([
+        remitosApi.listar({ page: 1, limit: 50 }),
+        proveedoresApi.listar(),
+      ]);
+      setRemitos(res.data || []);
+      setProveedores(prov.data || []);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
   useEffect(() => { cargar(); }, []);
 
+  const setItems = (items) => setBorrador({ ...borrador, items });
+  const setCampo = (campo, valor) => setBorrador({ ...borrador, [campo]: valor });
+
+  const importarItems = (raw) => {
+    const filas = mapearFilas(raw, ['ean13', 'titulo', 'cantidad', 'costo']);
+    const nuevos = filas
+      .filter((f) => f.ean13)
+      .map((f) => ({ ean13: String(f.ean13), titulo: f.titulo || String(f.ean13), cantidad: Number(f.cantidad) || 1, costo: f.costo ? Number(f.costo) : null }));
+    setItems([...borrador.items, ...nuevos]);
+    if (nuevos.length) setMensaje(`Importados ${nuevos.length} items ✓`);
+  };
+
+  const importarDocumento = (list) => {
+    const nuevos = list.filter((i) => i.ean13).map((i) => ({ ean13: i.ean13, titulo: i.titulo || i.ean13, cantidad: i.cantidad, costo: i.costo }));
+    setItems([...borrador.items, ...nuevos]);
+    if (nuevos.length) setMensaje(`Importados ${nuevos.length} libros del documento ✓`);
+  };
+
   const agregarItem = () => {
     if (!itemEan || !itemCantidad) return;
-    setBorrador({
-      ...borrador,
-      items: [...borrador.items, {
-        ean13: itemEan,
-        titulo: itemEan,
-        cantidad: Number(itemCantidad),
-        costo: itemCosto ? Number(itemCosto) : null,
-      }],
-    });
+    setItems([...borrador.items, {
+      ean13: itemEan,
+      titulo: itemEan,
+      cantidad: Number(itemCantidad),
+      costo: itemCosto ? Number(itemCosto) : null,
+    }]);
     setItemEan(''); setItemCantidad(''); setItemCosto('');
   };
 
   const crear = async () => {
     try {
-      const res = await remitosApi.crear({ proveedor: borrador.proveedor, items: borrador.items });
+      const res = await remitosApi.crear({
+        proveedor: borrador.proveedor,
+        numero: borrador.numero || null,
+        fecha: borrador.fecha || null,
+        observaciones: borrador.observaciones || null,
+        items: borrador.items,
+      });
       setMensaje(`Remito #${res.data.id} creado ✓`);
       limpiarBorrador();
       cargar();
@@ -67,9 +99,35 @@ export default function RemitosPage() {
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
+  // El Secretario opera la vista: refrescar listado o mostrar cruce de faltantes.
+  useEffect(() => {
+    if (!instruccionVista || instruccionVista.dominio !== 'remitos') return;
+    if (instruccionVista.accion === 'refrescar') {
+      cargar();
+      if (instruccionVista.mensaje) setMensaje(instruccionVista.mensaje);
+    }
+    if (instruccionVista.accion === 'cruzar' && instruccionVista.data) {
+      setDetalle(instruccionVista.data);
+    }
+  }, [instruccionVista]); // eslint-disable-line
+
+  // Inyecta el borrador al Secretario.
+  useEffect(() => {
+    setContextoActual({ vista: 'remitos', proveedor: borrador.proveedor, numero: borrador.numero, fecha: borrador.fecha, items: borrador.items });
+  }, [borrador]); // eslint-disable-line
+
+  const columnasItems = [
+    { clave: 'ean13', titulo: 'EAN', editable: true, ancho: 130 },
+    { clave: 'titulo', titulo: 'Titulo', editable: true, ancho: 260 },
+    { clave: 'cantidad', titulo: 'Cant.', editable: true, tipo: 'number', ancho: 80 },
+    { clave: 'costo', titulo: 'Costo', editable: true, tipo: 'number', ancho: 110 },
+  ];
+
   const columnas = [
     { clave: 'id', titulo: 'ID' },
+    { clave: 'numero', titulo: 'Nro', render: (r) => r.numero || '—' },
     { clave: 'proveedor', titulo: 'Proveedor' },
+    { clave: 'fecha', titulo: 'Fecha', render: (r) => (r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR') : '—') },
     { clave: 'estado', titulo: 'Estado' },
     { clave: 'acciones', titulo: '', render: (r) => (
       <div className="flex gap-2">
@@ -86,27 +144,74 @@ export default function RemitosPage() {
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
+      {/* CABECERA */}
       <div className="card p-4 mb-4">
-        <h3 className="font-semibold mb-3">Ingreso de remito (borrador persistente)</h3>
-        <Input label="Proveedor" value={borrador.proveedor} onChange={(e) => setBorrador({ ...borrador, proveedor: e.target.value })} />
+        <div className="flex items-end justify-between mb-3">
+          <h3 className="font-semibold">Cabecera del remito</h3>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy armando un remito para ${borrador.proveedor || 'un proveedor'} con ${borrador.items.length} items. ¿Que me falta pedir?`)}>
+            Preguntar al Secretario
+          </button>
+        </div>
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
+            <input
+              className="input-os"
+              list="proveedores-lista"
+              placeholder="Buscar o escribir proveedor..."
+              value={borrador.proveedor}
+              onChange={(e) => setCampo('proveedor', e.target.value)}
+            />
+            <datalist id="proveedores-lista">
+              {proveedores.map((p) => <option key={p.id} value={p.nombre} />)}
+            </datalist>
+          </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Número de remito</span>
+            <input className="input-os" placeholder="Nro del comprobante" value={borrador.numero} onChange={(e) => setCampo('numero', e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Fecha</span>
+            <input className="input-os" type="date" value={borrador.fecha} onChange={(e) => setCampo('fecha', e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Observaciones</span>
+            <input className="input-os" placeholder="Observaciones (opc.)" value={borrador.observaciones} onChange={(e) => setCampo('observaciones', e.target.value)} />
+          </label>
+        </div>
+      </div>
+
+      {/* TABLA DE ITEMS */}
+      <div className="card p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold">Items ({borrador.items.length})</h3>
+          <div className="flex items-center gap-2">
+            <ImportarCsvBlock etiqueta="Importar CSV" onCargar={importarItems} />
+            <ImportarDocumentoBlock onCargar={importarDocumento} />
+            <span className="text-xs text-muted">Editable en linea · persiste al navegar</span>
+          </div>
+        </div>
         <div className="flex gap-2 mb-3">
           <input className="input-os" placeholder="EAN13" value={itemEan} onChange={(e) => setItemEan(e.target.value)} />
           <input className="input-os" placeholder="Cantidad" type="number" value={itemCantidad} onChange={(e) => setItemCantidad(e.target.value)} style={{ maxWidth: 100 }} />
           <input className="input-os" placeholder="Costo (opc.)" type="number" value={itemCosto} onChange={(e) => setItemCosto(e.target.value)} style={{ maxWidth: 120 }} />
           <button type="button" className="btn" onClick={agregarItem}>Agregar</button>
         </div>
-        {borrador.items.map((item) => (
-          <div key={item.ean13 + item.cantidad} className="text-sm py-1 flex justify-between">
-            <span className="font-mono">{item.ean13}</span>
-            <span>{item.cantidad} u {item.costo ? `· costo $${item.costo}` : ''}</span>
-          </div>
-        ))}
-        <button type="button" className="btn btn-primary mt-3" disabled={!borrador.proveedor || borrador.items.length === 0} onClick={crear}>
-          Guardar remito
-        </button>
+        <ItemsEditorBlock
+          items={borrador.items}
+          onChange={setItems}
+          onRemove={(i) => setItems(borrador.items.filter((_, idx) => idx !== i))}
+          columnas={columnasItems}
+          vacio="Agrega items con EAN + cantidad (o pediselo al Secretario)"
+        />
+        <div className="flex justify-end mt-3">
+          <button type="button" className="btn btn-primary" disabled={!borrador.proveedor || borrador.items.length === 0} onClick={crear}>
+            Guardar remito
+          </button>
+        </div>
       </div>
 
-      <Table columnas={columnas} filas={remitos} vacio="Sin remitos" />
+      <Table columnas={columnas} filas={remitos} vacio="Sin remitos" exportable exportarNombre="remitos" />
 
       <Modal abierto={Boolean(verRemito)} onClose={() => setVerRemito(null)} titulo={verRemito ? `Remito #${verRemito.id}` : ''} ancho="640px"
         footer={
@@ -123,8 +228,11 @@ export default function RemitosPage() {
           <div>
             <div className="text-sm mb-3">
               <span className="agente-badge">{verRemito.estado}</span>
-              {' '}Proveedor: <strong>{verRemito.proveedor}</strong> · {new Date(verRemito.createdAt).toLocaleString('es-AR')}
+              {' '}Proveedor: <strong>{verRemito.proveedor}</strong>
+              {verRemito.numero && <> · Nro: <strong>{verRemito.numero}</strong></>}
+              {' '}· {verRemito.fecha ? new Date(verRemito.fecha).toLocaleString('es-AR') : new Date(verRemito.createdAt).toLocaleString('es-AR')}
             </div>
+            {verRemito.observaciones && <p className="text-sm text-muted mb-3">{verRemito.observaciones}</p>}
             <table className="table-os">
               <thead><tr><th>EAN13</th><th>Titulo</th><th>Cantidad</th></tr></thead>
               <tbody>
@@ -142,10 +250,10 @@ export default function RemitosPage() {
       </Modal>
 
       <Modal abierto={Boolean(detalle)} onClose={() => setDetalle(null)} titulo="Cruce de faltantes" ancho="640px">
-        {detalle && detalle.faltantes.length === 0 && (
+        {detalle && (detalle.faltantes || []).length === 0 && (
           <p className="text-sm text-muted">Sin faltantes: todo el remito esta cubierto por el stock.</p>
         )}
-        {detalle && detalle.faltantes.length > 0 && (
+        {detalle && (detalle.faltantes || []).length > 0 && (
           <table className="table-os">
             <thead>
               <tr><th>EAN13</th><th>Titulo</th><th>Recibido</th><th>Stock</th><th>Pedir</th></tr>

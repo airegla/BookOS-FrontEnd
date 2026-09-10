@@ -8,10 +8,11 @@ import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
-import { catalogoApi } from '../api/api';
+import { catalogoApi, proveedoresApi } from '../api/api';
 
 export default function CatalogoPage() {
   const [filas, setFilas] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -30,6 +31,10 @@ export default function CatalogoPage() {
   };
 
   useEffect(() => { cargar(); }, [page]); // eslint-disable-line
+
+  useEffect(() => {
+    proveedoresApi.listar().then((res) => setProveedores(res.data || [])).catch(() => {});
+  }, []);
 
   const buscarSemantico = async () => {
     setSemantico(null);
@@ -51,6 +56,14 @@ export default function CatalogoPage() {
     } catch (err) { setError(err.message); }
   };
 
+  const eliminar = async (f) => {
+    if (!window.confirm(`¿Dar de baja "${f.titulo}"? (baja logica, bookerp)`)) return;
+    try {
+      await catalogoApi.eliminar(f.id);
+      cargar();
+    } catch (err) { setError(err.message); }
+  };
+
   const columnas = [
     { clave: 'ean13', titulo: 'EAN13', render: (f) => <span className="font-mono text-xs">{f.ean13}</span> },
     { clave: 'titulo', titulo: 'Titulo' },
@@ -59,7 +72,10 @@ export default function CatalogoPage() {
     { clave: 'precio', titulo: 'Precio', render: (f) => `$${Number(f.precio).toLocaleString('es-AR')}` },
     { clave: 'stock', titulo: 'Stock', render: (f) => f.stock + f.stockDeposito },
     { clave: 'acciones', titulo: '', render: (f) => (
-      <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirEditar(f)}>Editar</button>
+      <div className="flex gap-2">
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirEditar(f)}>Editar</button>
+        <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => eliminar(f)}>Baja</button>
+      </div>
     ) },
   ];
 
@@ -122,7 +138,15 @@ export default function CatalogoPage() {
         footer={<button type="button" className="btn btn-primary" onClick={guardar}>Guardar</button>}
       >
         <Input label="EAN13" value={form.ean13 || ''} onChange={(e) => setForm({ ...form, ean13: e.target.value })} disabled={Boolean(editando)} />
+        <Input label="ISBN" value={form.isbn || ''} onChange={(e) => setForm({ ...form, isbn: e.target.value })} />
         <Input label="Titulo" value={form.titulo || ''} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
+        <label className="block mb-3">
+          <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
+          <select className="input-os" value={form.proveedorId || ''} onChange={(e) => setForm({ ...form, proveedorId: e.target.value ? Number(e.target.value) : null })}>
+            <option value="">Sin proveedor</option>
+            {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select>
+        </label>
         <Input label="Autor" value={form.autor || ''} onChange={(e) => setForm({ ...form, autor: e.target.value })} />
         <Input label="Editorial" value={form.editorial || ''} onChange={(e) => setForm({ ...form, editorial: e.target.value })} />
         <Input label="Precio" type="number" value={form.precio || ''} onChange={(e) => setForm({ ...form, precio: Number(e.target.value) })} />

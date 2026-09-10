@@ -18,11 +18,12 @@ export default function ClientesPage() {
   const [form, setForm] = useState({});
   const [grafo, setGrafo] = useState(null);
   const [mensaje, setMensaje] = useState('');
+  const [busqueda, setBusqueda] = useState('');
   const { setContextoActual, pedirConsulta } = useAppContext();
 
-  const cargar = async () => {
+  const cargar = async (q = busqueda) => {
     try {
-      const res = await clientesApi.listar();
+      const res = await clientesApi.listar({ search: q });
       setClientes(res.data || []);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -71,13 +72,24 @@ export default function ClientesPage() {
   return (
     <div>
       <DebugTag nombre="ClientesPage" />
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <h2 className="text-lg font-semibold">Clientes</h2>
-        <button type="button" className="btn btn-primary" onClick={abrirNuevo}>Nuevo cliente</button>
+        <div className="flex gap-2">
+          <input
+            className="input-os"
+            style={{ maxWidth: 260 }}
+            placeholder="Buscar por nombre, documento o email..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') cargar(busqueda); }}
+          />
+          <button type="button" className="btn" onClick={() => cargar(busqueda)}>Buscar</button>
+          <button type="button" className="btn btn-primary" onClick={abrirNuevo}>Nuevo cliente</button>
+        </div>
       </div>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
       <p className="text-xs text-muted mb-3">El grafo se infiere del comportamiento (rechazos, preferencias), sin pedirle nada al vendedor.</p>
-      <Table columnas={columnas} filas={clientes} vacio="Sin clientes" />
+      <Table columnas={columnas} filas={clientes} vacio="Sin clientes" exportable exportarNombre="clientes" />
 
       <Modal abierto={modal} onClose={() => setModal(false)} titulo={editando ? 'Editar cliente' : 'Nuevo cliente'} ancho="420px"
         footer={<button type="button" className="btn btn-primary" onClick={guardar}>Guardar</button>}

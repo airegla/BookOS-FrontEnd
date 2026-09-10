@@ -1,0 +1,30 @@
+/* ARCHIVO: app.css
+   RUTA: frontend/src/styles/app.css
+   DESCRIPCIÓN: Estilos globales + ajustes mobile. */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  /* Tablas: scroll horizontal (para los bloques que no usan vista de tarjetas). */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* Tarjetas modales: que nunca desborden la pantalla. */
+  .modal-card {
+    max-width: calc(100vw - 32px) !important;
+    max-height: 88vh;
+    overflow: auto;
+  }
+}

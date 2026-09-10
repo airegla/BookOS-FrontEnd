@@ -1,10 +1,29 @@
 // BookOS - Table.jsx
 // ruta: bookos/frontend/src/ui/Table.jsx
-// descripcion: tabla base del OS (clase .table-os del globals.css).
+// descripcion: tabla base del OS (clase .table-os del globals.css). Si recibe
+//   exportable=true, agrega un boton "Exportar CSV" que descarga el listado que
+//   se esta viendo (usa los datos crudos de cada fila).
 
-export default function Table({ columnas, filas, vacio = 'Sin resultados' }) {
+import { descargarCsv } from '../utils/exportar';
+
+export default function Table({ columnas, filas, vacio = 'Sin resultados', exportable = false, exportarNombre = 'listado' }) {
+  const exportar = () => {
+    const cols = columnas.filter((c) => c.clave && c.titulo);
+    const filasCrudas = filas.map((f) => {
+      const o = {};
+      for (const c of cols) o[c.clave] = c.valorExport ? c.valorExport(f) : f[c.clave];
+      return o;
+    });
+    descargarCsv(exportarNombre, cols.map((c) => ({ titulo: c.titulo, clave: c.clave })), filasCrudas);
+  };
+
   return (
     <div className="card overflow-hidden">
+      {exportable && (
+        <div className="flex justify-end px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+          <button type="button" className="btn btn-ghost text-xs" onClick={exportar}>Exportar CSV</button>
+        </div>
+      )}
       <table className="table-os">
         <thead>
           <tr>

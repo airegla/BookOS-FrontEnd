@@ -4,9 +4,11 @@
 //   JSON de lo que estas viendo (remito, venta, cliente) sin que tengas que
 //   aclararlo. Soporta marcadores $ y lenguaje natural con streaming SSE.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useAgenteStream from '../hooks/useAgenteStream';
 import { useAppContext } from '../AppContext';
+import { descargarDesdeServidor, descargarCsv } from '../utils/exportar';
+import { parsearCsv } from '../utils/csv';
 import DebugTag from '../ui/DebugTag';
 
 // Render legible de los resultados estructurados del agente.
@@ -82,6 +84,32 @@ function ResultadoBlock({ resultado }) {
       </div>
     );
   }
+  if (resultado.modo === 'precio' && Array.isArray(resultado.items)) {
+    return (
+      <div className="text-xs space-y-0.5">
+        <div className="font-medium">{resultado.total} titulos {resultado.min != null ? `≥ $${resultado.min}` : ''}{resultado.max != null ? ` ≤ $${resultado.max}` : ''}</div>
+        {resultado.items.slice(0, 6).map((a) => (
+          <div key={a.ean13} className="py-0.5 flex justify-between">
+            <span>{a.titulo}</span>
+            <span className="font-mono">${Number(a.precio).toLocaleString('es-AR')}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (resultado.modo === 'filtrado' && Array.isArray(resultado.items)) {
+    return (
+      <div className="text-xs space-y-0.5">
+        <div className="font-medium">{resultado.total} titulos por {resultado.campo}="{resultado.valor}"</div>
+        {resultado.items.slice(0, 6).map((a) => (
+          <div key={a.ean13} className="py-0.5 flex justify-between">
+            <span>{a.titulo}</span>
+            <span className="font-mono">${Number(a.precio).toLocaleString('es-AR')}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (resultado.modo === 'composicion' && Array.isArray(resultado.items)) {
     return (
       <div>
@@ -148,6 +176,17 @@ function ResultadoBlock({ resultado }) {
       </div>
     );
   }
+  if (resultado.modo === 'csv_exportado' || resultado.modo === 'pdf_generado') {
+    return (
+      <div className="text-xs space-y-1">
+        <div className="font-medium">📄 {resultado.modo === 'csv_exportado' ? 'CSV' : 'PDF'} listo para descargar</div>
+        {resultado.filas != null && <div className="text-muted">{resultado.filas} filas</div>}
+        <button type="button" className="btn btn-primary text-xs" onClick={() => descargarDesdeServidor(resultado.url)}>
+          Descargar {resultado.archivo}
+        </button>
+      </div>
+    );
+  }
   if (resultado.modo === 'memoria' && Array.isArray(resultado.items)) {
     return (
       <div className="text-xs space-y-1">
@@ -199,6 +238,54 @@ function ResultadoBlock({ resultado }) {
       </div>
     );
   }
+  if (resultado.modo === 'estado_cuenta') {
+    const movs = Array.isArray(resultado.movimientos) ? resultado.movimientos : [];
+    return (
+      <div className="text-xs space-y-0.5">
+        <div className="font-medium">Estado de cuenta ({resultado.tipo})</div>
+        <div>Saldo: ${Number(resultado.saldoActual || 0).toLocaleString('es-AR')} · {movs.length} movimientos</div>
+        {movs.slice(-6).map((m) => (
+          <div key={m.id} className="flex justify-between">
+            <span className="agente-badge">{m.tipoComprobante}</span>
+            <span className="font-mono">saldo ${Number(m.saldo || 0).toLocaleString('es-AR')}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (resultado.modo === 'comportamiento_observado') {
+    return (
+      <div className="text-xs space-y-1">
+        <div className="font-medium">🧠 Comportamiento de {resultado.nombre}</div>
+        <p>{resultado.observacion}</p>
+        {Array.isArray(resultado.tags) && resultado.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {resultado.tags.map((t) => <span key={t} className="agente-badge">{t}</span>)}
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (resultado.modo === 'documento_observado') {
+    return (
+      <div className="text-xs space-y-1">
+        <div className="font-medium">📝 {resultado.tipo} #{resultado.id}</div>
+        <p>{resultado.observacion}</p>
+      </div>
+    );
+  }
+  if (resultado.modo === 'busqueda_observaciones' && Array.isArray(resultado.resultados)) {
+    return (
+      <div className="text-xs space-y-1">
+        <div className="font-medium">Observaciones encontradas</div>
+        {resultado.resultados.map((r) => (
+          <div key={`${r.tipo}-${r.id}`} className="py-0.5">
+            <span className="agente-badge">{r.tipo}</span> {r.etiqueta} <span className="font-mono">{(r.sim || 0).toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (Array.isArray(resultado)) {
     return <div className="text-xs">{resultado.length} articulos.</div>;
   }
@@ -206,15 +293,40 @@ function ResultadoBlock({ resultado }) {
 }
 
 export default function AgenteChatBlock() {
-  const { mensajes, estado, candidatos, cargando, enviar } = useAgenteStream();
-  const { contextoActual, setUltimosRecomendados, consultaAutomatica, pedirConsulta } = useAppContext();
+  const { contextoActual, setUltimosRecomendados, consultaAutomatica, pedirConsulta, emitirInstruccion, csvAdjunto, setCsvAdjunto } = useAppContext();
+  const emitirRef = useRef(emitirInstruccion);
+  emitirRef.current = emitirInstruccion;
+
+  // El Secretario "opera sobre la vista": traduce resultados de tools en
+  // instrucciones que la pagina activa escucha y aplica (refrescar, cruzar...).
+  const onHerramienta = useCallback((resultado) => {
+    const r = resultado || {};
+    if (r.modo === 'venta_creada') {
+      emitirRef.current({ dominio: 'ventas', accion: 'refrescar', mensaje: `Venta #${r.ventaId} registrada por el Secretario ✓` });
+    } else if (r.modo === 'venta_anulada') {
+      emitirRef.current({ dominio: 'ventas', accion: 'refrescar', mensaje: `Venta #${r.id} anulada ✓` });
+    } else if (r.modo === 'remito_creado') {
+      emitirRef.current({ dominio: 'remitos', accion: 'refrescar', mensaje: `Remito #${r.remitoId} creado por el Secretario ✓` });
+    } else if (r.modo === 'remito_confirmado') {
+      emitirRef.current({ dominio: 'remitos', accion: 'refrescar', mensaje: `Remito #${r.remitoId} confirmado (stock ingresado) ✓` });
+    } else if (r.modo === 'remito_anulado') {
+      emitirRef.current({ dominio: 'remitos', accion: 'refrescar', mensaje: `Remito #${r.remitoId} anulado ✓` });
+    } else if (r.modo === 'faltantes') {
+      emitirRef.current({ dominio: 'remitos', accion: 'cruzar', data: r });
+    }
+  }, []);
+
+  const { mensajes, estado, candidatos, cargando, enviar } = useAgenteStream(onHerramienta);
   const [texto, setTexto] = useState('');
+  const [aviso, setAviso] = useState('');
+  const inputFileRef = useRef(null);
 
   // Consulta programada desde otra vista (ej. "Preguntar al Secretario sobre este remito").
   useEffect(() => {
     if (consultaAutomatica) {
       setTexto('');
-      enviar(consultaAutomatica, contextoActual);
+      enviar(consultaAutomatica, { ...contextoActual, csvAdjunto: csvAdjunto || null });
+      setCsvAdjunto(null);
       pedirConsulta(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -223,10 +335,51 @@ export default function AgenteChatBlock() {
   const alEnviar = async () => {
     const consulta = texto;
     setTexto('');
-    await enviar(consulta, contextoActual);
+    await enviar(consulta, { ...contextoActual, csvAdjunto: csvAdjunto || null });
+    setCsvAdjunto(null);
     if (candidatos.length > 0) {
       setUltimosRecomendados(candidatos.map((c) => c.ean13));
     }
+  };
+
+  const alAdjuntar = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const { encabezados, filas } = parsearCsv(reader.result);
+        setCsvAdjunto({ encabezados, filas: filas.slice(0, 200) });
+        setAviso(`CSV adjuntado (${filas.length} filas). Escribí tu mensaje y envialo.`);
+      } catch (err) {
+        setAviso('No se pudo leer el CSV.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const copiarChat = async () => {
+    const textoChat = mensajes.map((m) => {
+      if (m.rol === 'usuario') return `Vos: ${m.texto}`;
+      if (m.rol === 'herramienta') return `🔧 ${m.nombre}`;
+      return `Secretario: ${m.texto || (m.resultado ? JSON.stringify(m.resultado) : '')}`;
+    }).join('\n\n');
+    try {
+      await navigator.clipboard.writeText(textoChat || 'Sin conversacion');
+      setAviso('Conversacion copiada ✓');
+    } catch (err) {
+      setAviso('No se pudo copiar (permisos del navegador).');
+    }
+  };
+
+  const exportarChat = () => {
+    const filas = mensajes.map((m) => ({
+      rol: m.rol === 'usuario' ? 'vos' : m.rol === 'herramienta' ? 'herramienta' : 'secretario',
+      contenido: m.texto || (m.resultado ? JSON.stringify(m.resultado) : (m.nombre || '')),
+    }));
+    descargarCsv('conversacion_secretario', [{ titulo: 'rol', clave: 'rol' }, { titulo: 'contenido', clave: 'contenido' }], filas);
+    setAviso('Conversacion exportada ✓');
   };
 
   return (
@@ -282,6 +435,15 @@ export default function AgenteChatBlock() {
                   <span className="font-mono">{c.ean13}</span>
                   <span>${Number(c.precio).toLocaleString('es-AR')} · stock {c.stock + c.stockDeposito}</span>
                 </div>
+                <div className="flex justify-end mt-2">
+                  <button
+                    type="button"
+                    className="btn btn-primary text-xs"
+                    onClick={() => emitirInstruccion({ dominio: 'ventas', accion: 'agregar_item', item: { ean13: c.ean13, titulo: c.titulo, precio: c.precio } })}
+                  >
+                    Agregar a la venta
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -289,6 +451,19 @@ export default function AgenteChatBlock() {
       </div>
 
       <div className="p-3" style={{ borderTop: '1px solid var(--border)' }}>
+        {(csvAdjunto || aviso) && (
+          <div className="flex items-center gap-2 mb-2 text-xs">
+            {csvAdjunto && <span className="agente-badge">📎 {csvAdjunto.filas.length} filas</span>}
+            {aviso && <span className="text-muted">{aviso}</span>}
+          </div>
+        )}
+        <div className="flex items-center gap-1 mb-2">
+          <input ref={inputFileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={alAdjuntar} />
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => inputFileRef.current && inputFileRef.current.click()} title="Adjuntar CSV">📎 Adjuntar</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={copiarChat} title="Copiar conversacion">📋 Copiar</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={exportarChat} title="Exportar conversacion a CSV">⬇ Exportar</button>
+          {csvAdjunto && <button type="button" className="btn btn-ghost text-xs text-muted" onClick={() => setCsvAdjunto(null)}>Quitar adjunto</button>}
+        </div>
         <textarea
           className="input-os mb-2 resize-none"
           rows={2}

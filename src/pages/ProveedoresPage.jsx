@@ -16,10 +16,11 @@ export default function ProveedoresPage() {
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({});
   const [mensaje, setMensaje] = useState('');
+  const [busqueda, setBusqueda] = useState('');
 
-  const cargar = async () => {
+  const cargar = async (q = busqueda) => {
     try {
-      const res = await proveedoresApi.listar();
+      const res = await proveedoresApi.listar({ search: q });
       setProveedores(res.data || []);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -60,12 +61,23 @@ export default function ProveedoresPage() {
   return (
     <div>
       <DebugTag nombre="ProveedoresPage" />
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <h2 className="text-lg font-semibold">Proveedores</h2>
-        <button type="button" className="btn btn-primary" onClick={abrirNuevo}>Nuevo proveedor</button>
+        <div className="flex gap-2">
+          <input
+            className="input-os"
+            style={{ maxWidth: 260 }}
+            placeholder="Buscar por nombre, CUIT o email..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') cargar(busqueda); }}
+          />
+          <button type="button" className="btn" onClick={() => cargar(busqueda)}>Buscar</button>
+          <button type="button" className="btn btn-primary" onClick={abrirNuevo}>Nuevo proveedor</button>
+        </div>
       </div>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
-      <Table columnas={columnas} filas={proveedores} vacio="Sin proveedores" />
+      <Table columnas={columnas} filas={proveedores} vacio="Sin proveedores" exportable exportarNombre="proveedores" />
 
       <Modal abierto={modal} onClose={() => setModal(false)} titulo={editando ? 'Editar proveedor' : 'Nuevo proveedor'} ancho="420px"
         footer={<button type="button" className="btn btn-primary" onClick={guardar}>Guardar</button>}

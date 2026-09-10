@@ -13,6 +13,14 @@ import CajaPage from './pages/CajaPage';
 import ComprasPage from './pages/ComprasPage';
 import ProveedoresPage from './pages/ProveedoresPage';
 import ClientesPage from './pages/ClientesPage';
+import CtaCtePage from './pages/CtaCtePage';
+import TransportesPage from './pages/TransportesPage';
+import ConsignaPage from './pages/ConsignaPage';
+import MayoristaPage from './pages/MayoristaPage';
+import InventarioPage from './pages/InventarioPage';
+import NewsletterPage from './pages/NewsletterPage';
+import ParametrosPage from './pages/ParametrosPage';
+import ReferenciasPage from './pages/ReferenciasPage';
 import ConfigPage from './pages/ConfigPage';
 import EmpresaPage from './pages/EmpresaPage';
 import UsuariosPage from './pages/UsuariosPage';
@@ -110,6 +118,14 @@ export default function App() {
           {vista === 'Compras' && <ComprasPage />}
           {vista === 'Proveedores' && <ProveedoresPage />}
           {vista === 'Clientes' && <ClientesPage />}
+          {vista === 'Cuenta Corriente' && <CtaCtePage />}
+          {vista === 'Transportes' && <TransportesPage />}
+          {vista === 'Consigna' && <ConsignaPage />}
+          {vista === 'Mayorista' && <MayoristaPage />}
+          {vista === 'Inventario' && <InventarioPage />}
+          {vista === 'Newsletter' && <NewsletterPage />}
+          {vista === 'Parametros' && <ParametrosPage />}
+          {vista === 'Referencias' && <ReferenciasPage />}
           {vista === 'Config' && <ConfigPage esAdmin={esAdmin} />}
           {vista === 'Empresa' && <EmpresaPage />}
           {vista === 'Usuarios' && <UsuariosPage esAdmin={esAdmin} />}
