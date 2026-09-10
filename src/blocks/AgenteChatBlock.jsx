@@ -148,6 +148,18 @@ function ResultadoBlock({ resultado }) {
       </div>
     );
   }
+  if (resultado.modo === 'memoria' && Array.isArray(resultado.items)) {
+    return (
+      <div className="text-xs space-y-1">
+        {resultado.items.map((m) => (
+          <div key={m.id} className="py-0.5">
+            <span className="agente-badge mr-1">{m.tipo}</span>
+            <span>{m.texto}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (resultado.modo === 'marcadores' && Array.isArray(resultado.marcadores)) {
     return (
       <div>
