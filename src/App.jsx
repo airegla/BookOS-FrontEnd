@@ -8,6 +8,7 @@ import Navbar from './ui/Navbar';
 import AgenteChatBlock from './blocks/AgenteChatBlock';
 import CatalogoPage from './pages/CatalogoPage';
 import VentasPage from './pages/VentasPage';
+import VentasPeriodoPage from './pages/VentasPeriodoPage';
 import RemitosPage from './pages/RemitosPage';
 import CajaPage from './pages/CajaPage';
 import ComprasPage from './pages/ComprasPage';
@@ -118,13 +119,15 @@ export default function App() {
       <div className="bookos-layout">
         <main className="p-6 overflow-y-auto">
           {vista === 'Catalogo' && <CatalogoPage />}
-          {vista === 'Ventas' && <VentasPage />}
+          {vista === 'Facturar' && <VentasPage />}
+          {vista === 'Ventas del dia/periodo' && <VentasPeriodoPage />}
           {vista === 'Remitos' && <RemitosPage />}
           {vista === 'Caja' && <CajaPage />}
           {vista === 'Compras' && <ComprasPage />}
           {vista === 'Proveedores' && <ProveedoresPage />}
           {vista === 'Clientes' && <ClientesPage />}
-          {vista === 'Cuenta Corriente' && <CtaCtePage />}
+          {vista === 'Cuenta corriente cliente' && <CtaCtePage lado="cliente" />}
+          {vista === 'Cuenta corriente proveedor' && <CtaCtePage lado="proveedor" />}
           {vista === 'Transportes' && <TransportesPage />}
           {vista === 'Consigna' && <ConsignaPage />}
           {vista === 'Mayorista' && <MayoristaPage />}

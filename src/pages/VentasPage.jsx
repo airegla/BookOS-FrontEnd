@@ -12,7 +12,9 @@ import DebugTag from '../ui/DebugTag';
 import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
-import { catalogoApi, ventasApi, clientesApi, agenteApi, exportacionApi, parametrosApi } from '../api/api';
+import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
+import Paginador from '../ui/Paginador';
+import { ventasApi, clientesApi, agenteApi, exportacionApi, parametrosApi } from '../api/api';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
 import usePersistentWork from '../hooks/usePersistentWork';
@@ -34,8 +36,6 @@ function BadgeEstado({ venta }) {
 
 export default function VentasPage() {
   const [items, setItems] = usePersistentWork('venta', []);
-  const [busqueda, setBusqueda] = useState('');
-  const [resultados, setResultados] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [clienteId, setClienteId] = useState(null);
   const [tipo, setTipo] = useState('FACTURA_B');
@@ -47,6 +47,8 @@ export default function VentasPage() {
 
   const [historial, setHistorial] = useState([]);
   const [detalle, setDetalle] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalHistorial, setTotalHistorial] = useState(0);
 
   // multi-pago, email, pendientes
   const [pagos, setPagos] = useState([]);
@@ -73,14 +75,15 @@ export default function VentasPage() {
 
   useEffect(() => { setEnviarEmail(Boolean(clienteActual?.email)); }, [clienteId]); // eslint-disable-line
 
-  const cargarHistorial = async () => {
+  const cargarHistorial = async (p = page) => {
     try {
-      const res = await ventasApi.listar({ page: 1, limit: 30 });
+      const res = await ventasApi.listar({ page: p, limit: 30 });
       setHistorial(res.data || []);
+      setTotalHistorial(res.pagination ? res.pagination.total : (res.data || []).length);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargarHistorial(); }, []); // eslint-disable-line
+  useEffect(() => { cargarHistorial(page); }, [page]); // eslint-disable-line
 
   // F10: abrir cobro.
   useEffect(() => {
@@ -90,14 +93,6 @@ export default function VentasPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [items.length, tipo, clienteId, descuentoGlobal, metodoPago]); // eslint-disable-line
-
-  const buscar = async () => {
-    if (!busqueda.trim()) return;
-    try {
-      const res = await catalogoApi.listar({ page: 1, limit: 8, search: busqueda });
-      setResultados(res.data || []);
-    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
-  };
 
   const agregarItem = useCallback((articulo) => {
     if (!articulo || !articulo.ean13) return;
@@ -314,31 +309,9 @@ export default function VentasPage() {
         </div>
       </div>
 
-      {/* BUSQUEDA */}
+      {/* BUSQUEDA (EAN, titulo, autor o editorial — con debounce) */}
       <div className="card p-4 mb-4">
-        <div className="flex gap-2 mb-3">
-          <input
-            className="input-os"
-            style={{ maxWidth: 320 }}
-            placeholder="EAN o titulo para agregar..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') buscar(); }}
-          />
-          <button type="button" className="btn" onClick={buscar}>Buscar</button>
-        </div>
-        {resultados.map((a) => (
-          <div key={a.ean13} className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-            <div>
-              <div className="font-medium text-sm">{a.titulo}</div>
-              <div className="text-xs text-muted">{a.autor} · stock {a.stock + a.stockDeposito}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-mono">{fmt(a.precio)}</span>
-              <button type="button" className="btn btn-primary text-xs" onClick={() => { agregarItem(a); setResultados([]); setBusqueda(''); }}>Agregar</button>
-            </div>
-          </div>
-        ))}
+        <BuscadorArticuloBlock etiqueta="Agregar a la venta" onSeleccionar={agregarItem} />
       </div>
 
       {/* TABLA DE ITEMS */}
@@ -371,6 +344,7 @@ export default function VentasPage() {
 
       <h3 className="font-semibold mb-2">Historial de ventas (documentos)</h3>
       <Table columnas={columnasHistorial} filas={historial} vacio="Sin ventas" exportable exportarNombre="ventas" />
+      <Paginador page={page} total={totalHistorial} limite={30} onCambiar={setPage} etiqueta="ventas" />
 
       {/* COBRO (multi-pago) */}
       <Modal abierto={cobrarAbierto} onClose={() => setCobrarAbierto(false)} titulo={`Cobrar ${tipo}`} ancho="480px"

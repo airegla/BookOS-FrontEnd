@@ -8,6 +8,7 @@ import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
+import Paginador from '../ui/Paginador';
 import { catalogoApi, proveedoresApi } from '../api/api';
 
 export default function CatalogoPage() {
@@ -30,7 +31,11 @@ export default function CatalogoPage() {
     } catch (err) { setError(err.message); }
   };
 
-  useEffect(() => { cargar(); }, [page]); // eslint-disable-line
+  // Debounce 400 ms: recarga mientras se tipea (volviendo a pagina 1) o al cambiar de pagina.
+  useEffect(() => {
+    const t = setTimeout(() => { cargar(); }, 400);
+    return () => clearTimeout(t);
+  }, [page, search]); // eslint-disable-line
 
   useEffect(() => {
     proveedoresApi.listar().then((res) => setProveedores(res.data || [])).catch(() => {});
@@ -92,7 +97,7 @@ export default function CatalogoPage() {
           className="input-os"
           placeholder="Buscar titulo, autor, editorial, EAN..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); if (page !== 1) setPage(1); }}
           onKeyDown={(e) => { if (e.key === 'Enter') cargar(); }}
         />
         <button type="button" className="btn" onClick={cargar}>Filtrar</button>
@@ -123,13 +128,7 @@ export default function CatalogoPage() {
 
       <Table columnas={columnas} filas={filas} vacio="Cargando catalogo..." />
 
-      <div className="flex justify-between items-center mt-4 text-sm text-muted">
-        <span>Pagina {page} · {total} articulos</span>
-        <div className="flex gap-2">
-          <button type="button" className="btn btn-ghost" disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</button>
-          <button type="button" className="btn btn-ghost" disabled={page * 20 >= total} onClick={() => setPage(page + 1)}>Siguiente</button>
-        </div>
-      </div>
+      <Paginador page={page} total={total} limite={20} onCambiar={setPage} etiqueta="articulos" />
 
       <Modal
         abierto={modal}

@@ -9,14 +9,16 @@ import Modal from './Modal';
 import { manualApi } from '../api/api';
 
 // Estructura extensible: agrega vistas nuevas dentro de su grupo (o crea uno nuevo).
+// La division es por FLUJO (decision del vectorHumano, 2026-09-12):
+//   Ventas  = entra dinero, sale mercaderia.
+//   Compras = entra mercaderia, sale dinero (incluye remitos y consigna).
 const GRUPOS = [
-  { nombre: 'Operación', items: ['Ventas', 'Caja', 'Compras', 'Remitos'] },
-  { nombre: 'Catálogo', items: ['Catalogo', 'Referencias'] },
-  { nombre: 'Personas', items: ['Clientes', 'Cuenta Corriente', 'Proveedores', 'Newsletter'] },
-  { nombre: 'Logística', items: ['Transportes', 'Inventario', 'Mayorista'] },
-  { nombre: 'Consigna', items: ['Consigna'] },
-  { nombre: 'Sistema', items: ['Config', 'Empresa', 'Usuarios', 'Parametros', 'Desarrollo'] },
+  { nombre: 'Ventas', items: ['Facturar', 'Ventas del dia/periodo', 'Caja', 'Clientes', 'Cuenta corriente cliente', 'Newsletter'] },
+  { nombre: 'Compras', items: ['Compras', 'Remitos', 'Proveedores', 'Cuenta corriente proveedor', 'Consigna'] },
+  { nombre: 'Stock', items: ['Inventario', 'Transportes', 'Mayorista'] },
+  { nombre: 'Catalogo', items: ['Catalogo', 'Referencias'] },
   { nombre: 'Kernel', items: ['Salud', 'Propuestas', 'Pesos', 'Logs', 'Cola', 'Memoria'] },
+  { nombre: 'Sistema', items: ['Config', 'Empresa', 'Usuarios', 'Parametros', 'Desarrollo'] },
 ];
 
 export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {

@@ -14,8 +14,8 @@ import { useAppContext } from '../AppContext';
 const METODOS = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CHEQUE'];
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
-export default function CtaCtePage() {
-  const [tipo, setTipo] = useState('cliente');
+export default function CtaCtePage({ lado = 'cliente' }) {
+  const [tipo, setTipo] = useState(lado);
   const [clientes, setClientes] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [clienteId, setClienteId] = useState('');

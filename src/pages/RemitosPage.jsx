@@ -11,6 +11,8 @@ import DebugTag from '../ui/DebugTag';
 import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
+import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
+import Paginador from '../ui/Paginador';
 import { remitosApi, proveedoresApi } from '../api/api';
 import { mapearFilas } from '../utils/csv';
 import usePersistentWork from '../hooks/usePersistentWork';
@@ -18,6 +20,8 @@ import { useAppContext } from '../AppContext';
 
 export default function RemitosPage() {
   const [remitos, setRemitos] = useState([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [proveedores, setProveedores] = useState([]);
   const [borrador, setBorrador, limpiarBorrador] = usePersistentWork('remito', { proveedor: '', numero: '', fecha: '', observaciones: '', items: [] });
   const [itemEan, setItemEan] = useState('');
@@ -28,18 +32,19 @@ export default function RemitosPage() {
   const [mensaje, setMensaje] = useState('');
   const { setContextoActual, pedirConsulta, instruccionVista } = useAppContext();
 
-  const cargar = async () => {
+  const cargar = async (p = page) => {
     try {
       const [res, prov] = await Promise.all([
-        remitosApi.listar({ page: 1, limit: 50 }),
+        remitosApi.listar({ page: p, limit: 50 }),
         proveedoresApi.listar(),
       ]);
       setRemitos(res.data || []);
+      setTotal(res.pagination ? res.pagination.total : (res.data || []).length);
       setProveedores(prov.data || []);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(); }, []);
+  useEffect(() => { cargar(page); }, [page]); // eslint-disable-line
 
   const setItems = (items) => setBorrador({ ...borrador, items });
   const setCampo = (campo, valor) => setBorrador({ ...borrador, [campo]: valor });
@@ -191,6 +196,12 @@ export default function RemitosPage() {
             <span className="text-xs text-muted">Editable en linea · persiste al navegar</span>
           </div>
         </div>
+        <div className="mb-3">
+          <BuscadorArticuloBlock
+            etiqueta="Buscar libro para el remito"
+            onSeleccionar={(a) => setItems([...borrador.items, { ean13: a.ean13, titulo: a.titulo, cantidad: 1, costo: null }])}
+          />
+        </div>
         <div className="flex gap-2 mb-3">
           <input className="input-os" placeholder="EAN13" value={itemEan} onChange={(e) => setItemEan(e.target.value)} />
           <input className="input-os" placeholder="Cantidad" type="number" value={itemCantidad} onChange={(e) => setItemCantidad(e.target.value)} style={{ maxWidth: 100 }} />
@@ -212,6 +223,7 @@ export default function RemitosPage() {
       </div>
 
       <Table columnas={columnas} filas={remitos} vacio="Sin remitos" exportable exportarNombre="remitos" />
+      <Paginador page={page} total={total} limite={50} onCambiar={setPage} etiqueta="remitos" />
 
       <Modal abierto={Boolean(verRemito)} onClose={() => setVerRemito(null)} titulo={verRemito ? `Remito #${verRemito.id}` : ''} ancho="640px"
         footer={

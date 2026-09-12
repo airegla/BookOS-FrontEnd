@@ -9,7 +9,12 @@ export default function usePersistentWork(clave, valorInicial) {
   const [valor, setValor] = useState(() => {
     try {
       const guardado = localStorage.getItem(`bookos_borrador_${clave}`);
-      return guardado ? { ...valorInicial, ...JSON.parse(guardado) } : valorInicial;
+      if (!guardado) return valorInicial;
+      const parseado = JSON.parse(guardado);
+      // Arrays (listas de items): se usan tal cual — el spread de un array en un objeto
+      // devolveria {} y romperia el render. Objetos (cabeceras): merge sobre el inicial.
+      if (Array.isArray(valorInicial)) return Array.isArray(parseado) ? parseado : valorInicial;
+      return parseado && typeof parseado === 'object' ? { ...valorInicial, ...parseado } : valorInicial;
     } catch (err) {
       return valorInicial;
     }

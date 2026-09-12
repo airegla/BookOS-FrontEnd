@@ -9,15 +9,22 @@ import Table from '../ui/Table';
 import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
-import { comprasApi, proveedoresApi, observacionesApi, catalogoApi, pedidosProveedorApi } from '../api/api';
+import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
+import Paginador from '../ui/Paginador';
+import { comprasApi, proveedoresApi, observacionesApi, pedidosProveedorApi } from '../api/api';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
 
-const TIPOS = ['FACTURA', 'FACTURA_CONSIGNA', 'REMITO', 'NOTA_CREDITO'];
+// El remito de proveedor tiene su propia vista ("Remitos"): aca no se ofrece como tipo
+// para que exista UN solo flujo (decision del vectorHumano: "que haya dos formas de hacer
+// un remito es una confusion").
+const TIPOS = ['FACTURA', 'FACTURA_CONSIGNA', 'NOTA_CREDITO'];
 
 export default function ComprasPage() {
   const [proveedores, setProveedores] = useState([]);
   const [compras, setCompras] = useState([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [pedidos, setPedidos] = useState([]);
   const [borrador, setBorrador] = usePersistentWork('compra', { proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', items: [] });
   const [ean, setEan] = useState('');
@@ -29,8 +36,6 @@ export default function ComprasPage() {
   // Pedido a proveedor (modal)
   const [pedidoModal, setPedidoModal] = useState(false);
   const [pedido, setPedido] = useState({ proveedorId: '', tipoStockAfectado: 'FIRME', observaciones: '', items: [] });
-  const [pedidoBusqueda, setPedidoBusqueda] = useState('');
-  const [pedidoResultados, setPedidoResultados] = useState([]);
   const [pedidoEan, setPedidoEan] = useState('');
   const [pedidoCantidad, setPedidoCantidad] = useState('');
   const [pedidoPrecio, setPedidoPrecio] = useState('');
@@ -45,20 +50,21 @@ export default function ComprasPage() {
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  const cargar = async () => {
+  const cargar = async (p = page) => {
     try {
       const [prov, comp, ped] = await Promise.all([
         proveedoresApi.listar(),
-        comprasApi.listar({ page: 1, limit: 30 }),
+        comprasApi.listar({ page: p, limit: 30 }),
         pedidosProveedorApi.listar({ page: 1, limit: 30 }),
       ]);
       setProveedores(prov.data || []);
       setCompras(comp.data || []);
+      setTotal(comp.pagination ? comp.pagination.total : (comp.data || []).length);
       setPedidos(ped.data || []);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(); }, []); // eslint-disable-line
+  useEffect(() => { cargar(page); }, [page]); // eslint-disable-line
 
   const agregarItem = () => {
     if (!ean || !cantidad) return;
@@ -92,25 +98,13 @@ export default function ComprasPage() {
 
   const abrirPedido = () => {
     setPedido({ proveedorId: '', tipoStockAfectado: 'FIRME', observaciones: '', items: [] });
-    setPedidoBusqueda(''); setPedidoResultados([]);
     setPedidoEan(''); setPedidoCantidad(''); setPedidoPrecio('');
     setPedidoModal(true);
-  };
-
-  const buscarLibro = async (e) => {
-    const termino = e.target.value;
-    setPedidoBusqueda(termino);
-    if (termino.trim().length < 2) { setPedidoResultados([]); return; }
-    try {
-      const res = await catalogoApi.autocomplete(termino);
-      setPedidoResultados(res.data || []);
-    } catch { setPedidoResultados([]); }
   };
 
   const seleccionarLibro = (libro) => {
     if (pedido.items.find((d) => d.ean13 === libro.ean13)) return;
     setPedido({ ...pedido, items: [...pedido.items, { ean13: libro.ean13, titulo: libro.titulo, cantidad: 1, precioUnitario: Number(libro.precio || 0) }] });
-    setPedidoBusqueda(''); setPedidoResultados([]);
   };
 
   const agregarPedidoItem = () => {
@@ -215,16 +209,40 @@ export default function ComprasPage() {
             <option value="CONSIGNA">CONSIGNA</option>
           </select>
         </div>
+        <div className="mb-3">
+          <BuscadorArticuloBlock
+            etiqueta="Buscar libro para la compra"
+            onSeleccionar={(a) => setBorrador({ ...borrador, items: [...borrador.items, { ean13: a.ean13, titulo: a.titulo, cantidad: 1, precioUnitario: 0 }] })}
+          />
+        </div>
         <div className="flex gap-2 mb-3">
           <input className="input-os" placeholder="EAN13" value={ean} onChange={(e) => setEan(e.target.value)} />
           <input className="input-os" placeholder="Cantidad" type="number" style={{ maxWidth: 100 }} value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
           <input className="input-os" placeholder="Precio unit." type="number" style={{ maxWidth: 120 }} value={precio} onChange={(e) => setPrecio(e.target.value)} />
           <button type="button" className="btn" onClick={agregarItem}>Agregar</button>
         </div>
-        {borrador.items.map((item) => (
-          <div key={item.ean13} className="text-sm py-1 flex justify-between">
-            <span className="font-mono">{item.ean13}</span>
-            <span>{item.cantidad} u × ${Number(item.precioUnitario).toLocaleString('es-AR')}</span>
+        {borrador.items.map((item, i) => (
+          <div key={`${item.ean13}-${i}`} className="text-sm py-1 flex items-center gap-2">
+            <span className="font-mono text-xs flex-1 truncate">{item.ean13} <span className="text-muted">{item.titulo || ''}</span></span>
+            <input
+              className="input-os"
+              style={{ maxWidth: 90 }}
+              type="number"
+              min="1"
+              title="Cantidad"
+              value={item.cantidad}
+              onChange={(e) => setBorrador({ ...borrador, items: borrador.items.map((x, idx) => (idx === i ? { ...x, cantidad: Number(e.target.value) || 0 } : x)) })}
+            />
+            <input
+              className="input-os"
+              style={{ maxWidth: 130 }}
+              type="number"
+              min="0"
+              title="Precio unitario"
+              value={item.precioUnitario}
+              onChange={(e) => setBorrador({ ...borrador, items: borrador.items.map((x, idx) => (idx === i ? { ...x, precioUnitario: Number(e.target.value) || 0 } : x)) })}
+            />
+            <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => setBorrador({ ...borrador, items: borrador.items.filter((_, idx) => idx !== i) })}>✕</button>
           </div>
         ))}
         <button type="button" className="btn btn-primary mt-3" disabled={borrador.items.length === 0} onClick={crear}>Guardar compra</button>
@@ -243,6 +261,7 @@ export default function ComprasPage() {
 
       <h3 className="font-semibold mb-2 mt-5">Historial de compras</h3>
       <Table columnas={columnas} filas={compras} vacio="Sin compras" />
+      <Paginador page={page} total={total} limite={30} onCambiar={setPage} etiqueta="compras" />
 
       <Modal
         abierto={pedidoModal}
@@ -267,23 +286,8 @@ export default function ComprasPage() {
           </select>
         </div>
 
-        <div className="relative mb-3">
-          <input
-            className="input-os"
-            placeholder="Buscar libro por título, código, ISBN o autor..."
-            value={pedidoBusqueda}
-            onChange={buscarLibro}
-          />
-          {pedidoResultados.length > 0 && (
-            <div className="absolute left-0 right-0 card p-1 z-50" style={{ maxHeight: 240, overflowY: 'auto' }}>
-              {pedidoResultados.map((libro) => (
-                <button key={libro.ean13} type="button" className="w-full text-left px-3 py-2 rounded text-sm hover:bg-[var(--border)]" onClick={() => seleccionarLibro(libro)}>
-                  <span className="font-medium">{libro.titulo}</span>
-                  <span className="text-xs text-muted block">Cód: {libro.ean13} · ${Number(libro.precio).toLocaleString('es-AR')}</span>
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="mb-3">
+          <BuscadorArticuloBlock etiqueta="Buscar libro para el pedido" onSeleccionar={seleccionarLibro} />
         </div>
 
         <div className="flex gap-2 mb-3">
