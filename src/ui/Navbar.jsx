@@ -5,8 +5,7 @@
 //   pagina NO borra trabajo (estado en React).
 
 import { useEffect, useRef, useState } from 'react';
-import Modal from './Modal';
-import { manualApi } from '../api/api';
+import ManualBlock from '../blocks/ManualBlock';
 
 // Estructura extensible: agrega vistas nuevas dentro de su grupo (o crea uno nuevo).
 // La division es por FLUJO (decision del vectorHumano, 2026-09-12):
@@ -25,7 +24,6 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
   const [abierto, setAbierto] = useState(null);
   const ref = useRef(null);
   const [manualAbierto, setManualAbierto] = useState(false);
-  const [manualTexto, setManualTexto] = useState('');
 
   useEffect(() => {
     const alClicFuera = (e) => { if (ref.current && !ref.current.contains(e.target)) setAbierto(null); };
@@ -40,15 +38,7 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
 
   const elegir = (item) => { onCambiarVista(item); setAbierto(null); };
 
-  const abrirManual = async () => {
-    setManualAbierto(true);
-    try {
-      const res = await manualApi.obtener();
-      setManualTexto(res.data?.contenido || 'Manual no disponible.');
-    } catch (e) {
-      setManualTexto('No se pudo cargar el manual.');
-    }
-  };
+  const abrirManual = () => setManualAbierto(true);
 
   return (
     <header
@@ -94,11 +84,7 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
       <button type="button" className="btn btn-ghost" onClick={abrirManual}>Manual</button>
       <button type="button" className="btn btn-ghost text-muted" onClick={onLogout}>Salir</button>
 
-      <Modal abierto={manualAbierto} onClose={() => setManualAbierto(false)} titulo="Manual de BookOS" ancho="860px">
-        <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ maxHeight: '70vh', overflowY: 'auto', fontFamily: 'inherit' }}>
-          {manualTexto || 'Cargando...'}
-        </pre>
-      </Modal>
+      <ManualBlock abierto={manualAbierto} onClose={() => setManualAbierto(false)} />
     </header>
   );
 }

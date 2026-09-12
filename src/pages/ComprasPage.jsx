@@ -10,6 +10,7 @@ import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
 import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
+import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
 import Paginador from '../ui/Paginador';
 import { comprasApi, proveedoresApi, observacionesApi, pedidosProveedorApi } from '../api/api';
 import usePersistentWork from '../hooks/usePersistentWork';
@@ -213,6 +214,22 @@ export default function ComprasPage() {
           <BuscadorArticuloBlock
             etiqueta="Buscar libro para la compra"
             onSeleccionar={(a) => setBorrador({ ...borrador, items: [...borrador.items, { ean13: a.ean13, titulo: a.titulo, cantidad: 1, precioUnitario: 0 }] })}
+          />
+        </div>
+        <div className="mb-3">
+          <CargarDocumentoBlock
+            etiqueta="Cargar remito / pedido / compra"
+            proveedorId={borrador.proveedorId ? Number(borrador.proveedorId) : null}
+            onCargar={(items, meta) => {
+              const nuevos = (items || []).filter((i) => i.ean13).map((i) => ({ ean13: i.ean13, titulo: i.titulo, cantidad: i.cantidad, precioUnitario: Number(i.costo) || 0 }));
+              const salteados = (items || []).length - nuevos.length;
+              setBorrador((b) => ({
+                ...b,
+                proveedorId: b.proveedorId || (meta.proveedorId ? String(meta.proveedorId) : ''),
+                items: [...b.items, ...nuevos],
+              }));
+              setMensaje(`Cargados ${nuevos.length} renglones de ${meta.tipo} #${meta.id} ✓${salteados ? ` (${salteados} sin codigo, salteados)` : ''}`);
+            }}
           />
         </div>
         <div className="flex gap-2 mb-3">

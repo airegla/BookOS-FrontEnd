@@ -135,6 +135,7 @@ export const kernelApi = {
   cola: () => axiosClient.get('/kernel/cola'),
   logs: (params = {}) => axiosClient.get('/kernel/logs', { params }),
   registro: (params = {}) => axiosClient.get('/kernel/registro', { params }),
+  registroDetalle: (id) => axiosClient.get(`/kernel/registro/${id}`),
   observaciones: (params = {}) => axiosClient.get('/kernel/observaciones', { params }),
   observacionesCorrer: (payload = {}) => axiosClient.post('/kernel/observaciones/correr', payload),
 };
@@ -257,4 +258,11 @@ export const agenteApi = {
   conversaciones: (params = {}) => axiosClient.get('/agente/conversaciones', { params }),
   conversacionTurnos: (id) => axiosClient.get(`/agente/conversaciones/${id}`),
   conversacionEliminar: (id) => axiosClient.delete(`/agente/conversaciones/${id}`),
+};
+
+// Documentos recuperables entre modulos (patron bookerp): cargar el contenido de un
+// remito/pedido/compra dentro de otro comprobante.
+export const documentosApi = {
+  recuperables: (params = {}) => axiosClient.get('/documentos/recuperables', { params }),
+  detalle: (tipo, id) => axiosClient.get(`/documentos/${tipo}/${id}`),
 };

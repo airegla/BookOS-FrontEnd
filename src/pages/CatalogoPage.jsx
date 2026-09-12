@@ -9,7 +9,30 @@ import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
 import Paginador from '../ui/Paginador';
-import { catalogoApi, proveedoresApi } from '../api/api';
+import { catalogoApi, proveedoresApi, autoresApi, materiasApi, editorialesApi } from '../api/api';
+
+// El stock vive en el ledger (movimientos_stock): no viaja en el payload de alta/edicion.
+const CAMPOS_STOCK = ['stock', 'stockDeposito', 'stockConsigna', 'stockConsignaOriginal', 'esConsignacion', 'stockTotal'];
+const sinStock = (fila) => {
+  const copia = { ...fila };
+  for (const campo of CAMPOS_STOCK) delete copia[campo];
+  return copia;
+};
+
+// Campo de texto libre con sugerencias del maestro (el backend resuelve por nombre y crea si falta).
+function CampoTexto({ label, campo, form, setForm, listaId }) {
+  return (
+    <label className="block mb-3">
+      <span className="block text-xs uppercase tracking-widest text-muted mb-1">{label}</span>
+      <input
+        className="input-os"
+        list={listaId}
+        value={form[campo] || ''}
+        onChange={(e) => setForm({ ...form, [campo]: e.target.value })}
+      />
+    </label>
+  );
+}
 
 export default function CatalogoPage() {
   const [filas, setFilas] = useState([]);
@@ -22,6 +45,9 @@ export default function CatalogoPage() {
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({});
   const [error, setError] = useState('');
+  const [maestros, setMaestros] = useState({ autores: [], materias: [], editoriales: [] });
+  const [stockActual, setStockActual] = useState(null);
+  const [kardex, setKardex] = useState(null);
 
   const cargar = async () => {
     try {
@@ -39,6 +65,10 @@ export default function CatalogoPage() {
 
   useEffect(() => {
     proveedoresApi.listar().then((res) => setProveedores(res.data || [])).catch(() => {});
+    // Sugerencias de maestros para los campos de texto (no bloquean si fallan).
+    autoresApi.listar({ limit: 500 }).then((res) => setMaestros((m) => ({ ...m, autores: res.data || [] }))).catch(() => {});
+    materiasApi.listar({ limit: 500 }).then((res) => setMaestros((m) => ({ ...m, materias: res.data || [] }))).catch(() => {});
+    editorialesApi.listar({ limit: 500 }).then((res) => setMaestros((m) => ({ ...m, editoriales: res.data || [] }))).catch(() => {});
   }, []);
 
   const buscarSemantico = async () => {
@@ -49,13 +79,27 @@ export default function CatalogoPage() {
     } catch (err) { setError(err.message); }
   };
 
-  const abrirNuevo = () => { setEditando(null); setForm({}); setModal(true); };
-  const abrirEditar = (fila) => { setEditando(fila); setForm(fila); setModal(true); };
+  const abrirNuevo = () => { setEditando(null); setForm({}); setStockActual(null); setError(''); setModal(true); };
+  const abrirEditar = (fila) => {
+    setEditando(fila);
+    setForm(sinStock(fila));
+    setStockActual(fila.stockTotal ?? ((fila.stock || 0) + (fila.stockDeposito || 0)));
+    setError('');
+    setModal(true);
+  };
+
+  const verKardex = async (fila) => {
+    try {
+      const res = await catalogoApi.kardex(fila.id);
+      setKardex(res.data || res);
+    } catch (err) { setError(err.message); }
+  };
 
   const guardar = async () => {
     try {
-      if (editando) await catalogoApi.actualizar(editando.id, form);
-      else await catalogoApi.crear(form);
+      const payload = sinStock(form);
+      if (editando) await catalogoApi.actualizar(editando.id, payload);
+      else await catalogoApi.crear(payload);
       setModal(false);
       cargar();
     } catch (err) { setError(err.message); }
@@ -69,6 +113,15 @@ export default function CatalogoPage() {
     } catch (err) { setError(err.message); }
   };
 
+  const columnasKardex = [
+    { clave: 'fecha', titulo: 'Fecha', render: (m) => new Date(m.fecha).toLocaleDateString('es-AR') },
+    { clave: 'tipo', titulo: 'Tipo' },
+    { clave: 'tipoStock', titulo: 'Stock' },
+    { clave: 'cantidad', titulo: 'Cantidad', render: (m) => (m.cantidad > 0 ? `+${m.cantidad}` : String(m.cantidad)) },
+    { clave: 'origen', titulo: 'Origen', render: (m) => `${m.origenTipo}${m.origenId ? ` #${m.origenId}` : ''}` },
+    { clave: 'deposito', titulo: 'Deposito', render: (m) => (m.deposito ? m.deposito.nombre : '-') },
+  ];
+
   const columnas = [
     { clave: 'ean13', titulo: 'EAN13', render: (f) => <span className="font-mono text-xs">{f.ean13}</span> },
     { clave: 'titulo', titulo: 'Titulo' },
@@ -78,6 +131,7 @@ export default function CatalogoPage() {
     { clave: 'stock', titulo: 'Stock', render: (f) => f.stock + f.stockDeposito },
     { clave: 'acciones', titulo: '', render: (f) => (
       <div className="flex gap-2">
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => verKardex(f)}>Ver</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirEditar(f)}>Editar</button>
         <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => eliminar(f)}>Baja</button>
       </div>
@@ -134,11 +188,30 @@ export default function CatalogoPage() {
         abierto={modal}
         onClose={() => setModal(false)}
         titulo={editando ? 'Editar articulo' : 'Nuevo articulo'}
-        footer={<button type="button" className="btn btn-primary" onClick={guardar}>Guardar</button>}
+        ancho={680}
+        footer={(
+          <div className="flex gap-2">
+            <button type="button" className="btn" onClick={() => setModal(false)}>Cancelar</button>
+            <button type="button" className="btn btn-primary" onClick={guardar}>Guardar</button>
+          </div>
+        )}
       >
-        <Input label="EAN13" value={form.ean13 || ''} onChange={(e) => setForm({ ...form, ean13: e.target.value })} disabled={Boolean(editando)} />
-        <Input label="ISBN" value={form.isbn || ''} onChange={(e) => setForm({ ...form, isbn: e.target.value })} />
+        {error && <p className="text-sm mb-3" style={{ color: 'var(--danger)' }}>{error}</p>}
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="EAN13 / barras" value={form.ean13 || ''} onChange={(e) => setForm({ ...form, ean13: e.target.value })} disabled={Boolean(editando)} />
+          <Input label="ISBN" value={form.isbn || ''} onChange={(e) => setForm({ ...form, isbn: e.target.value })} />
+        </div>
         <Input label="Titulo" value={form.titulo || ''} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
+        <div className="grid grid-cols-2 gap-3">
+          <CampoTexto label="Autor" campo="autor" form={form} setForm={setForm} listaId="dl-autores" />
+          <CampoTexto label="Editorial" campo="editorial" form={form} setForm={setForm} listaId="dl-editoriales" />
+          <CampoTexto label="Autor 2" campo="autor2" form={form} setForm={setForm} listaId="dl-autores" />
+          <CampoTexto label="Autor 3" campo="autor3" form={form} setForm={setForm} listaId="dl-autores" />
+          <CampoTexto label="Materia" campo="tema" form={form} setForm={setForm} listaId="dl-materias" />
+          <CampoTexto label="Materia 2" campo="tema2" form={form} setForm={setForm} listaId="dl-materias" />
+          <Input label="Costo" type="number" value={form.costo ?? ''} onChange={(e) => setForm({ ...form, costo: e.target.value === '' ? null : Number(e.target.value) })} />
+          <Input label="Precio de lista" type="number" value={form.precio ?? ''} onChange={(e) => setForm({ ...form, precio: e.target.value === '' ? null : Number(e.target.value) })} />
+        </div>
         <label className="block mb-3">
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
           <select className="input-os" value={form.proveedorId || ''} onChange={(e) => setForm({ ...form, proveedorId: e.target.value ? Number(e.target.value) : null })}>
@@ -146,10 +219,34 @@ export default function CatalogoPage() {
             {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
         </label>
-        <Input label="Autor" value={form.autor || ''} onChange={(e) => setForm({ ...form, autor: e.target.value })} />
-        <Input label="Editorial" value={form.editorial || ''} onChange={(e) => setForm({ ...form, editorial: e.target.value })} />
-        <Input label="Precio" type="number" value={form.precio || ''} onChange={(e) => setForm({ ...form, precio: Number(e.target.value) })} />
-        <Input label="Stock" type="number" value={form.stock || ''} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} />
+        {editando ? (
+          <p className="text-xs text-muted">
+            Stock firme actual: <strong>{stockActual ?? 0}</strong>. Se ajusta por inventario (ledger), no se edita aca.
+          </p>
+        ) : (
+          <p className="text-xs text-muted">
+            El stock no se carga en el alta: ingresa por compra, inventario o transferencia.
+          </p>
+        )}
+        <datalist id="dl-autores">{maestros.autores.slice(0, 400).map((a) => <option key={a.id} value={a.nombre} />)}</datalist>
+        <datalist id="dl-editoriales">{maestros.editoriales.slice(0, 400).map((e) => <option key={e.id} value={e.nombre} />)}</datalist>
+        <datalist id="dl-materias">{maestros.materias.slice(0, 400).map((m) => <option key={m.id} value={m.descripcion} />)}</datalist>
+      </Modal>
+
+      <Modal
+        abierto={Boolean(kardex)}
+        onClose={() => setKardex(null)}
+        titulo={kardex ? `Kardex - ${kardex.titulo}` : 'Kardex'}
+        ancho={820}
+      >
+        {kardex && (
+          <>
+            <div className="text-xs text-muted mb-3">
+              {kardex.ean13} · codigo {kardex.codigo} · ultimos {kardex.movimientos.length} movimientos del ledger
+            </div>
+            <Table columnas={columnasKardex} filas={kardex.movimientos} vacio="Sin movimientos de stock" />
+          </>
+        )}
       </Modal>
     </div>
   );

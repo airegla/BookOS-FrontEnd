@@ -6,8 +6,34 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
+import Modal from '../ui/Modal';
 import { kernelApi } from '../api/api';
 import { descargarCsv, descargarDesdeServidor } from '../utils/exportar';
+
+// Cada dato en su linea: es todo lo que hace falta ver de un log.
+function camposDe(f, vista) {
+  const fecha = f.fecha ? new Date(f.fecha).toLocaleString('es-AR') : '—';
+  if (vista === 'enriquecimiento') {
+    return [
+      ['fecha', fecha], ['id', f.id], ['articuloId', f.articuloId], ['etapa', f.etapa],
+      ['ok', f.ok ? 'si' : 'no'], ['fuente', f.fuente || '—'], ['proveedor', f.proveedor || '—'],
+      ['modelo', f.modelo || '—'], ['ms', f.ms], ['error', f.error || '—'],
+    ];
+  }
+  const campos = [
+    ['fecha', fecha], ['id', f.id], ['modulo', f.modulo], ['accion', f.accion], ['ruta', f.ruta || '—'],
+    ['turno', f.turno || '—'], ['proveedor', f.proveedor || '—'], ['modelo', f.modelo || '—'],
+    ['ms', f.ms], ['tokens', f.tokens || 0], ['outcome', f.outcome || '—'], ['usuarioId', f.usuarioId == null ? '—' : f.usuarioId],
+  ];
+  if (f.prompt) campos.push(['prompt', String(f.prompt)]);
+  if (f.output) campos.push(['salida', String(f.output)]);
+  if (f.tools) {
+    let tools = f.tools;
+    try { tools = JSON.stringify(JSON.parse(f.tools), null, 2); } catch (_) { tools = String(f.tools); }
+    campos.push(['herramientas', tools]);
+  }
+  return campos;
+}
 
 export default function LogsPage() {
   const [vista, setVista] = useState('actividad');
@@ -18,6 +44,25 @@ export default function LogsPage() {
   const [soloOk, setSoloOk] = useState('');
   const [aviso, setAviso] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [detalle, setDetalle] = useState(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
+
+  // El detalle se ve en modal: actividad lo trae completo del servidor; enriquecimiento
+  // ya viene con todos los campos en la lista.
+  const verDetalle = async (f) => {
+    if (vista === 'enriquecimiento') { setDetalle(f); return; }
+    setCargandoDetalle(true);
+    try {
+      const res = await kernelApi.registroDetalle(f.id);
+      const payload = res && res.data !== undefined && !Array.isArray(res) ? res.data : res;
+      setDetalle(payload && payload.id ? payload : f);
+    } catch (err) {
+      setAviso(`⚠️ ${err.message}`);
+      setDetalle(f);
+    } finally {
+      setCargandoDetalle(false);
+    }
+  };
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -123,7 +168,12 @@ export default function LogsPage() {
           </thead>
           <tbody>
             {filas.map((f) => (
-              <tr key={f.id} style={{ borderTop: '1px solid var(--border)' }}>
+              <tr
+                key={f.id}
+                style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                title="Ver detalle del log"
+                onClick={() => verDetalle(f)}
+              >
                 {vista === 'actividad' ? (
                   <>
                     <td className="py-1 pr-3 font-mono">{new Date(f.fecha).toLocaleString('es-AR')}</td>
@@ -156,6 +206,29 @@ export default function LogsPage() {
           </tbody>
         </table>
       </div>
+
+      <Modal
+        abierto={Boolean(detalle)}
+        onClose={() => setDetalle(null)}
+        titulo={detalle ? `${vista === 'actividad' ? 'Actividad' : 'Enriquecimiento'} · log #${detalle.id}` : ''}
+        ancho="760px"
+      >
+        {cargandoDetalle && <p className="text-sm text-muted">Trayendo el detalle...</p>}
+        {detalle && !cargandoDetalle && (
+          <div className="space-y-2">
+            {camposDe(detalle, vista).map(([etiqueta, valor]) => (
+              <div key={etiqueta} className="text-sm">
+                <span className="text-xs uppercase tracking-widest text-muted block">{etiqueta}</span>
+                {typeof valor === 'string' && valor.length > 110 ? (
+                  <pre className="text-xs card p-2 mt-1" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 240, overflowY: 'auto' }}>{valor}</pre>
+                ) : (
+                  <span>{String(valor == null ? '—' : valor)}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

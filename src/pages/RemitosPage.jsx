@@ -12,6 +12,7 @@ import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
 import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
+import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
 import Paginador from '../ui/Paginador';
 import { remitosApi, proveedoresApi } from '../api/api';
 import { mapearFilas } from '../utils/csv';
@@ -200,6 +201,16 @@ export default function RemitosPage() {
           <BuscadorArticuloBlock
             etiqueta="Buscar libro para el remito"
             onSeleccionar={(a) => setItems([...borrador.items, { ean13: a.ean13, titulo: a.titulo, cantidad: 1, costo: null }])}
+          />
+        </div>
+        <div className="mb-3">
+          <CargarDocumentoBlock
+            etiqueta="Cargar pedido / compra"
+            onCargar={(items, meta) => {
+              const nuevos = (items || []).filter((i) => i.ean13).map((i) => ({ ean13: i.ean13, titulo: i.titulo, cantidad: i.cantidad, costo: i.costo }));
+              setItems([...borrador.items, ...nuevos]);
+              setMensaje(`Cargados ${nuevos.length} renglones de ${meta.tipo} #${meta.id} ✓`);
+            }}
           />
         </div>
         <div className="flex gap-2 mb-3">
