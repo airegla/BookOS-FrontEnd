@@ -236,7 +236,8 @@ export const manualApi = {
 export const agenteApi = {
   // SSE sobre POST: devuelve el body del fetch para leer el stream.
   // adjunto: { nombre, contenido } — el CSV crudo viaja como texto en el body.
-  chat: (mensaje, contexto, adjunto) => {
+  // conversacionId: continuidad del hilo (el backend lo crea y lo devuelve en el evento resultado).
+  chat: (mensaje, contexto, adjunto, conversacionId = null) => {
     const token = localStorage.getItem('bookos_token');
     return fetch(`${import.meta.env.VITE_API_URL || '/api'}/agente/chat`, {
       method: 'POST',
@@ -244,13 +245,16 @@ export const agenteApi = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ mensaje, contexto, adjunto: adjunto || null }),
+      body: JSON.stringify({ mensaje, contexto, adjunto: adjunto || null, conversacionId: conversacionId || null }),
     });
   },
   // Confirmacion de una escritura destructiva: misma tool con confirmado:true, sin LLM.
-  confirmar: (herramienta, argumentos) => axiosClient.post('/agente/confirmar', { herramienta, argumentos }),
+  confirmar: (herramienta, argumentos, conversacionId = null) => axiosClient.post('/agente/confirmar', { herramienta, argumentos, conversacionId: conversacionId || null }),
   metricas: (dias = 30) => axiosClient.get('/agente/metricas', { params: { dias } }),
   memoria: (params = {}) => axiosClient.get('/agente/memoria', { params }),
   memoriaEliminar: (id) => axiosClient.delete(`/agente/memoria/${id}`),
   outcome: (payload) => axiosClient.post('/agente/outcome', payload),
+  conversaciones: (params = {}) => axiosClient.get('/agente/conversaciones', { params }),
+  conversacionTurnos: (id) => axiosClient.get(`/agente/conversaciones/${id}`),
+  conversacionEliminar: (id) => axiosClient.delete(`/agente/conversaciones/${id}`),
 };

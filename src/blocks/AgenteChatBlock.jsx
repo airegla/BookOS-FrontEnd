@@ -186,7 +186,40 @@ export default function AgenteChatBlock() {
     }
   }, []);
 
-  const { mensajes, estado, candidatos, textoActual, cargando, enviar, agregarMensaje } = useAgenteStream(onHerramienta);
+  const { mensajes, estado, candidatos, textoActual, cargando, enviar, agregarMensaje, conversacionId, nuevaConversacion, cargarConversacion } = useAgenteStream(onHerramienta);
+  const [panelConvs, setPanelConvs] = useState(false);
+  const [listaConvs, setListaConvs] = useState([]);
+
+  // Panel de conversaciones guardadas: reabrir una (repinta el hilo) o borrarla.
+  const abrirPanelConvs = async () => {
+    const abrir = !panelConvs;
+    setPanelConvs(abrir);
+    if (!abrir) return;
+    try {
+      const res = await agenteApi.conversaciones({ limite: 20 });
+      // axiosClient desempaqueta el envelope: `res` ya es el payload (la lista).
+      const payload = res && res.data !== undefined && !Array.isArray(res) ? res.data : res;
+      const filas = Array.isArray(payload) ? payload : payload && Array.isArray(payload.data) ? payload.data : [];
+      setListaConvs(filas);
+    } catch (_) {
+      setListaConvs([]);
+    }
+  };
+
+  const abrirConversacion = async (id) => {
+    const ok = await cargarConversacion(id);
+    if (ok) setPanelConvs(false);
+  };
+
+  const borrarConversacion = async (id) => {
+    try {
+      await agenteApi.conversacionEliminar(id);
+      setListaConvs((prev) => prev.filter((c) => c.conversacionId !== id));
+      if (conversacionId === id) nuevaConversacion();
+    } catch (_) {
+      /* si falla, se deja la lista como esta */
+    }
+  };
 
   // Convierte el csvAdjunto del contexto (sabana pedida desde otra pagina) al
   // formato del chat: { nombre, contenido }.
@@ -249,7 +282,7 @@ export default function AgenteChatBlock() {
 
   const confirmarPregunta = async (pregunta, clave) => {
     try {
-      const res = await agenteApi.confirmar(pregunta.herramienta, pregunta.argumentos);
+      const res = await agenteApi.confirmar(pregunta.herramienta, pregunta.argumentos, conversacionId);
       const envelope = res.data && res.data.data ? res.data.data : res.data;
       agregarMensaje({ rol: 'agente', texto: '✓ Ejecutado con tu confirmación', resultado: { ruta: 'confirmacion', resultado: envelope } });
       setResueltas((prev) => ({ ...prev, [clave]: true }));
@@ -302,8 +335,40 @@ export default function AgenteChatBlock() {
           {contextoActual && (
             <span className="agente-badge" title={JSON.stringify(contextoActual)}>contexto ✓</span>
           )}
-          <button type="button" className="btn btn-ghost text-xs ml-auto agente-cerrar" onClick={() => setAbierto(false)} title="Cerrar">✕</button>
+          <button
+            type="button"
+            className="btn btn-ghost text-xs ml-auto"
+            onClick={abrirPanelConvs}
+            disabled={cargando}
+            title="Conversaciones guardadas"
+          >
+            🗂
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost text-xs"
+            onClick={nuevaConversacion}
+            disabled={cargando}
+            title="Empezar una conversación nueva (el hilo actual queda guardado)"
+          >
+            ＋ Nueva
+          </button>
+          <button type="button" className="btn btn-ghost text-xs agente-cerrar" onClick={() => setAbierto(false)} title="Cerrar">✕</button>
         </div>
+        {panelConvs && (
+          <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)', maxHeight: 260, overflowY: 'auto' }}>
+            <div className="text-xs text-muted mb-1">Conversaciones guardadas (más recientes primero):</div>
+            {listaConvs.length === 0 && <div className="text-xs text-muted">Todavía no hay conversaciones guardadas.</div>}
+            {listaConvs.map((c) => (
+              <div key={c.conversacionId} className="flex items-center gap-2 py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <button type="button" className="btn btn-ghost text-xs flex-1" onClick={() => abrirConversacion(c.conversacionId)} title={c.titulo || ''}>
+                  {(c.titulo || '(sin titulo)').slice(0, 42)} · {c.turnos} turnos
+                </button>
+                <button type="button" className="btn btn-ghost text-xs" onClick={() => borrarConversacion(c.conversacionId)} title="Borrar conversación">🗑</button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ minHeight: 0 }}>
           {mensajes.length === 0 && (
