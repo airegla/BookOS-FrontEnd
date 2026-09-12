@@ -122,6 +122,23 @@ export const propuestasApi = {
   rechazar: (id) => axiosClient.post(`/propuestas/${id}/rechazar`),
 };
 
+// Kernel (E7): paneles de Salud, Propuestas, Pesos, Logs, Cola y Memoria.
+export const kernelApi = {
+  estado: () => axiosClient.get('/kernel/estado'),
+  salud: (limit = 30) => axiosClient.get('/kernel/salud', { params: { limit } }),
+  saludCorrer: () => axiosClient.post('/kernel/salud/correr'),
+  pesos: () => axiosClient.get('/kernel/pesos'),
+  pesosGuardar: (payload) => axiosClient.post('/kernel/pesos', payload),
+  pesosActivar: (id) => axiosClient.post(`/kernel/pesos/${id}/activar`),
+  banco: () => axiosClient.get('/kernel/banco'),
+  bancoCorrer: (payload = {}) => axiosClient.post('/kernel/banco/correr', payload),
+  cola: () => axiosClient.get('/kernel/cola'),
+  logs: (params = {}) => axiosClient.get('/kernel/logs', { params }),
+  registro: (params = {}) => axiosClient.get('/kernel/registro', { params }),
+  observaciones: (params = {}) => axiosClient.get('/kernel/observaciones', { params }),
+  observacionesCorrer: (payload = {}) => axiosClient.post('/kernel/observaciones/correr', payload),
+};
+
 export const auditoriaApi = {
   ranking: (limite = 30) => axiosClient.get('/auditoria/ranking', { params: { limite } }),
   llm: (limite = 30) => axiosClient.get('/auditoria/llm', { params: { limite } }),

@@ -16,6 +16,7 @@ const GRUPOS = [
   { nombre: 'Logística', items: ['Transportes', 'Inventario', 'Mayorista'] },
   { nombre: 'Consigna', items: ['Consigna'] },
   { nombre: 'Sistema', items: ['Config', 'Empresa', 'Usuarios', 'Parametros', 'Desarrollo'] },
+  { nombre: 'Kernel', items: ['Salud', 'Propuestas', 'Pesos', 'Logs', 'Cola', 'Memoria'] },
 ];
 
 export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {

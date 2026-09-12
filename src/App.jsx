@@ -25,6 +25,12 @@ import ConfigPage from './pages/ConfigPage';
 import EmpresaPage from './pages/EmpresaPage';
 import UsuariosPage from './pages/UsuariosPage';
 import DesarrolloPage from './pages/DesarrolloPage';
+import SaludPage from './pages/SaludPage';
+import PropuestasPage from './pages/PropuestasPage';
+import PesosPage from './pages/PesosPage';
+import LogsPage from './pages/LogsPage';
+import ColaPage from './pages/ColaPage';
+import MemoriaPage from './pages/MemoriaPage';
 import { authApi } from './api/api';
 import { useAppContext } from './AppContext';
 
@@ -130,6 +136,12 @@ export default function App() {
           {vista === 'Empresa' && <EmpresaPage />}
           {vista === 'Usuarios' && <UsuariosPage esAdmin={esAdmin} />}
           {vista === 'Desarrollo' && <DesarrolloPage esAdmin={esAdmin} />}
+          {vista === 'Salud' && <SaludPage esAdmin={esAdmin} />}
+          {vista === 'Propuestas' && <PropuestasPage esAdmin={esAdmin} />}
+          {vista === 'Pesos' && <PesosPage esAdmin={esAdmin} />}
+          {vista === 'Logs' && <LogsPage />}
+          {vista === 'Cola' && <ColaPage />}
+          {vista === 'Memoria' && <MemoriaPage esAdmin={esAdmin} />}
         </main>
         <AgenteChatBlock />
       </div>
