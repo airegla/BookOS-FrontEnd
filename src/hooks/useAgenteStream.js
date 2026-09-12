@@ -1,7 +1,8 @@
 // BookOS - useAgenteStream.js
 // ruta: bookos/frontend/src/hooks/useAgenteStream.js
 // descripcion: consumo del SSE del Secretario (POST + stream). Expone estados,
-//   candidatos de la almohadilla y el texto que llega palabra por palabra.
+//   candidatos, la pregunta del agente (confirmacion/clarificacion) y el texto
+//   que llega palabra por palabra. El adjunto viaja como { nombre, contenido }.
 
 import { useCallback, useRef, useState } from 'react';
 import { agenteApi } from '../api/api';
@@ -14,22 +15,25 @@ export default function useAgenteStream(onHerramienta) {
   const [cargando, setCargando] = useState(false);
   const abortRef = useRef(null);
 
-  const enviar = useCallback(async (texto, contexto = null) => {
+  const agregarMensaje = useCallback((mensaje) => {
+    setMensajes((prev) => [...prev, mensaje]);
+  }, []);
+
+  const enviar = useCallback(async (texto, contexto = null, adjunto = null) => {
     if (!texto.trim() || cargando) return;
     setCargando(true);
     setEstado('Analizando...');
     setCandidatos([]);
     setTextoActual('');
-    setMensajes((prev) => [...prev, { rol: 'usuario', texto }]);
+    setMensajes((prev) => [...prev, { rol: 'usuario', texto, adjunto: adjunto ? adjunto.nombre : null }]);
 
     try {
-      const respuesta = await agenteApi.chat(texto.trim(), contexto);
+      const respuesta = await agenteApi.chat(texto.trim(), contexto, adjunto);
       const reader = respuesta.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
       let acumulado = '';
-      let recibioResultado = false;
-      let recibioCandidatos = false;
+      let recibioAlgo = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -51,18 +55,24 @@ export default function useAgenteStream(onHerramienta) {
               if (payload.fase === 'done') continue;
               setEstado(payload.fase);
             } else if (evento === 'candidatos') {
-              recibioCandidatos = true;
+              recibioAlgo = true;
               setCandidatos(payload.resultados || []);
             } else if (evento === 'chunk') {
+              recibioAlgo = true;
               acumulado += payload.texto;
               setTextoActual(acumulado);
+            } else if (evento === 'pregunta') {
+              recibioAlgo = true;
+              setMensajes((prev) => [...prev, { rol: 'pregunta', pregunta: payload }]);
             } else if (evento === 'resultado') {
-              recibioResultado = true;
+              recibioAlgo = true;
               setMensajes((prev) => [...prev, { rol: 'agente', resultado: payload }]);
             } else if (evento === 'herramienta') {
+              recibioAlgo = true;
               setMensajes((prev) => [...prev, { rol: 'herramienta', nombre: payload.nombre, ok: payload.ok }]);
-              if (onHerramienta && payload.resultado) onHerramienta(payload.resultado);
+              if (onHerramienta && payload.resultado) onHerramienta(payload.resultado, payload.nombre);
             } else if (evento === 'error') {
+              recibioAlgo = true;
               setMensajes((prev) => [...prev, { rol: 'agente', texto: `⚠️ ${payload.message}` }]);
             }
           } catch (err) {
@@ -73,8 +83,11 @@ export default function useAgenteStream(onHerramienta) {
 
       if (acumulado) {
         setMensajes((prev) => [...prev, { rol: 'agente', texto: acumulado }]);
-      } else if (!recibioCandidatos && !recibioResultado) {
-        setMensajes((prev) => [...prev, { rol: 'agente', texto: 'Sin resultados.' }]);
+      } else if (!recibioAlgo) {
+        setMensajes((prev) => [...prev, {
+          rol: 'agente',
+          texto: 'No obtuve resultados para ese pedido. Puedo intentarlo de nuevo si me das otro dato o lo reformulás.',
+        }]);
       }
     } catch (err) {
       setMensajes((prev) => [...prev, { rol: 'agente', texto: `⚠️ ${err.message}` }]);
@@ -84,5 +97,5 @@ export default function useAgenteStream(onHerramienta) {
     }
   }, [cargando, onHerramienta]);
 
-  return { mensajes, estado, candidatos, textoActual, cargando, enviar };
+  return { mensajes, estado, candidatos, textoActual, cargando, enviar, agregarMensaje };
 }

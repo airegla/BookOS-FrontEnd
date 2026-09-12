@@ -35,14 +35,15 @@ export function descargarCsv(nombre, columnas, filas = []) {
 }
 
 // url: ruta relativa tipo /api/exportacion/descargar/nombre.csv
-export async function descargarDesdeServidor(url) {
+// nombreSugerido: opcional; si no viene se deduce de la url.
+export async function descargarDesdeServidor(url, nombreSugerido = null) {
   const token = localStorage.getItem('bookos_token');
   const base = import.meta.env.VITE_API_URL || '/api';
   const final = /^https?:/.test(url) ? url : `${base}${url}`;
   const res = await fetch(final, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`No se pudo descargar (${res.status})`);
   const blob = await res.blob();
-  const nombre = decodeURIComponent(url.split('/').pop());
+  const nombre = nombreSugerido || decodeURIComponent(url.split('/').pop());
   dispararDescarga(blob, nombre);
 }
 

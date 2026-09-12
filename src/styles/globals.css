@@ -141,6 +141,42 @@ body {
   position: sticky;
   top: 0;
 }
+
+/* En pantallas chicas el panel queda oculto detras de un boton flotante y se abre
+   a pantalla completa (overlay). En desktop es siempre visible. */
+.agente-toggle {
+  display: none;
+}
+.agente-cerrar {
+  display: none;
+}
+.agente-panel.descarga-aviso {
+  border-left: 1px solid var(--border);
+}
+@media (max-width: 1024px) {
+  .agente-toggle {
+    display: inline-flex;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 70;
+    box-shadow: var(--shadow-card);
+  }
+  .agente-panel {
+    display: none;
+  }
+  .agente-panel.agente-abierto {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    z-index: 80;
+    border-left: none;
+  }
+  .agente-cerrar {
+    display: inline-flex;
+  }
+}
 .agente-badge {
   @apply text-[10px] px-2 py-1 rounded-full font-mono uppercase tracking-widest;
   background: var(--bg-soft);
