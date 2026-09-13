@@ -78,3 +78,11 @@ src/
 - **Modal de articulos ajustado (F6.1)**: la edicion **ya persiste** (antes fallaba siempre por
   mandar campos de stock) y se sumaron los campos que el backend ya soportaba sin UI (Autor 2/3,
   Materia/Materia 2 con sugerencias del maestro, Costo) + boton **Ver** con el kardex del articulo.
+- **Clientes ajustado al bookerp (F6.2)**: el modal de alta/edicion paso de 2 a **14 campos**
+  (fantasia, CUIT, condicion IVA con sugerencias, telefono, email, direccion, localidad, descuento
+  fijo %, plazo de pago, mayorista, activo, observaciones) y el boton **Ver** abre la **ficha +
+  cuenta corriente** (saldo actual y ultimos 10 movimientos con debe/haber/saldo/vencimiento).
+- **Compras "Ver" funciona (F6.3)**: el boton abre el **detalle de la compra** (proveedor, fecha
+  de emision, nro, estado, stock afectado, descuento global, renglones con precio/descuento/subtotal
+  y total) con **Exportar CSV**, **Anular** (revierte stock) y contexto inyectado al Secretario.
+  `comprasApi.obtener(id)` consume `GET /api/compras/:id`.

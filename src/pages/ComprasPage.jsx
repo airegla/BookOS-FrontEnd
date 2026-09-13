@@ -12,6 +12,7 @@ import DebugTag from '../ui/DebugTag';
 import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
 import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
 import Paginador from '../ui/Paginador';
+import { descargarCsv } from '../utils/exportar';
 import { comprasApi, proveedoresApi, observacionesApi, pedidosProveedorApi } from '../api/api';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
@@ -33,6 +34,7 @@ export default function ComprasPage() {
   const [precio, setPrecio] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [observacion, setObservacion] = useState(null);
+  const [detalle, setDetalle] = useState(null);
 
   // Pedido a proveedor (modal)
   const [pedidoModal, setPedidoModal] = useState(false);
@@ -93,6 +95,26 @@ export default function ComprasPage() {
       setMensaje(`Compra #${id} anulada (stock revertido) ✓`);
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  // Detalle de compra (bookerp: cabecera + renglones + export). El "Ver" inyecta el contexto al Secretario.
+  const verCompra = async (id) => {
+    try {
+      const res = await comprasApi.obtener(id);
+      const compra = res.data || res;
+      setDetalle(compra);
+      setContextoActual({ compraId: compra.id, tipo: compra.tipoComprobante, items: compra.items });
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const exportarDetalle = (compra) => {
+    descargarCsv(`compra-${compra.id}`, [
+      { titulo: 'Titulo', clave: 'descripcion' },
+      { titulo: 'Cantidad', clave: 'cantidad' },
+      { titulo: 'Precio', clave: 'precioUnitario' },
+      { titulo: 'Descuento', clave: 'descuentoLinea' },
+      { titulo: 'Subtotal', clave: 'subtotal' },
+    ], compra.items || []);
   };
 
   // ---- Pedido a proveedor (bookerp: no afecta stock hasta confirmar) ---------
@@ -158,11 +180,19 @@ export default function ComprasPage() {
     { clave: 'estado', titulo: 'Estado' },
     { clave: 'acciones', titulo: '', render: (c) => (
       <div className="flex gap-2">
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => { setContextoActual({ compraId: c.id, tipo: c.tipoComprobante, items: c.items }); }}>Ver</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => verCompra(c.id)}>Ver</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => observar(c.id)}>🧠</button>
         {c.estado !== 'ANULADA' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anular(c.id)}>Anular</button>}
       </div>
     ) },
+  ];
+
+  const columnasDetalle = [
+    { clave: 'descripcion', titulo: 'Titulo' },
+    { clave: 'cantidad', titulo: 'Cantidad' },
+    { clave: 'precioUnitario', titulo: 'Precio', render: (i) => `$${Number(i.precioUnitario).toLocaleString('es-AR')}` },
+    { clave: 'descuentoLinea', titulo: 'Desc.', render: (i) => (Number(i.descuentoLinea) ? `$${Number(i.descuentoLinea).toLocaleString('es-AR')}` : '') },
+    { clave: 'subtotal', titulo: 'Subtotal', render: (i) => `$${Number(i.subtotal).toLocaleString('es-AR')}` },
   ];
 
   const columnasPedidos = [
@@ -331,6 +361,43 @@ export default function ComprasPage() {
           </div>
         </div>
         <p className="text-xs text-muted mt-2">El pedido queda PENDIENTE y no afecta stock. Al confirmarlo se genera la compra (candado FIFE).</p>
+      </Modal>
+
+      <Modal
+        abierto={Boolean(detalle)}
+        onClose={() => setDetalle(null)}
+        titulo={detalle ? `Compra #${detalle.id} - ${detalle.tipoComprobante}` : 'Compra'}
+        ancho="820px"
+        footer={
+          detalle ? (
+            <div className="flex gap-2">
+              <button type="button" className="btn btn-ghost" onClick={() => exportarDetalle(detalle)}>Exportar CSV</button>
+              <button type="button" className="btn btn-ghost" onClick={() => pedirConsulta(`Resumime la compra #${detalle.id}${detalle.proveedor ? ` de ${detalle.proveedor.nombre}` : ''}.`)}>Preguntar al Secretario</button>
+              {detalle.estado !== 'ANULADA' && (
+                <button type="button" className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => { anular(detalle.id); setDetalle(null); }}>Anular</button>
+              )}
+              <button type="button" className="btn btn-primary" onClick={() => setDetalle(null)}>Cerrar</button>
+            </div>
+          ) : null
+        }
+      >
+        {detalle && (
+          <>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm mb-4">
+              <div><span className="text-muted">Proveedor: </span>{detalle.proveedor ? detalle.proveedor.nombre : '-'}</div>
+              <div><span className="text-muted">Fecha de emision: </span>{new Date(detalle.fechaEmision).toLocaleDateString('es-AR')}</div>
+              <div><span className="text-muted">Nro de comprobante: </span>{detalle.nroComprobante || '-'}</div>
+              <div><span className="text-muted">Estado: </span>{detalle.estado}</div>
+              <div><span className="text-muted">Stock afectado: </span>{detalle.tipoStockAfectado}</div>
+              <div><span className="text-muted">Descuento global: </span>${Number(detalle.descuentoGlobal || 0).toLocaleString('es-AR')}</div>
+              {detalle.observaciones && <div className="col-span-2"><span className="text-muted">Observaciones: </span>{detalle.observaciones}</div>}
+            </div>
+            <Table columnas={columnasDetalle} filas={detalle.items || []} vacio="Sin renglones" />
+            <div className="text-right mt-3 text-sm">
+              Total: <strong>${Number(detalle.importeTotal).toLocaleString('es-AR')}</strong>
+            </div>
+          </>
+        )}
       </Modal>
     </div>
   );

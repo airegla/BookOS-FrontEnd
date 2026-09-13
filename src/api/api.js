@@ -81,6 +81,7 @@ export const comprasApi = {
   crear: (payload) => axiosClient.post('/compras', payload),
   anular: (id) => axiosClient.post(`/compras/${id}/anular`),
   listar: (params = {}) => axiosClient.get('/compras', { params }),
+  obtener: (id) => axiosClient.get(`/compras/${id}`),
 };
 
 export const pedidosProveedorApi = {
