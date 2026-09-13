@@ -6,6 +6,9 @@ descripcion: como levantar y probar el frontend de BookOS (React + Vite + Tailwi
 
 # BookOS — Frontend (OS)
 
+> **Documento técnico canónico del frontend.** El `README.md` del repositorio es solo la presentación
+> para GitHub; la referencia de instalación, estructura, reglas del OS y tramos vive acá.
+
 React + Vite + Tailwind. Homogeneidad total, todo en modales, **cambiar de pagina no borra trabajo**.
 
 ## Instalacion
@@ -139,3 +142,14 @@ src/
 - **Chat: ayuda y listados de marcadores (E7.9b)**: el render del envelope suma `ayuda`,
   `editoriales` y `materias` a las claves de lista, muestra `$comando` + su descripcion y corta a
   30 items en la ayuda (8 en los listados). Ventas/Presupuestos ya estaban.
+- **Layout de 3 zonas + modales con pie fijo (2026-09-13)**: la ventana no scrollea
+  (`.bookos-app` ocupa `100dvh`; el navbar y el panel del Secretario quedan fijos): scrollea solo el
+  `main`. El chat tiene cabecera y entrada fijas (solo los mensajes scrollean) y los modales usan
+  `modal-header/body/footer`, asi que **Guardar/Cancelar quedan siempre visibles**. Labels
+  (`.field-label`), grillas de formulario (`.form-grid`) y el contraste de textos secundarios
+  (`--muted` a `#6e6a62`, AA) se centralizaron en `globals.css`; los `th` de tabla quedaron sticky.
+- **Propuestas sin cuerpo + clasificacion (2026-09-13)**: el panel de Propuestas marca las que no
+  traen cuerpo estructurado (no aprobables) con el motivo visible y el boton **Aprobar**
+  deshabilitado; el detalle vacio ya no muestra un `null`. El agente suma `materias_proponer`
+  (propone materia para titulos sin materia por vecinos semanticos, exportable a CSV) y
+  `materias_asignar` (asignacion en lote con preview y confirmacion).

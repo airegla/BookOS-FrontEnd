@@ -11,6 +11,22 @@ import { descargarCsv } from '../utils/exportar';
 
 const COLOR_ESTADO = { PENDIENTE: '#b45309', APROBADA: '#15803d', RECHAZADA: 'var(--muted, #6b7280)' };
 
+// Los tipos que se aplican solos necesitan cuerpo estructurado (detalle). Sin el, aprobar no
+// tiene nada que aplicar: se avisa en la fila y no se manda la llamada al servidor.
+const REQUIEREN_CUERPO = ['informe', 'marcador', 'pesos'];
+function cuerpoFaltante(p) {
+  if (!REQUIEREN_CUERPO.includes(p.tipo)) return null;
+  const d = p.detalle && typeof p.detalle === 'object' ? p.detalle : null;
+  if (!d) {
+    const piezas = p.tipo === 'informe' ? 'clave/titulo/definicion' : p.tipo === 'marcador' ? 'nombre/regla' : 'pesos';
+    return `La propuesta no trae "detalle" (${piezas}): no hay nada que aplicar. Pedile al agente que la rehaga con proponer_cambio incluyendo el cuerpo.`;
+  }
+  if (p.tipo === 'informe' && !d.definicion) return 'Falta "detalle.definicion" (fuente, agruparPor y metricas): no hay nada que aplicar.';
+  if (p.tipo === 'marcador' && (!d.nombre || !d.regla)) return 'Falta "detalle.nombre" o "detalle.regla": no hay nada que cristalizar.';
+  if (p.tipo === 'pesos' && !(d.pesos || d.almohadilla)) return 'Falta "detalle.pesos": no hay version que crear.';
+  return null;
+}
+
 export default function PropuestasPage({ esAdmin }) {
   const [filas, setFilas] = useState([]);
   const [soloPendientes, setSoloPendientes] = useState(true);
@@ -77,7 +93,9 @@ export default function PropuestasPage({ esAdmin }) {
 
       {filas.length === 0 && !cargando && <p className="text-sm text-muted">No hay propuestas{soloPendientes ? ' pendientes' : ''}.</p>}
       <div className="space-y-2">
-        {filas.map((p) => (
+        {filas.map((p) => {
+          const falta = cuerpoFaltante(p);
+          return (
           <div key={p.id} className="card p-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="agente-badge">{p.tipo}</span>
@@ -94,14 +112,27 @@ export default function PropuestasPage({ esAdmin }) {
               </button>
               {esAdmin && p.estado === 'PENDIENTE' && (
                 <>
-                  <button type="button" className="btn btn-primary text-xs" onClick={() => resolver(p.id, 'aprobar')}>Aprobar</button>
+                  <button
+                    type="button"
+                    className="btn btn-primary text-xs"
+                    onClick={() => resolver(p.id, 'aprobar')}
+                    disabled={Boolean(falta)}
+                    title={falta || 'Aplicar la propuesta'}
+                  >
+                    Aprobar
+                  </button>
                   <button type="button" className="btn text-xs" onClick={() => resolver(p.id, 'rechazar')}>Rechazar</button>
                 </>
               )}
             </div>
             {expandida === p.id && (
               <div className="mt-2 space-y-2">
-                <pre className="text-xs overflow-x-auto" style={{ maxHeight: 260 }}>{JSON.stringify(p.detalle, null, 2)}</pre>
+                {p.detalle == null ? (
+                  <p className="text-xs text-muted">Esta propuesta no tiene cuerpo estructurado: quedo descripta solo en el resumen y la observación.</p>
+                ) : (
+                  <pre className="text-xs overflow-x-auto" style={{ maxHeight: 260 }}>{JSON.stringify(p.detalle, null, 2)}</pre>
+                )}
+                {falta && <p className="text-xs" style={{ color: '#b45309' }}>⚠️ {falta}</p>}
                 {p.resultado != null && (
                   <div className="text-xs">
                     <span className="text-muted">resultado: </span>
@@ -111,7 +142,8 @@ export default function PropuestasPage({ esAdmin }) {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
