@@ -1228,7 +1228,7 @@ export default function MayoristaPage() {
               {verVenta.fechaVencimiento ? ` · Vence: ${new Date(verVenta.fechaVencimiento).toLocaleDateString('es-AR')}` : ''}
               {verVenta.cae ? ` · CAE ${verVenta.cae}${verVenta.caeVencimiento ? ` (vto. ${new Date(verVenta.caeVencimiento).toLocaleDateString('es-AR')})` : ''}` : ''}
             </p>
-            {verVenta.items.length > 0 && (
+            {verVenta.items.length > 0 ? (
               <TablaItemsPaginada
                 items={verVenta.items}
                 headers={[<th key="ean">EAN</th>, <th key="tit">Título</th>, <th key="cant">Cant.</th>, <th key="pr">Precio</th>, <th key="ds">Desc.</th>, <th key="sub">Subtotal</th>]}
@@ -1243,13 +1243,18 @@ export default function MayoristaPage() {
                   </tr>
                 )}
               />
+            ) : (
+              <p className="text-sm mb-2">
+                <span className="text-xs text-muted">Observación:</span> {verVenta.observaciones || '—'}{' '}
+                <span className="font-mono">${Number(verVenta.total).toLocaleString('es-AR')}</span>
+              </p>
             )}
             <div className="flex justify-end gap-4 text-sm mt-3">
               <span>Subtotal: <strong>${verVenta.subtotal.toLocaleString('es-AR')}</strong></span>
               <span>Desc. global: <strong>-${verVenta.descuentoGlobal.toLocaleString('es-AR')}</strong></span>
               <span>Total: <strong>${verVenta.total.toLocaleString('es-AR')}</strong></span>
             </div>
-            {verVenta.observaciones && <p className="text-xs text-muted mt-2">{verVenta.observaciones}</p>}
+            {verVenta.observaciones && verVenta.items.length > 0 && <p className="text-xs text-muted mt-2">{verVenta.observaciones}</p>}
           </>
         )}
       </Modal>
