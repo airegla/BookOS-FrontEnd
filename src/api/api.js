@@ -312,3 +312,13 @@ export const telegramApi = {
   guardar: (datos) => axiosClient.put('/telegram', datos),
   probar: () => axiosClient.post('/telegram/probar', {}),
 };
+
+// Plantillas de los mails del sistema (CRM > Plantillas mail): asunto y cuerpo editables, vista
+// previa con datos de ejemplo y prueba real (admin, igual que la configuracion del mailer).
+export const plantillasApi = {
+  listar: () => axiosClient.get('/plantillas'),
+  obtener: (clave) => axiosClient.get(`/plantillas/${clave}`),
+  guardar: (clave, datos) => axiosClient.put(`/plantillas/${clave}`, datos),
+  previsualizar: (clave, datos) => axiosClient.post(`/plantillas/${clave}/previsualizar`, datos),
+  probar: (clave, datos) => axiosClient.post(`/plantillas/${clave}/probar`, datos),
+};

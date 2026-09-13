@@ -68,6 +68,9 @@ export default function ConfigCrmPage() {
         port: Number(mailForm.port) || undefined,
         user: mailForm.user,
         from: mailForm.from,
+        // MODO PRUEBA: se guarda lo que este en el campo (vacio = apagado: los mails salen a los
+        // destinatarios reales).
+        redirigirA: mailForm.redirigirA,
         ...(mailForm.pass ? { pass: mailForm.pass } : {}),
       });
       setMensaje(`Mail guardado (${r.data.configurado ? 'configurado' : 'incompleto: falta host/usuario/password'}).`);
