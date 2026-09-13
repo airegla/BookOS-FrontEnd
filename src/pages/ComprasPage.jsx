@@ -3,6 +3,9 @@
 // descripcion: ingreso de compras a proveedores (candado FIFE firme/consigna),
 //   historial/anulacion + pedido a proveedor (bookerp) en modal. El pedido no
 //   afecta stock hasta confirmarse (al confirmar genera la compra).
+//   FACTURA_GENERICA: la factura del proveedor cuando el ingreso ya se hizo por
+//   remito: asienta la deuda en la CC y NO mueve stock (el caso espejo del remito, que
+//   mueve stock y no asienta deuda).
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
@@ -22,7 +25,14 @@ import { useAppContext } from '../AppContext';
 // El remito de proveedor tiene su propia vista ("Remitos"): aca no se ofrece como tipo
 // para que exista UN solo flujo (decision del vectorHumano: "que haya dos formas de hacer
 // un remito es una confusion").
-const TIPOS = ['FACTURA', 'FACTURA_CONSIGNA', 'NOTA_CREDITO'];
+const TIPOS = [
+  ['FACTURA', 'FACTURA — mueve stock'],
+  ['FACTURA_CONSIGNA', 'FACTURA_CONSIGNA — mueve stock'],
+  ['FACTURA_GENERICA', 'FACTURA_GENERICA — solo CC (no mueve stock)'],
+  ['NOTA_CREDITO', 'NOTA_CREDITO — solo CC'],
+];
+// Comprobantes que NO mueven stock (gestionan deuda, no mercaderia).
+const SIN_STOCK = ['FACTURA_GENERICA', 'NOTA_CREDITO'];
 
 export default function ComprasPage() {
   const [provNombre, setProvNombre] = useState('');
@@ -96,7 +106,7 @@ export default function ComprasPage() {
         observaciones: borrador.observaciones || null,
         items: borrador.items,
       });
-      setMensaje(`Compra #${res.data.compraId} por $${Number(res.data.importeTotal).toLocaleString('es-AR')} ✓ (stock ${borrador.tipoStockAfectado} actualizado)`);
+      setMensaje(`Compra #${res.data.compraId} por $${Number(res.data.importeTotal).toLocaleString('es-AR')} ✓ ${SIN_STOCK.includes(borrador.tipoComprobante) ? '(solo cuenta corriente: no mueve stock)' : `(stock ${borrador.tipoStockAfectado} actualizado)`}`);
       setBorrador({ proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
@@ -251,7 +261,7 @@ export default function ComprasPage() {
             />
           </div>
           <select className="input-os" style={{ maxWidth: 180 }} value={borrador.tipoComprobante} onChange={(e) => setBorrador({ ...borrador, tipoComprobante: e.target.value })}>
-            {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
+            {TIPOS.map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
           </select>
           <select className="input-os" style={{ maxWidth: 120 }} value={borrador.tipoStockAfectado} onChange={(e) => setBorrador({ ...borrador, tipoStockAfectado: e.target.value })}>
             <option value="FIRME">FIRME</option>
@@ -342,7 +352,7 @@ export default function ComprasPage() {
           <span className="font-semibold">Total: <strong>${totalCompra.toLocaleString('es-AR')}</strong></span>
         </div>
         <button type="button" className="btn btn-primary mt-3" disabled={borrador.items.length === 0} onClick={crear}>Guardar compra</button>
-        <p className="text-xs text-muted mt-2">Candado FIFE: FACTURA firme no afecta CONSIGNA · FACTURA_CONSIGNA no suma FIRME.</p>
+        <p className="text-xs text-muted mt-2">Candado FIFE: FACTURA firme no afecta CONSIGNA · FACTURA_CONSIGNA no suma FIRME. FACTURA_GENERICA y NOTA_CREDITO no mueven stock: FACTURA_GENERICA se usa cuando el ingreso ya se hizo por remito (solo asienta la deuda en la CC).</p>
       </div>
 
       {observacion && (

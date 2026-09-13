@@ -3,12 +3,14 @@
 // descripcion: renglones de una operacion del mayorista (F-12 §4.4): buscador asincronico de
 //   articulos + cantidad + tipo de stock por linea (consigna/firme) + importacion de CSV. Es el
 //   mismo bloque para remitos, facturas y devoluciones: cambia lo que la pagina hace con los items.
+//   Con conPrecio (facturas) muestra precio, descuento por linea y subtotal; con sabana (baja de
+//   consigna) muestra el disponible real del cliente por titulo y avisa si se factura de mas.
 
 import SelectBuscador from '../ui/SelectBuscador';
 import ImportarCsvBlock from './ImportarCsvBlock';
 import { buscarArticulos } from '../utils/selectores';
 
-export default function MayoristaTablaBlock({ items = [], onItems, conTipoStock = true, conPrecio = false, etiquetaVacio = 'Agrega renglones con el buscador o un CSV (código;cantidad)' }) {
+export default function MayoristaTablaBlock({ items = [], onItems, conTipoStock = true, conPrecio = false, sabana = null, descuentoDefault = null, etiquetaVacio = 'Agrega renglones con el buscador o un CSV (código;cantidad)' }) {
   const agregar = (item, cantidad, tipoStock) => {
     if (!item || !cantidad) return;
     const existente = items.findIndex((i) => i.articuloId === item.id && (!conTipoStock || i.tipoStock === tipoStock));
@@ -24,14 +26,14 @@ export default function MayoristaTablaBlock({ items = [], onItems, conTipoStock 
       titulo: item.etiqueta,
       cantidad: Number(cantidad),
       ...(conTipoStock ? { tipoStock } : {}),
-      ...(conPrecio ? { precioUnitario: item.precioLista || 0, descuentoLinea: null } : {}),
+      ...(conPrecio ? { precioUnitario: item.precioLista || 0, descuentoLinea: descuentoDefault != null ? descuentoDefault : null } : {}),
     }]);
   };
 
   const importarCsv = (filas) => {
     const nuevos = filas
       .filter((f) => (f.ean13 || f.codigo) && Number(f.cantidad) > 0)
-      .map((f) => ({ articuloId: null, ean13: String(f.ean13 || f.codigo), titulo: f.titulo || '', cantidad: Number(f.cantidad), ...(conTipoStock ? { tipoStock: 'CONSIGNA' } : {}) }));
+      .map((f) => ({ articuloId: null, ean13: String(f.ean13 || f.codigo), titulo: f.titulo || '', cantidad: Number(f.cantidad), ...(conTipoStock ? { tipoStock: 'CONSIGNA' } : {}), ...(conPrecio ? { precioUnitario: 0, descuentoLinea: descuentoDefault != null ? descuentoDefault : null } : {}) }));
     if (nuevos.length) onItems([...items, ...nuevos]);
   };
 
@@ -41,6 +43,16 @@ export default function MayoristaTablaBlock({ items = [], onItems, conTipoStock 
     copia[i] = { ...copia[i], [campo]: v };
     onItems(copia);
   };
+  const subtotal = (it) => (Number(it.cantidad) || 0) * (Number(it.precioUnitario) || 0) * (1 - (Number(it.descuentoLinea) || 0) / 100);
+  // Disponible en la sabana del cliente (baja de consigna): por articuloId o por codigo de barras.
+  const disponible = (it) => {
+    if (!sabana) return null;
+    if (it.articuloId && sabana[it.articuloId] != null) return sabana[it.articuloId];
+    if (it.ean13 && sabana[`c:${it.ean13}`] != null) return sabana[`c:${it.ean13}`];
+    return 0;
+  };
+
+  const columnas = 4 + (conTipoStock ? 1 : 0) + (conPrecio ? 3 : 0) + (sabana ? 1 : 0);
 
   return (
     <>
@@ -65,43 +77,62 @@ export default function MayoristaTablaBlock({ items = [], onItems, conTipoStock 
             <th>Título</th>
             <th>Cant.</th>
             {conTipoStock && <th>Sale de</th>}
+            {sabana && <th>Sábana</th>}
             {conPrecio && <th>Precio</th>}
+            {conPrecio && <th>Desc. %</th>}
+            {conPrecio && <th>Subtotal</th>}
             <th />
           </tr>
         </thead>
         <tbody>
           {items.length === 0 && (
-            <tr><td colSpan={conTipoStock ? 5 : 4} className="text-muted text-sm">{etiquetaVacio}</td></tr>
+            <tr><td colSpan={columnas} className="text-muted text-sm">{etiquetaVacio}</td></tr>
           )}
-          {items.map((it, i) => (
-            <tr key={i}>
-              <td className="font-mono text-xs">{it.ean13 || '—'}</td>
-              <td>{it.titulo || '(se resuelve al guardar por el código)'}</td>
-              <td style={{ width: 90 }}>
-                <input className="input-os" type="number" min="1" value={it.cantidad} onChange={(e) => cambiar(i, 'cantidad', Number(e.target.value))} />
-              </td>
-              {conTipoStock && (
-                <td style={{ width: 150 }}>
-                  <select className="input-os" value={it.tipoStock || 'CONSIGNA'} onChange={(e) => cambiar(i, 'tipoStock', e.target.value)}>
-                    <option value="CONSIGNA">Consigna</option>
-                    <option value="FIRME">Firme</option>
-                  </select>
+          {items.map((it, i) => {
+            const disp = disponible(it);
+            const excede = sabana && Number(it.cantidad) > disp;
+            return (
+              <tr key={i}>
+                <td className="font-mono text-xs">{it.ean13 || '—'}</td>
+                <td>{it.titulo || '(se resuelve al guardar por el código)'}</td>
+                <td style={{ width: 90 }}>
+                  <input className="input-os" type="number" min="1" value={it.cantidad} onChange={(e) => cambiar(i, 'cantidad', Number(e.target.value))} />
                 </td>
-              )}
-              {conPrecio && (
-                <td style={{ width: 130 }}>
-                  <input className="input-os" type="number" min="0" value={it.precioUnitario || 0} onChange={(e) => cambiar(i, 'precioUnitario', Number(e.target.value))} />
+                {conTipoStock && (
+                  <td style={{ width: 150 }}>
+                    <select className="input-os" value={it.tipoStock || 'CONSIGNA'} onChange={(e) => cambiar(i, 'tipoStock', e.target.value)}>
+                      <option value="CONSIGNA">Consigna</option>
+                      <option value="FIRME">Firme</option>
+                    </select>
+                  </td>
+                )}
+                {sabana && (
+                  <td className="text-xs" style={{ color: excede ? 'var(--danger)' : undefined }} title={excede ? 'No se puede facturar como baja de consigna mas de lo que el cliente tiene en su sábana' : undefined}>
+                    {disp}{excede ? ' ⚠️' : ''}
+                  </td>
+                )}
+                {conPrecio && (
+                  <td style={{ width: 130 }}>
+                    <input className="input-os" type="number" min="0" value={it.precioUnitario || 0} onChange={(e) => cambiar(i, 'precioUnitario', Number(e.target.value))} />
+                  </td>
+                )}
+                {conPrecio && (
+                  <td style={{ width: 90 }}>
+                    <input className="input-os" type="number" min="0" max="100" value={it.descuentoLinea == null ? '' : it.descuentoLinea} placeholder={descuentoDefault != null ? String(descuentoDefault) : '0'} onChange={(e) => cambiar(i, 'descuentoLinea', e.target.value === '' ? null : Number(e.target.value))} />
+                  </td>
+                )}
+                {conPrecio && <td className="text-xs font-mono">${subtotal(it).toLocaleString('es-AR')}</td>}
+                <td>
+                  <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => quitar(i)}>Quitar</button>
                 </td>
-              )}
-              <td>
-                <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => quitar(i)}>Quitar</button>
-              </td>
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <p className="text-sm mt-2">
         Renglones: <strong>{items.length}</strong> · Unidades: <strong>{items.reduce((a, i) => a + Number(i.cantidad || 0), 0)}</strong>
+        {conPrecio && <> · Subtotal: <strong>${items.reduce((a, i) => a + subtotal(i), 0).toLocaleString('es-AR')}</strong></>}
       </p>
     </>
   );
