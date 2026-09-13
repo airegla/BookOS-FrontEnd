@@ -18,7 +18,9 @@ const money = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 // Claves habituales donde las tools devuelven listas (E5).
 const CLAVES_LISTA = ['items', 'articulos', 'resultados', 'filas', 'movimientos', 'ventas', 'compras',
   'clientes', 'proveedores', 'remitos', 'pedidos', 'devoluciones', 'liquidaciones', 'transferencias',
-  'suscripciones', 'usuarios', 'marcadores', 'entradas', 'lotes', 'componentes'];
+  'suscripciones', 'usuarios', 'marcadores', 'entradas', 'lotes', 'componentes',
+  // marcadores y agrupados del catalogo: $ayuda y $editoriales
+  'ayuda', 'editoriales', 'materias'];
 
 function primeraLista(data) {
   if (!data || typeof data !== 'object') return null;
@@ -31,12 +33,14 @@ function primeraLista(data) {
 function etiquetaItem(item) {
   if (item == null) return '(sin dato)';
   if (typeof item !== 'object') return String(item);
-  return item.titulo || item.nombre || item.descripcion || item.label || item.clave
+  return item.comando || item.titulo || item.nombre || item.descripcion || item.label || item.clave
     || item.email || item.codigo || `#${item.id != null ? item.id : '?'}`;
 }
 
 function detalleItem(item) {
   if (item == null || typeof item !== 'object') return '';
+  // Comandos de $ayuda: el detalle es la descripcion.
+  if (item.comando) return item.descripcion || '';
   const partes = [];
   if (item.precio != null || item.precioLista != null) partes.push(money(item.precioLista != null ? item.precioLista : item.precio));
   if (item.stock != null || item.stockFirme != null) partes.push(`stock ${item.stockFirme != null ? item.stockFirme : item.stock}`);
@@ -74,16 +78,18 @@ function BloqueEnvelope({ envelope }) {
   // Modos de los marcadores del kernel (catalogo/filtrado) y listados genericos.
   const lista = primeraLista(data);
   if (lista && lista.lista.length > 0) {
+    // La ayuda muestra todos los comandos (hasta 30); los listados, los primeros 8.
+    const tope = lista.clave === 'ayuda' ? 30 : 8;
     return (
       <div>
         {data.total != null && <div className="text-xs text-muted mb-1">{data.total} resultado(s)</div>}
-        {lista.lista.slice(0, 8).map((item, i) => (
+        {lista.lista.slice(0, tope).map((item, i) => (
           <div key={i} className="text-xs py-0.5 flex justify-between gap-2">
             <span className="truncate">{etiquetaItem(item)}</span>
             <span className="font-mono whitespace-nowrap">{detalleItem(item)}</span>
           </div>
         ))}
-        {lista.lista.length > 8 && <div className="text-xs text-muted">… y {lista.lista.length - 8} más</div>}
+        {lista.lista.length > tope && <div className="text-xs text-muted">… y {lista.lista.length - tope} más</div>}
         <BotonDescarga descarga={envelope.descarga} />
       </div>
     );

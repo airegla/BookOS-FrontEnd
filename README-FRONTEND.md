@@ -129,3 +129,6 @@ src/
   FIRME); el detalle permite **descuento por linea %** con subtotal visible por renglon y un pie con
   Subtotal / Descuento / Total en vivo. Ventas y Remitos ya tenian su formato completo
   (cliente/tipo/descuento global y proveedor/nro/fecha/observaciones respectivamente).
+- **Chat: ayuda y listados de marcadores (E7.9b)**: el render del envelope suma `ayuda`,
+  `editoriales` y `materias` a las claves de lista, muestra `$comando` + su descripcion y corta a
+  30 items en la ayuda (8 en los listados). Ventas/Presupuestos ya estaban.
