@@ -19,13 +19,17 @@ export async function buscarClientes(q, excluir = []) {
 // Articulos para los renglones del mayorista: muestra EAN y precio de lista.
 export async function buscarArticulos(q) {
   const res = await catalogoApi.listar({ search: q, limit: LIMITE });
-  return (res.data || []).map((a) => ({
-    id: a.id,
-    etiqueta: a.titulo,
-    detalle: `${a.ean || a.barras || a.codigo || ''} · ${a.precioLista != null ? `$${Number(a.precioLista).toLocaleString('es-AR')}` : 'sin precio'}`,
-    ean13: a.ean || a.barras || a.codigo || '',
-    precioLista: a.precioLista != null ? Number(a.precioLista) : 0,
-  }));
+  return (res.data || []).map((a) => {
+    // El listado del catalogo devuelve `precio`; aFicha tambien expone `precioLista` en algunos flujos.
+    const precio = a.precioLista != null ? Number(a.precioLista) : (a.precio != null ? Number(a.precio) : null);
+    return {
+      id: a.id,
+      etiqueta: a.titulo,
+      detalle: `${a.ean || a.barras || a.codigo || ''} · ${precio != null ? `$${precio.toLocaleString('es-AR')}` : 'sin precio'}`,
+      ean13: a.ean || a.barras || a.codigo || '',
+      precioLista: precio || 0,
+    };
+  });
 }
 
 export async function buscarProveedores(q) {
