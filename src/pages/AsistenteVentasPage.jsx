@@ -96,8 +96,13 @@ export default function AsistenteVentasPage() {
             ))}
           </div>
         </div>
-        <div className="flex flex-col" style={{ flex: 1, minHeight: 0 }}>
-          <ChatAgente perfil="ventas" titulo="Asistente de ventas" />
+        {/* El chat de ventas vive centrado, con ancho de lectura comodo (500px). El centrado es
+            respecto del AREA disponible: si se abre el panel del Secretario, el area se angosta
+            y el block se reacomoda solo (el margen se recalcula). */}
+        <div className="flex flex-col" style={{ flex: 1, minHeight: 0, alignItems: 'center' }}>
+          <div className="flex flex-col" style={{ flex: 1, minHeight: 0, width: '100%', maxWidth: 500 }}>
+            <ChatAgente perfil="ventas" titulo="Asistente de ventas" />
+          </div>
         </div>
       </div>
     </div>

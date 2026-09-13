@@ -286,21 +286,32 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     }
   };
 
+  // Adjuntos: CSV/TXT como texto (2MB) y Excel/PDF como binario en base64 (6MB). Los binarios
+  // viajan ~33% mas pesados; el limite de la ruta del chat lo contempla.
   const alAdjuntar = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setAviso('El archivo supera 2MB. Probá con una sábana más chica.');
+    const binario = /\.(xlsx|xls|pdf)$/i.test(file.name) || /excel|spreadsheet|pdf/i.test(file.type || '');
+    const limite = binario ? 6 * 1024 * 1024 : 2 * 1024 * 1024;
+    if (file.size > limite) {
+      setAviso(`El archivo supera ${binario ? '6MB' : '2MB'}. Probá con uno más chico.`);
       e.target.value = '';
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setAdjunto({ nombre: file.name, contenido: String(reader.result || '') });
+      if (binario) {
+        const texto = String(reader.result || '');
+        const b64 = texto.includes(',') ? texto.slice(texto.indexOf(',') + 1) : texto;
+        setAdjunto({ nombre: file.name, contenido: b64, base64: true, mime: file.type || '' });
+      } else {
+        setAdjunto({ nombre: file.name, contenido: String(reader.result || '') });
+      }
       setAviso(`Adjunto listo (${file.name}). Escribí tu mensaje y envialo.`);
     };
     reader.onerror = () => setAviso('No se pudo leer el archivo.');
-    reader.readAsText(file);
+    if (binario) reader.readAsDataURL(file);
+    else reader.readAsText(file);
     e.target.value = '';
   };
 
@@ -515,8 +526,8 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
           </div>
         )}
         <div className="flex items-center gap-1 mb-2 flex-wrap">
-          <input ref={inputFileRef} type="file" accept=".csv,.txt,text/csv,text/plain" style={{ display: 'none' }} onChange={alAdjuntar} />
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => inputFileRef.current && inputFileRef.current.click()} title="Adjuntar CSV">📎 Adjuntar</button>
+          <input ref={inputFileRef} type="file" accept=".csv,.txt,.xlsx,.xls,.pdf,text/csv,text/plain,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }} onChange={alAdjuntar} />
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => inputFileRef.current && inputFileRef.current.click()} title="Adjuntar archivo (CSV, Excel o PDF)">📎 Adjuntar</button>
           <button type="button" className="btn btn-ghost text-xs" onClick={copiarChat} title="Copiar conversacion">📋 Copiar</button>
           <button type="button" className="btn btn-ghost text-xs" onClick={exportarChat} title="Exportar conversacion a CSV">⬇ Exportar</button>
           {adjunto && <button type="button" className="btn btn-ghost text-xs text-muted" onClick={() => setAdjunto(null)}>Quitar adjunto</button>}
