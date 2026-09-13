@@ -67,7 +67,7 @@ export const cajaApi = {
   movimiento: (datos) => axiosClient.post('/caja/manual', datos),
   editarMetodo: (id, metodoPago) => axiosClient.put(`/caja/movimientos/${id}/metodo`, { metodoPago }),
   cerrar: (datos) => axiosClient.post('/caja/cerrar', datos),
-  cierres: () => axiosClient.get('/caja/cierres'),
+  cierres: (params = {}) => axiosClient.get('/caja/cierres', { params }),
   detalleCierre: (id) => axiosClient.get(`/caja/cierres/${id}`),
 };
 

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
+import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { autoresApi, materiasApi, editorialesApi, observacionesApi } from '../api/api';
 import { useAppContext } from '../AppContext';
@@ -22,6 +23,8 @@ const FORM_VACIO = { nombre: '', codigo: '', descripcion: '', padreId: '', raiz:
 export default function ReferenciasPage() {
   const [tab, setTab] = useState('autores');
   const [filas, setFilas] = useState([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -33,15 +36,18 @@ export default function ReferenciasPage() {
   const apiDe = (t = tab) => (t === 'autores' ? autoresApi : t === 'materias' ? materiasApi : editorialesApi);
   const nombreEntidad = () => (tab === 'autores' ? 'autor' : tab === 'materias' ? 'materia' : 'editorial');
 
-  const cargar = async (t = tab) => {
+  const cargar = async (t = tab, p = page) => {
     try {
-      const res = await apiDe(t).listar({ search: search || undefined });
+      const res = await apiDe(t).listar({ search: search || undefined, page: p, limit: 25 });
       setFilas(res.data || []);
+      setTotal(res.pagination ? res.pagination.total : (res.data || []).length);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(); }, [tab]); // eslint-disable-line
-  useEffect(() => { setContextoActual({ vista: 'referencias', tab, total: filas.length }); }, [tab, filas.length]); // eslint-disable-line
+  // Al cambiar de solapa vuelve a la pagina 1 y recarga.
+  useEffect(() => { setPage(1); cargar(tab, 1); }, [tab]); // eslint-disable-line
+  useEffect(() => { if (page > 1) cargar(tab, page); }, [page]); // eslint-disable-line
+  useEffect(() => { setContextoActual({ vista: 'referencias', tab, total }); }, [tab, total]); // eslint-disable-line
 
   const abrirAlta = () => { setEditando(null); setForm(FORM_VACIO); setModalAbierto(true); };
   const abrirEdicion = (f) => {
@@ -148,7 +154,7 @@ export default function ReferenciasPage() {
       </div>
 
       <div className="flex items-center gap-2 mb-4">
-        <input className="input-os" style={{ maxWidth: 320 }} placeholder={esAutores ? 'Buscar autor...' : esMaterias ? 'Buscar materia...' : 'Buscar editorial...'} value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') cargar(); }} />
+        <input className="input-os" style={{ maxWidth: 320 }} placeholder={esAutores ? 'Buscar autor...' : esMaterias ? 'Buscar materia...' : 'Buscar editorial...'} value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); cargar(tab, 1); } }} />
         <button type="button" className="btn btn-ghost text-xs" onClick={() => cargar()}>Buscar</button>
         <div className="flex-1" />
         <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy viendo las referencias (${tab}). Hay ${filas.length} registros. ¿Que me sugeris?`)}>Preguntar al Secretario</button>
@@ -156,6 +162,7 @@ export default function ReferenciasPage() {
       </div>
 
       <Table columnas={columnas} filas={filas} vacio={esAutores ? 'Sin autores' : esMaterias ? 'Sin materias' : 'Sin editoriales'} exportable exportarNombre={tab} />
+      <Paginador page={page} total={total} limite={25} onCambiar={setPage} etiqueta={tab} />
 
       <Modal
         abierto={modalAbierto}

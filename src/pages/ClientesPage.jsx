@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
+import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { clientesApi, ctaCteApi } from '../api/api';
 import { useAppContext } from '../AppContext';
@@ -23,16 +24,22 @@ export default function ClientesPage() {
   const [ficha, setFicha] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [busqueda, setBusqueda] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const { setContextoActual, pedirConsulta } = useAppContext();
 
-  const cargar = async (q = busqueda) => {
+  const cargar = async (q = busqueda, p = page) => {
     try {
-      const res = await clientesApi.listar({ search: q });
+      const res = await clientesApi.listar({ search: q, page: p, limit: 25 });
       setClientes(res.data || []);
+      setTotal(res.pagination ? res.pagination.total : (res.data || []).length);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(); }, []); // eslint-disable-line
+  useEffect(() => { cargar(busqueda, 1); }, []); // eslint-disable-line
+  useEffect(() => { if (page > 1) cargar(busqueda, page); }, [page]); // eslint-disable-line
+
+  const buscar = () => { setPage(1); cargar(busqueda, 1); };
 
   const abrirNuevo = () => { setEditando(null); setForm({}); setModal(true); };
   const abrirEditar = (c) => { setEditando(c); setForm(c); setModal(true); };
@@ -107,15 +114,16 @@ export default function ClientesPage() {
             placeholder="Buscar por nombre, documento o email..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') cargar(busqueda); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') buscar(); }}
           />
-          <button type="button" className="btn" onClick={() => cargar(busqueda)}>Buscar</button>
+          <button type="button" className="btn" onClick={buscar}>Buscar</button>
           <button type="button" className="btn btn-primary" onClick={abrirNuevo}>Nuevo cliente</button>
         </div>
       </div>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
       <p className="text-xs text-muted mb-3">El grafo se infiere del comportamiento (rechazos, preferencias), sin pedirle nada al vendedor.</p>
       <Table columnas={columnas} filas={clientes} vacio="Sin clientes" exportable exportarNombre="clientes" />
+      <Paginador page={page} total={total} limite={25} onCambiar={setPage} etiqueta="clientes" />
 
       <Modal abierto={modal} onClose={() => setModal(false)} titulo={editando ? 'Editar cliente' : 'Nuevo cliente'} ancho="680px"
         footer={(

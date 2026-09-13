@@ -28,6 +28,7 @@ export default function InventarioPage() {
   const [busqueda, setBusqueda] = useState('');
   const [filas, setFilas] = useState([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [mensaje, setMensaje] = useState('');
 
   const [transferir, setTransferir] = useState(null); // articulo
@@ -48,15 +49,18 @@ export default function InventarioPage() {
 
   const { setContextoActual, pedirConsulta } = useAppContext();
 
-  const cargar = async (q = busqueda) => {
+  const cargar = async (q = busqueda, p = page) => {
     try {
-      const res = await inventarioApi.stock({ search: q, limit: 50 });
+      const res = await inventarioApi.stock({ search: q, page: p, limit: 50 });
       setFilas(res.data?.filas || []);
       setTotal(res.data?.total || 0);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(''); }, []); // eslint-disable-line
+  useEffect(() => { cargar('', 1); }, []); // eslint-disable-line
+  useEffect(() => { if (page > 1) cargar(busqueda, page); }, [page]); // eslint-disable-line
+
+  const buscar = () => { setPage(1); cargar(busqueda, 1); };
 
   const cargarAjustes = async (p = ajPage) => {
     try {
@@ -157,13 +161,14 @@ export default function InventarioPage() {
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
       <div className="flex gap-2 mb-4">
-        <input className="input-os" style={{ maxWidth: 320 }} placeholder="EAN o titulo..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') cargar(busqueda); }} />
-        <button type="button" className="btn" onClick={() => cargar(busqueda)}>Buscar</button>
+        <input className="input-os" style={{ maxWidth: 320 }} placeholder="EAN o titulo..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') buscar(); }} />
+        <button type="button" className="btn" onClick={buscar}>Buscar</button>
         <div className="flex-1" />
         <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy viendo el inventario (${total} articulos). ¿Que me sugeris reponer o ajustar?`)}>Preguntar al Secretario</button>
       </div>
 
       <Table columnas={columnas} filas={filas} vacio="Busca un articulo" exportable exportarNombre="inventario" />
+      <Paginador page={page} total={total} limite={50} onCambiar={setPage} etiqueta="articulos" />
 
       <Modal abierto={Boolean(transferir)} onClose={() => setTransferir(null)} titulo={transferir ? `Transferir ${transferir.titulo}` : ''} ancho="420px"
         footer={

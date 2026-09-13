@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
+import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { cajaApi, parametrosApi } from '../api/api';
 import { descargarCsv } from '../utils/exportar';
@@ -32,21 +33,26 @@ export default function CajaPage() {
   const [cierreForm, setCierreForm] = useState({ saldoRealDeclarado: '', montoApertura: '', observaciones: '' });
   const [cerrarAbierto, setCerrarAbierto] = useState(false);
   const [detalleCierre, setDetalleCierre] = useState(null);
+  const [pageCierres, setPageCierres] = useState(1);
+  const [totalCierres, setTotalCierres] = useState(0);
   const [pagoEditando, setPagoEditando] = useState(null);
   const [metodoNuevo, setMetodoNuevo] = useState('EFECTIVO');
   const [mensaje, setMensaje] = useState('');
   const { setContextoActual, pedirConsulta } = useAppContext();
 
-  const cargar = async () => {
+  const cargar = async (p = pageCierres) => {
     try {
       const res = await cajaApi.actual();
       setActual(res.data);
-      const hist = await cajaApi.cierres();
-      setCierres(hist.data || []);
+      const hist = await cajaApi.cierres({ page: p, limit: 20 });
+      const data = hist.data || {};
+      setCierres(Array.isArray(data) ? data : data.filas || []);
+      setTotalCierres(Array.isArray(data) ? data.length : data.total || 0);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(); }, []); // eslint-disable-line
+  useEffect(() => { cargar(pageCierres); }, []); // eslint-disable-line
+  useEffect(() => { if (pageCierres > 1) cargar(pageCierres); }, [pageCierres]); // eslint-disable-line
 
   useEffect(() => {
     parametrosApi.categoriasCaja().then((res) => setCategorias(res.data || [])).catch(() => {});
@@ -189,6 +195,7 @@ export default function CajaPage() {
 
       <h3 className="font-semibold mb-2">Historial de cierres Z</h3>
       <Table columnas={columnasCierres} filas={cierres} vacio="Sin cierres" />
+      <Paginador page={pageCierres} total={totalCierres} limite={20} onCambiar={setPageCierres} etiqueta="cierres" />
 
       <Modal abierto={cerrarAbierto} onClose={() => setCerrarAbierto(false)} titulo="Cierre Z (arqueo)" ancho="420px"
         footer={

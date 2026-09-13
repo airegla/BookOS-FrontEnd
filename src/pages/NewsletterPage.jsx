@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
+import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { newsletterApi } from '../api/api';
 import { useAppContext } from '../AppContext';
@@ -13,6 +14,7 @@ import { useAppContext } from '../AppContext';
 export default function NewsletterPage() {
   const [suscriptores, setSuscriptores] = useState([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [mensaje, setMensaje] = useState('');
 
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -21,15 +23,16 @@ export default function NewsletterPage() {
 
   const { setContextoActual, pedirConsulta } = useAppContext();
 
-  const cargar = async () => {
+  const cargar = async (p = page) => {
     try {
-      const res = await newsletterApi.listar({ limit: 200 });
+      const res = await newsletterApi.listar({ page: p, limit: 25 });
       setSuscriptores(res.data?.filas || res.data || []);
       setTotal(res.data?.total || 0);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(); }, []); // eslint-disable-line
+  useEffect(() => { cargar(1); }, []); // eslint-disable-line
+  useEffect(() => { if (page > 1) cargar(page); }, [page]); // eslint-disable-line
   useEffect(() => { setContextoActual({ vista: 'newsletter', suscriptores: total }); }, [total]); // eslint-disable-line
 
   const suscribir = async () => {
@@ -77,6 +80,7 @@ export default function NewsletterPage() {
       </div>
 
       <Table columnas={columnas} filas={suscriptores} vacio="Sin suscriptores" exportable exportarNombre="newsletter" />
+      <Paginador page={page} total={total} limite={25} onCambiar={setPage} etiqueta="suscriptores" />
 
       <Modal abierto={modalAbierto} onClose={() => setModalAbierto(false)} titulo="Nuevo suscriptor" ancho="420px"
         footer={

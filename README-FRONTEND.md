@@ -63,8 +63,10 @@ src/
 
 - **Buscador de articulos (F1)**: `BuscadorArticuloBlock` busca por titulo, autor, editorial o
   EAN13 en un solo campo (usa `/api/catalogo/f7`) y devuelve renglon listo para el carrito.
-- **Paginado (F2)**: `ui/Paginador` (page/limite/total + saltos) aplicado a Ventas (historial),
-  Compras (historial), Remitos y Catalogo; el resto de las tablas queda en la lista de pendientes.
+- **Paginado (F2)**: `ui/Paginador` (page/limite/total + saltos) aplicado a **Ventas, Compras,
+  Remitos, Catalogo, Referencias (autores/materias/editoriales), Clientes, Proveedores, CtaCte,
+  Caja, Logs del kernel, Inventario y Newsletter**. Los listados ya no cargan todo de un golpe:
+  el backend devuelve `{page, limit, total, totalPages}` y la page pide solo la pagina visible.
 - **Menu por flujo (F3)**: navbar agrupada (Operacion, Comercial, Maestros, Kernel) y nueva
   `VentasPeriodoPage` (comprobantes del dia/periodo con totales); el remito es unico (no hay dos
   formas de hacer un remito).

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
+import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { ctaCteApi, clientesApi, proveedoresApi } from '../api/api';
 import { useAppContext } from '../AppContext';
@@ -21,6 +22,8 @@ export default function CtaCtePage({ lado = 'cliente' }) {
   const [clienteId, setClienteId] = useState('');
   const [proveedorId, setProveedorId] = useState('');
   const [cuenta, setCuenta] = useState({ movimientos: [], saldoActual: 0 });
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [mensaje, setMensaje] = useState('');
   const [comportamiento, setComportamiento] = useState(null);
   const [estudiando, setEstudiando] = useState(false);
@@ -40,20 +43,28 @@ export default function CtaCtePage({ lado = 'cliente' }) {
 
   const seleccionado = tipo === 'cliente' ? clienteId : proveedorId;
 
-  const cargar = async (t = tipo, cId = clienteId, pId = proveedorId) => {
+  const cargar = async (t = tipo, cId = clienteId, pId = proveedorId, p = page) => {
     if (t === 'cliente' && !cId) { setCuenta({ movimientos: [], saldoActual: 0 }); return; }
     if (t === 'proveedor' && !pId) { setCuenta({ movimientos: [], saldoActual: 0 }); return; }
     try {
-      const res = await ctaCteApi.estadoCuenta(t === 'cliente' ? { clienteId: cId } : { proveedorId: pId });
-      setCuenta(res.data || { movimientos: [], saldoActual: 0 });
+      const res = await ctaCteApi.estadoCuenta(t === 'cliente' ? { clienteId: cId, page: p, limit: 20 } : { proveedorId: pId, page: p, limit: 20 });
+      const data = res.data || { movimientos: [], saldoActual: 0 };
+      setCuenta(data);
+      setTotal(data.total || (data.movimientos || []).length);
       setMensaje('');
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
   useEffect(() => {
-    cargar();
+    setPage(1);
+    cargar(tipo, clienteId, proveedorId, 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo, clienteId, proveedorId]);
+
+  useEffect(() => {
+    if (page > 1) cargar(tipo, clienteId, proveedorId, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   // Contexto para el Secretario (para que pueda operar esta vista).
   useEffect(() => {
@@ -181,6 +192,7 @@ export default function CtaCtePage({ lado = 'cliente' }) {
         <span className="text-sm">Saldo actual: <strong style={{ color: cuenta.saldoActual >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmt(cuenta.saldoActual)}</strong></span>
       </div>
       <Table columnas={columnas} filas={cuenta.movimientos} vacio="Selecciona un cliente o proveedor" exportable exportarNombre="cuenta_corriente" />
+      <Paginador page={page} total={total} limite={20} onCambiar={setPage} etiqueta="movimientos" />
 
       <Modal abierto={reciboAbierto} onClose={() => setReciboAbierto(false)} titulo={`Nuevo ${tipo === 'cliente' ? 'cobro' : 'pago'}`} ancho="420px"
         footer={

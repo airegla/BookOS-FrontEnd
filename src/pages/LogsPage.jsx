@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
 import Modal from '../ui/Modal';
+import Paginador from '../ui/Paginador';
 import { kernelApi } from '../api/api';
 import { descargarCsv, descargarDesdeServidor } from '../utils/exportar';
 
@@ -39,6 +40,7 @@ export default function LogsPage() {
   const [vista, setVista] = useState('actividad');
   const [filas, setFilas] = useState([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [filtros, setFiltros] = useState({ modulo: '', ruta: '', proveedor: '', q: '' });
   const [etapa, setEtapa] = useState('');
   const [soloOk, setSoloOk] = useState('');
@@ -69,7 +71,7 @@ export default function LogsPage() {
     setAviso('');
     try {
       if (vista === 'actividad') {
-        const params = { limit: 150 };
+        const params = { limit: 50, page };
         for (const [k, v] of Object.entries(filtros)) if (v) params[k] = v;
         const res = await kernelApi.registro(params);
         setFilas(res.data.filas || []);
@@ -87,9 +89,12 @@ export default function LogsPage() {
     } finally {
       setCargando(false);
     }
-  }, [vista, filtros, etapa, soloOk]);
+  }, [vista, filtros, etapa, soloOk, page]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Cambiar de vista o de filtros vuelve a la primera pagina.
+  useEffect(() => { setPage(1); }, [vista, filtros, etapa, soloOk]); // eslint-disable-line
 
   const descargarActividad = () => {
     const params = new URLSearchParams({ limit: '500', descargar: 'true' });
@@ -206,6 +211,10 @@ export default function LogsPage() {
           </tbody>
         </table>
       </div>
+
+      {vista === 'actividad' && (
+        <Paginador page={page} total={total} limite={50} onCambiar={setPage} etiqueta="logs" />
+      )}
 
       <Modal
         abierto={Boolean(detalle)}

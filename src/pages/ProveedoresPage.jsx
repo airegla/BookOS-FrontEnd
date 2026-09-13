@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
+import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { proveedoresApi, transportesApi, ctaCteApi } from '../api/api';
 
@@ -19,15 +20,21 @@ export default function ProveedoresPage() {
   const [ficha, setFicha] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [busqueda, setBusqueda] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const cargar = async (q = busqueda) => {
+  const cargar = async (q = busqueda, p = page) => {
     try {
-      const res = await proveedoresApi.listar({ search: q });
+      const res = await proveedoresApi.listar({ search: q, page: p, limit: 25 });
       setProveedores(res.data || []);
+      setTotal(res.pagination ? res.pagination.total : (res.data || []).length);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(); }, []); // eslint-disable-line
+  useEffect(() => { cargar(busqueda, 1); }, []); // eslint-disable-line
+  useEffect(() => { if (page > 1) cargar(busqueda, page); }, [page]); // eslint-disable-line
+
+  const buscar = () => { setPage(1); cargar(busqueda, 1); };
   useEffect(() => {
     transportesApi.listar().then((res) => setTransportes(res.data || [])).catch(() => {});
   }, []);
@@ -94,14 +101,15 @@ export default function ProveedoresPage() {
             placeholder="Buscar por nombre, CUIT o email..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') cargar(busqueda); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') buscar(); }}
           />
-          <button type="button" className="btn" onClick={() => cargar(busqueda)}>Buscar</button>
+          <button type="button" className="btn" onClick={buscar}>Buscar</button>
           <button type="button" className="btn btn-primary" onClick={abrirNuevo}>Nuevo proveedor</button>
         </div>
       </div>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
       <Table columnas={columnas} filas={proveedores} vacio="Sin proveedores" exportable exportarNombre="proveedores" />
+      <Paginador page={page} total={total} limite={25} onCambiar={setPage} etiqueta="proveedores" />
 
       <Modal abierto={modal} onClose={() => setModal(false)} titulo={editando ? 'Editar proveedor' : 'Nuevo proveedor'} ancho="680px"
         footer={(
