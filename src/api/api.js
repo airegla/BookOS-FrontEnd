@@ -95,6 +95,7 @@ export const pedidosProveedorApi = {
 
 export const clientesApi = {
   listar: (params = {}) => axiosClient.get('/clientes', { params }),
+  porEmail: (email) => axiosClient.get('/clientes/por-email', { params: { email } }),
   crear: (datos) => axiosClient.post('/clientes', datos),
   actualizar: (id, datos) => axiosClient.put(`/clientes/${id}`, datos),
   eliminar: (id) => axiosClient.delete(`/clientes/${id}`),

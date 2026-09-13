@@ -14,7 +14,7 @@ import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
 import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
 import Paginador from '../ui/Paginador';
-import { ventasApi, clientesApi, agenteApi, exportacionApi, parametrosApi } from '../api/api';
+import { ventasApi, clientesApi, agenteApi, exportacionApi, parametrosApi, crmApi } from '../api/api';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
 import usePersistentWork from '../hooks/usePersistentWork';
@@ -24,6 +24,9 @@ const TIPOS = ['FACTURA_B', 'FACTURA_C', 'PEDIDO', 'PRESUPUESTO', 'GIFTCARD'];
 const METODOS = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CTA_CTE'];
 
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
+
+// P6: el genero declarado sugiere el perfil de tematicas (docente se elige a mano).
+const sugerirPerfil = (genero) => (genero === 'M' ? 'lectura_masculina' : genero === 'F' ? 'lectura_femenina' : '');
 
 function BadgeEstado({ venta }) {
   const color = venta.estado === 'ANULADA' ? 'var(--danger)' : 'var(--success)';
@@ -51,9 +54,13 @@ export default function VentasPage() {
   const [page, setPage] = useState(1);
   const [totalHistorial, setTotalHistorial] = useState(0);
 
-  // multi-pago, email, pendientes
+  // multi-pago, email del comprobante, ficha marcada, pendientes
   const [pagos, setPagos] = useState([]);
+  const [emailComprobante, setEmailComprobante] = useState('');
   const [enviarEmail, setEnviarEmail] = useState(false);
+  const [ficha, setFicha] = useState(null); // cliente marcado (nacio en el POS con solo el mail)
+  const [fichaForm, setFichaForm] = useState({});
+  const [perfiles, setPerfiles] = useState([]);
   const [pendientesAbierto, setPendientesAbierto] = useState(false);
   const [pendientes, setPendientes] = useState([]);
 
@@ -74,7 +81,14 @@ export default function VentasPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => { setEnviarEmail(Boolean(clienteActual?.email)); }, [clienteId]); // eslint-disable-line
+  // El mail de la ficha precarga el comprobante: lo que se manda es lo que se ve (se puede pisar).
+  useEffect(() => {
+    const em = clienteActual?.email || '';
+    setEmailComprobante(em);
+    setEnviarEmail(Boolean(em));
+  }, [clienteId]); // eslint-disable-line
+
+  useEffect(() => { crmApi.perfiles().then((res) => setPerfiles(res.data || [])).catch(() => {}); }, []);
 
   const cargarHistorial = async (p = page) => {
     try {
@@ -148,8 +162,8 @@ export default function VentasPage() {
   const vuelto = (Number(recibido) || 0) - total;
 
   const abrirCobro = () => {
-    if ((tipo === 'PEDIDO' || tipo === 'PRESUPUESTO') && !clienteId) {
-      setMensaje('⚠️ Pedido/Presupuesto requieren un cliente especifico (no consumidor final).');
+    if ((tipo === 'PEDIDO' || tipo === 'PRESUPUESTO') && !clienteId && !emailComprobante.trim()) {
+      setMensaje('⚠️ Pedido/Presupuesto requieren un cliente o un mail (el mail crea la ficha).');
       return;
     }
     setPagos([{ metodoPago, monto: total }]);
@@ -163,6 +177,40 @@ export default function VentasPage() {
   const agregarPago = () => setPagos((prev) => [...prev, { metodoPago: 'EFECTIVO', monto: 0 }]);
   const quitarPago = (i) => setPagos((prev) => prev.filter((_, idx) => idx !== i));
 
+  // P6: el mail es la identidad. Si ya existe ficha, el cliente se selecciona solo; si nacio en
+  // el mostrador y quedo incompleta (datosPendientes), salta el modal para completarla.
+  const revisarEmail = async () => {
+    const em = emailComprobante.trim();
+    if (!em.includes('@')) return;
+    try {
+      const res = await clientesApi.porEmail(em);
+      const lista = res.data?.clientes || [];
+      if (!lista.length) return;
+      const c = lista[0];
+      setClienteId(c.id);
+      if (c.datosPendientes) {
+        setFichaForm({ nombre: c.nombre || '', telefono: c.telefono || '', genero: c.genero || '', perfil: c.perfil || '' });
+        setFicha(c);
+      }
+    } catch (err) { /* el reconocimiento del mail no debe molestar al mostrador */ }
+  };
+
+  const guardarFicha = async () => {
+    if (!ficha) return;
+    try {
+      await clientesApi.actualizar(ficha.id, {
+        nombre: fichaForm.nombre,
+        telefono: fichaForm.telefono,
+        genero: fichaForm.genero || null,
+        perfil: fichaForm.perfil || null,
+        datosPendientes: false,
+      });
+      setMensaje(fichaForm.perfil ? `Ficha completada · perfil "${fichaForm.perfil}" guardado ✓` : `Ficha de ${fichaForm.nombre} completada ✓`);
+      setFicha(null);
+      clientesApi.listar().then((r) => setClientes(r.data || [])).catch(() => {});
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
   const cobrar = async () => {
     try {
       const payload = {
@@ -171,6 +219,8 @@ export default function VentasPage() {
         metodoPago,
         clienteId: clienteId || null,
         descuentoGlobal,
+        emailComprobante: emailComprobante.trim() || null,
+        enviarComprobante: enviarEmail && Boolean(emailComprobante.trim()),
       };
       if (pagos.length > 1 || tipo === 'PEDIDO' || tipo === 'PRESUPUESTO') {
         const esPendiente = tipo === 'PEDIDO' || tipo === 'PRESUPUESTO';
@@ -201,11 +251,15 @@ export default function VentasPage() {
         await descargarDesdeServidor(p.data.url).catch(() => {});
       }
 
-      setMensaje(`${res.data.tipo} #${ventaId} por ${fmt(res.data.total)} ✓`);
+      const envio = res.data.envio;
+      setMensaje(`${res.data.tipo} #${ventaId} por ${fmt(res.data.total)} ✓${res.data.fichaCreada ? ' · ficha nueva por el mail' : ''}${
+        envio ? (envio.enviado ? ` · comprobante enviado${envio.redirigido ? ' (MODO PRUEBA)' : ''}` : ` · mail no enviado: ${envio.motivo || 'sin configurar'}`) : ''}`);
       setCobrarAbierto(false);
       setItems([]);
       setDescuentoGlobal(0);
       setTipo('FACTURA_B');
+      setEmailComprobante('');
+      setEnviarEmail(false);
       cargarHistorial();
     } catch (err) {
       setMensaje(`⚠️ ${err.message}`);
@@ -315,12 +369,19 @@ export default function VentasPage() {
             <input className="input-os" type="number" min="0" value={descuentoGlobal} onChange={(e) => setDescuentoGlobal(Number(e.target.value) || 0)} />
           </label>
         </div>
-        {clienteActual?.email && (
-          <label className="flex items-center gap-2 mt-3 text-sm">
-            <input type="checkbox" checked={enviarEmail} onChange={(e) => setEnviarEmail(e.target.checked)} />
-            <span>Capturar email para newsletter (<span className="font-mono text-xs">{clienteActual.email}</span>)</span>
+        <div className="grid md:grid-cols-4 gap-3 mt-3">
+          <label className="block md:col-span-2">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Email del comprobante</span>
+            <input className="input-os" type="email" placeholder="cliente@mail.com" value={emailComprobante} onChange={(e) => setEmailComprobante(e.target.value)} onBlur={revisarEmail} />
           </label>
-        )}
+          <label className="flex items-center gap-2 text-sm md:mt-5 md:col-span-2">
+            <input type="checkbox" checked={enviarEmail} disabled={!emailComprobante.trim()} onChange={(e) => setEnviarEmail(e.target.checked)} />
+            <span>Enviar el comprobante por mail</span>
+          </label>
+        </div>
+        <p className="text-xs text-muted mt-2">
+          Sin cliente elegido, el mail crea la ficha (marcada) y la venta queda a su nombre: es la identidad del seguimiento y del newsletter.
+        </p>
         <div className="flex justify-end gap-2 mt-3">
           <button type="button" className="btn btn-ghost text-xs" onClick={cargarPendientes}>Pendientes</button>
           <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy armando una ${tipo} con ${items.length} items. Sugerime titulos para completarla.`)}>
@@ -410,6 +471,50 @@ export default function VentasPage() {
             : tipo === 'GIFTCARD'
               ? 'La giftcard no descuenta stock; se genera un PDF al confirmar.'
               : 'Al confirmar se descuenta stock y se registra el outcome de las recomendaciones del Secretario.'}
+        </p>
+      </Modal>
+
+      {/* P6: ficha marcada incompleta (nacio en el mostrador con solo el mail) */}
+      <Modal abierto={Boolean(ficha)} onClose={() => setFicha(null)} titulo={ficha ? `Completar ficha - ${ficha.nombre}` : ''} ancho="500px"
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setFicha(null)}>Dejar para despues</button>
+            <button type="button" className="btn btn-primary" disabled={!fichaForm.nombre} onClick={guardarFicha}>Guardar</button>
+          </>
+        }
+      >
+        <p className="text-sm mb-3">
+          Este mail ya es un cliente: se creo en el mostrador con solo la direccion.
+          Completa lo que sepas y la proxima vez no se pregunta.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Nombre</span>
+            <input className="input-os" value={fichaForm.nombre || ''} onChange={(e) => setFichaForm({ ...fichaForm, nombre: e.target.value })} />
+          </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Telefono</span>
+            <input className="input-os" value={fichaForm.telefono || ''} onChange={(e) => setFichaForm({ ...fichaForm, telefono: e.target.value })} />
+          </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Genero</span>
+            <select className="input-os" value={fichaForm.genero || ''} onChange={(e) => { const g = e.target.value; setFichaForm((f) => ({ ...f, genero: g, perfil: f.perfil || sugerirPerfil(g) })); }}>
+              <option value="">—</option>
+              <option value="M">M</option>
+              <option value="F">F</option>
+              <option value="X">X</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Perfil de lectura</span>
+            <select className="input-os" value={fichaForm.perfil || ''} onChange={(e) => setFichaForm({ ...fichaForm, perfil: e.target.value })}>
+              <option value="">—</option>
+              {perfiles.map((p) => <option key={p.clave} value={p.clave}>{p.etiqueta || p.clave}</option>)}
+            </select>
+          </label>
+        </div>
+        <p className="text-xs text-muted mt-3">
+          El perfil siembra las materias del cliente como intereses y lo hace entrar en las campanas por perfil.
         </p>
       </Modal>
 

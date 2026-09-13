@@ -3,7 +3,7 @@
 // descripcion: suscriptores del newsletter (integrado al CRM). Altas/bajas
 //   manuales y listado exportable.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
@@ -20,12 +20,14 @@ export default function NewsletterPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
+  const [estadoFiltro, setEstadoFiltro] = useState('');
+  const primerFiltro = useRef(true);
 
   const { setContextoActual, pedirConsulta } = useAppContext();
 
   const cargar = async (p = page) => {
     try {
-      const res = await newsletterApi.listar({ page: p, limit: 25 });
+      const res = await newsletterApi.listar({ page: p, limit: 25, estado: estadoFiltro || undefined });
       setSuscriptores(res.data?.filas || res.data || []);
       setTotal(res.data?.total || 0);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
@@ -33,6 +35,11 @@ export default function NewsletterPage() {
 
   useEffect(() => { cargar(1); }, []); // eslint-disable-line
   useEffect(() => { if (page > 1) cargar(page); }, [page]); // eslint-disable-line
+  useEffect(() => {
+    if (primerFiltro.current) { primerFiltro.current = false; return; }
+    setPage(1);
+    cargar(1);
+  }, [estadoFiltro]); // eslint-disable-line
   useEffect(() => { setContextoActual({ vista: 'newsletter', suscriptores: total }); }, [total]); // eslint-disable-line
 
   const suscribir = async () => {
@@ -45,10 +52,19 @@ export default function NewsletterPage() {
   };
 
   const darDeBaja = async (em) => {
-    if (!window.confirm(`¿Dar de baja a ${em}?`)) return;
+    if (!window.confirm(`¿Dar de baja a ${em}? Deja de recibir y una venta posterior no lo revive.`)) return;
     try {
       await newsletterApi.darDeBaja(em);
-      setMensaje('Baja aplicada ✓');
+      setMensaje('Baja aplicada ✓ (logica: aunque vuelva a comprar, sigue de baja)');
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  // Alta explicita: es la unica via que reactiva una baja.
+  const reactivar = async (em) => {
+    try {
+      await newsletterApi.suscribir({ email: em });
+      setMensaje('Suscriptor reactivado ✓');
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -57,11 +73,15 @@ export default function NewsletterPage() {
     { clave: 'id', titulo: 'ID' },
     { clave: 'email', titulo: 'Email' },
     { clave: 'nombre', titulo: 'Nombre' },
+    { clave: 'estado', titulo: 'Estado', render: (s) => (
+      <span className="agente-badge" style={{ color: s.estado === 'BAJA' ? 'var(--danger)' : 'var(--success)', borderColor: s.estado === 'BAJA' ? 'var(--danger)' : 'var(--success)' }}>{s.estado}</span>
+    ) },
+    { clave: 'cliente', titulo: 'Cliente', render: (s) => (s.cliente ? s.cliente.nombre : '—'), valorExport: (s) => (s.cliente ? s.cliente.nombre : '') },
     { clave: 'origen', titulo: 'Origen', render: (s) => <span className="agente-badge">{s.origen}</span> },
     { clave: 'fechaRegistro', titulo: 'Fecha', render: (s) => new Date(s.fechaRegistro).toLocaleDateString('es-AR'), valorExport: (s) => new Date(s.fechaRegistro).toLocaleDateString('es-AR') },
-    { clave: 'acciones', titulo: '', render: (s) => (
-      <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => darDeBaja(s.email)}>Dar de baja</button>
-    ) },
+    { clave: 'acciones', titulo: '', render: (s) => (s.estado === 'BAJA'
+      ? <button type="button" className="btn btn-ghost text-xs" onClick={() => reactivar(s.email)}>Reactivar</button>
+      : <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => darDeBaja(s.email)}>Dar de baja</button>) },
   ];
 
   return (
@@ -75,6 +95,11 @@ export default function NewsletterPage() {
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
       <div className="flex justify-end gap-2 mb-4">
+        <select className="input-os" style={{ maxWidth: 170 }} value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}>
+          <option value="">Todos los estados</option>
+          <option value="ALTA">Solo activos</option>
+          <option value="BAJA">Solo bajas</option>
+        </select>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Tengo ${total} suscriptores al newsletter. ¿Que me sugeris?`)}>Preguntar al Secretario</button>
         <button type="button" className="btn btn-primary text-xs" onClick={() => setModalAbierto(true)}>+ Suscriptor</button>
       </div>

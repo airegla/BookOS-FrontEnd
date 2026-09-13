@@ -9,7 +9,7 @@ import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
-import { clientesApi, ctaCteApi } from '../api/api';
+import { clientesApi, ctaCteApi, crmApi } from '../api/api';
 import InteresesClienteBlock from '../blocks/InteresesClienteBlock';
 import { useAppContext } from '../AppContext';
 
@@ -27,7 +27,11 @@ export default function ClientesPage() {
   const [busqueda, setBusqueda] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [perfiles, setPerfiles] = useState([]);
   const { setContextoActual, pedirConsulta } = useAppContext();
+
+  // Perfiles vigentes de tematicas (los que usa la siembra y el segmento de campanas).
+  useEffect(() => { crmApi.perfiles().then((res) => setPerfiles(res.data || [])).catch(() => {}); }, []);
 
   const cargar = async (q = busqueda, p = page) => {
     try {
@@ -148,6 +152,22 @@ export default function ClientesPage() {
           </label>
           <Input label="Telefono" value={form.telefono || ''} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
           <Input label="Email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Genero</span>
+            <select className="input-os" value={form.genero || ''} onChange={(e) => setForm({ ...form, genero: e.target.value || null })}>
+              <option value="">—</option>
+              <option value="M">M</option>
+              <option value="F">F</option>
+              <option value="X">X</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Perfil de lectura</span>
+            <select className="input-os" value={form.perfil || ''} onChange={(e) => setForm({ ...form, perfil: e.target.value || null })}>
+              <option value="">—</option>
+              {perfiles.map((p) => <option key={p.clave} value={p.clave}>{p.etiqueta || p.clave}</option>)}
+            </select>
+          </label>
           <Input label="Localidad" value={form.localidad || ''} onChange={(e) => setForm({ ...form, localidad: e.target.value })} />
         </div>
         <Input label="Direccion" value={form.direccion || ''} onChange={(e) => setForm({ ...form, direccion: e.target.value })} />
@@ -190,6 +210,10 @@ export default function ClientesPage() {
               <div><span className="text-muted">Telefono: </span>{ficha.cliente.telefono || '-'}</div>
               <div><span className="text-muted">Email: </span>{ficha.cliente.email || '-'}</div>
               <div><span className="text-muted">Localidad: </span>{ficha.cliente.localidad || '-'}</div>
+              <div><span className="text-muted">Genero: </span>{ficha.cliente.genero || '-'}</div>
+              <div><span className="text-muted">Perfil: </span>{ficha.cliente.perfil || '-'}</div>
+              {ficha.cliente.origen && <div><span className="text-muted">Origen: </span>{ficha.cliente.origen}</div>}
+              {ficha.cliente.datosPendientes && <div className="col-span-2" style={{ color: 'var(--accent)' }}>Ficha incompleta: nacio en el mostrador con solo el mail. Se completa al volver a pasar ese mail por Facturar.</div>}
               <div className="col-span-2"><span className="text-muted">Direccion: </span>{ficha.cliente.direccion || '-'}</div>
               <div><span className="text-muted">Lista: </span>{ficha.cliente.esMayorista ? `Mayorista${ficha.cliente.descuentoFijo ? ` (-${ficha.cliente.descuentoFijo}%)` : ''}` : 'Minorista'}</div>
               <div><span className="text-muted">Plazo de pago: </span>{ficha.cliente.diasPlazoPago ? `${ficha.cliente.diasPlazoPago} dias` : '-'}</div>
