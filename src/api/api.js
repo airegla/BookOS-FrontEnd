@@ -65,6 +65,9 @@ export const remitosApi = {
   anular: (id) => axiosClient.post(`/remitos/${id}/anular`),
   listar: (params = {}) => axiosClient.get('/remitos', { params }),
   obtener: (id) => axiosClient.get(`/remitos/${id}`),
+  csv: (id) => axiosClient.get(`/remitos/${id}/csv`),
+  pdf: (id) => axiosClient.get(`/remitos/${id}/pdf`),
+  mail: (id, payload = {}) => axiosClient.post(`/remitos/${id}/mail`, payload),
 };
 
 export const cajaApi = {
@@ -88,6 +91,9 @@ export const comprasApi = {
   anular: (id) => axiosClient.post(`/compras/${id}/anular`),
   listar: (params = {}) => axiosClient.get('/compras', { params }),
   obtener: (id) => axiosClient.get(`/compras/${id}`),
+  csv: (id) => axiosClient.get(`/compras/${id}/csv`),
+  pdf: (id) => axiosClient.get(`/compras/${id}/pdf`),
+  mail: (id, payload = {}) => axiosClient.post(`/compras/${id}/mail`, payload),
 };
 
 export const pedidosProveedorApi = {

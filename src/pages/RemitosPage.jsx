@@ -18,6 +18,7 @@ import Paginador from '../ui/Paginador';
 import SelectBuscador from '../ui/SelectBuscador';
 import { buscarProveedores } from '../utils/selectores';
 import { remitosApi } from '../api/api';
+import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
@@ -113,6 +114,26 @@ export default function RemitosPage() {
     setContextoActual({ remitoId: remito.id, items: remito.items, estado: remito.estado });
   };
 
+  // E14: descarga por documento — CSV/PDF al storage y mail con adjuntos (MODO PRUEBA si esta activo).
+  const descargarRemito = async (r, formato) => {
+    try {
+      const res = await remitosApi[formato](r.id);
+      const d = res.data || {};
+      await descargarDesdeServidor(`/archivos/${d.archivoId}/descarga`, d.nombre);
+      setMensaje(`${d.nombre} descargado ✓`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const enviarRemitoMail = async (r) => {
+    try {
+      const res = await remitosApi.mail(r.id);
+      const d = res.data || {};
+      setMensaje(d.enviado
+        ? `Remito enviado a ${d.a || 'el proveedor'}${d.redirigido ? ' (MODO PRUEBA)' : ''} ✓`
+        : `⚠️ No se pudo enviar: ${d.motivo || 'sin configurar'}`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
   const cruzar = async (id) => {
     try {
       const res = await remitosApi.cruzar(id);
@@ -149,13 +170,17 @@ export default function RemitosPage() {
   const columnas = [
     { clave: 'id', titulo: 'ID' },
     { clave: 'numero', titulo: 'Nro', render: (r) => r.numero || '—' },
-    { clave: 'proveedor', titulo: 'Proveedor' },
+    // El listado devuelve el proveedor como objeto {id, nombre}: render explicito (antes crasheaba el <td>).
+    { clave: 'proveedor', titulo: 'Proveedor', render: (r) => (r.proveedor ? r.proveedor.nombre : '—'), valorExport: (r) => (r.proveedor ? r.proveedor.nombre : '') },
     { clave: 'tipoStockAfectado', titulo: 'Ingreso', render: (r) => <span className="agente-badge">{r.tipoStockAfectado || 'CONSIGNA'}</span> },
     { clave: 'fecha', titulo: 'Fecha', render: (r) => (r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR') : '—') },
     { clave: 'estado', titulo: 'Estado' },
     { clave: 'acciones', titulo: '', render: (r) => (
       <div className="flex gap-2">
         <button type="button" className="btn btn-ghost text-xs" onClick={() => ver(r)}>Ver</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarRemito(r, 'csv')}>CSV</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarRemito(r, 'pdf')}>PDF</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarRemitoMail(r)}>Mail</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => cruzar(r.id)}>Cruzar faltantes</button>
         {(r.estado === 'pendiente' || r.estado === 'cruzado') && (
           <button type="button" className="btn btn-primary text-xs" onClick={() => confirmarIngreso(r.id)}>Confirmar ingreso</button>

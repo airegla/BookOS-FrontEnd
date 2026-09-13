@@ -18,7 +18,7 @@ import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
 import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import Paginador from '../ui/Paginador';
-import { descargarCsv } from '../utils/exportar';
+import { descargarCsv, descargarDesdeServidor } from '../utils/exportar';
 import SelectBuscador from '../ui/SelectBuscador';
 import { buscarProveedores } from '../utils/selectores';
 import { comprasApi, observacionesApi, pedidosProveedorApi } from '../api/api';
@@ -139,6 +139,26 @@ export default function ComprasPage() {
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
+  // E14: descarga por documento — CSV/PDF al storage y mail con adjuntos (MODO PRUEBA si esta activo).
+  const descargarCompra = async (c, formato) => {
+    try {
+      const res = await comprasApi[formato](c.id);
+      const d = res.data || {};
+      await descargarDesdeServidor(`/archivos/${d.archivoId}/descarga`, d.nombre);
+      setMensaje(`${d.nombre} descargado ✓`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const enviarCompraMail = async (c) => {
+    try {
+      const res = await comprasApi.mail(c.id);
+      const d = res.data || {};
+      setMensaje(d.enviado
+        ? `Comprobante enviado a ${d.a || 'el proveedor'}${d.redirigido ? ' (MODO PRUEBA)' : ''} ✓`
+        : `⚠️ No se pudo enviar: ${d.motivo || 'sin configurar'}`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
   // Detalle de compra (bookerp: cabecera + renglones + export). El "Ver" inyecta el contexto al Secretario.
   const verCompra = async (id) => {
     try {
@@ -223,6 +243,9 @@ export default function ComprasPage() {
     { clave: 'acciones', titulo: '', render: (c) => (
       <div className="flex gap-2">
         <button type="button" className="btn btn-ghost text-xs" onClick={() => verCompra(c.id)}>Ver</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarCompra(c, 'csv')}>CSV</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarCompra(c, 'pdf')}>PDF</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarCompraMail(c)}>Mail</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => observar(c.id)}>🧠</button>
         {c.estado !== 'ANULADA' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anular(c.id)}>Anular</button>}
       </div>
