@@ -33,6 +33,8 @@ import LogsPage from './pages/LogsPage';
 import ColaPage from './pages/ColaPage';
 import MemoriaPage from './pages/MemoriaPage';
 import AgentePage from './pages/AgentePage';
+import PedidosPage from './pages/PedidosPage';
+import RadarPage from './pages/RadarPage';
 import AsistenteVentasPage from './pages/AsistenteVentasPage';
 import ConfigCrmPage from './pages/ConfigCrmPage';
 import CrmEnConstruccion from './pages/CrmEnConstruccion';
@@ -151,20 +153,8 @@ export default function App() {
           {vista === 'Cola' && <ColaPage />}
           {vista === 'Memoria' && <MemoriaPage esAdmin={esAdmin} />}
           {vista === 'Asistente' && <AsistenteVentasPage />}
-          {vista === 'Pedidos' && (
-            <CrmEnConstruccion
-              titulo="Pedidos de cliente"
-              etapa="E-BR2"
-              detalle="El ciclo del titulo que no esta en stock: alta, agrupacion por proveedor, mail de control y deteccion del ingreso por el ledger."
-            />
-          )}
-          {vista === 'Radar' && (
-            <CrmEnConstruccion
-              titulo="Radar"
-              etapa="E-BR2"
-              detalle="Seguimiento por estados (Pendiente -> Solicitado -> Ingresado -> Notificado) con acciones, paginador y export."
-            />
-          )}
+          {vista === 'Pedidos' && <PedidosPage />}
+          {vista === 'Radar' && <RadarPage />}
           {vista === 'Propuestas' && (
             <CrmEnConstruccion
               titulo="Propuestas de titulos"

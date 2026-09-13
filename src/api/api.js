@@ -118,8 +118,20 @@ export const usuariosApi = {
   eliminar: (id) => axiosClient.delete(`/usuarios/${id}`),
 };
 
-export const propuestasApi = {
-  listar: (soloPendientes = false) => axiosClient.get('/propuestas', { params: { soloPendientes } }),
+// CRM (doc 06): pedidos de clientes, grupos y despacho, radar de ingresos y notificaciones.
+export const crmApi = {
+  resumen: () => axiosClient.get('/crm/resumen'),
+  pedidos: (params = {}) => axiosClient.get('/crm/pedidos', { params }),
+  crearPedido: (datos) => axiosClient.post('/crm/pedidos', datos),
+  estadoPedido: (id, estado, forzar = false) => axiosClient.put(`/crm/pedidos/${id}/estado`, { estado, forzar }),
+  grupos: () => axiosClient.get('/crm/grupos'),
+  despachar: (crearPedidoProveedor = false) => axiosClient.post('/crm/despachar', { crearPedidoProveedor }),
+  verificarIngresos: () => axiosClient.post('/crm/verificar-ingresos'),
+  notificarIngresos: () => axiosClient.post('/crm/notificar-ingresos'),
+  notificarAgotados: () => axiosClient.post('/crm/notificar-agotados'),
+};
+
+export const propuestasApi = {  listar: (soloPendientes = false) => axiosClient.get('/propuestas', { params: { soloPendientes } }),
   aprobar: (id) => axiosClient.post(`/propuestas/${id}/aprobar`),
   rechazar: (id) => axiosClient.post(`/propuestas/${id}/rechazar`),
 };
