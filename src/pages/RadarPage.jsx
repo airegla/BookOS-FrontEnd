@@ -39,6 +39,12 @@ export default function RadarPage() {
       else if (accion === 'despachar') {
         const mail = d.mail || {};
         setMensaje(`Despachados ${(d.despachados || []).length} grupos de ${d.totalPedidos} pedidos. Mail de control: ${mail.enviado ? `enviado a ${mail.a}` : mail.motivo || 'no enviado'}${d.csv ? ` · CSV: ${d.csv.nombre}` : ''}.`);
+      } else if (accion === 'ciclo') {
+        const v = d.verificacion || {};
+        const desp = d.despacho || {};
+        setMensaje(`Ciclo completo: verificados ${v.revisados || 0} (${(v.ingresados || []).length} ingresados) · avisos ${d.ingresos && d.ingresos.omitido ? 'sin pendientes' : 'enviados'} · despachados ${(desp.despachados || []).length} grupos · mail de control ${d.mail && d.mail.enviado ? 'enviado' : 'no enviado'}.`);
+      } else if (accion === 'resumenDiario') {
+        setMensaje(d.enviado ? `Resumen diario enviado a ${d.a || 'control'}.` : `Resumen generado (${d.motivo || 'no enviado'}).`);
       }
       cargar();
     } catch (err) {
@@ -95,14 +101,21 @@ export default function RadarPage() {
             ⚠️ Notificar agotados
           </button>
           <button type="button" className="btn" onClick={verGrupos}>👀 Ver grupos pendientes</button>
-          <button type="button" className="btn btn-primary" disabled={corriendo === 'despachar'} onClick={() => correr('despachar', 'despachar')}>
+          <button type="button" className="btn" disabled={corriendo === 'despachar'} onClick={() => correr('despachar', 'despachar')}>
             🚀 Despachar (mail de control)
+          </button>
+          <button type="button" className="btn btn-primary" disabled={corriendo === 'ciclo'} onClick={() => correr('ciclo', 'ciclo')}>
+            ▶️ Correr ciclo completo
+          </button>
+          <button type="button" className="btn" disabled={corriendo === 'resumenDiario'} onClick={() => correr('resumenDiario', 'resumen diario')}>
+            📨 Resumen diario a control
           </button>
         </div>
         <p className="text-xs text-muted mt-3">
           Verificar ingresos mira el <strong>ledger</strong> (movimiento posterior al pedido). Notificar ingresos manda un mail
           consolidado por cliente y el aviso interno "para separar" (idempotente). Despachar agrupa por proveedor, suma un
           intento y manda el mail de control con el CSV adjunto; el envío al proveedor sigue apagado.
+          El <strong>ciclo completo</strong> es lo mismo que corre solo los lunes 9:00 (CRM_CRON): radar → avisos → despacho.
         </p>
       </div>
 

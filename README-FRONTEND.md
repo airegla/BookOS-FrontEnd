@@ -179,4 +179,6 @@ titulo libre, cantidad, observaciones—, filtro por estado con contadores, busq
 cambio de estado por fila y Exportar CSV) y `RadarPage` (estados del ciclo, grupos que se
 despacharian por proveedor con umbral y email de la ficha, y las corridas: Verificar ingresos,
 Notificar ingresos, Notificar agotados, Despachar con mail de control). Ambas son paginas reales
-(doc 06 E-BR2) en vez del placeholder de etapa.
+(doc 06 E-BR2) en vez del placeholder de etapa.- **Ciclo y resumen en el Radar (E-BR3)**: el Radar suma **▶️ Correr ciclo completo** (lo mismo que
+  corre solo los lunes 9:00: radar → avisos → despacho) y **📨 Resumen diario a control**, con el
+  resumen de lo que hizo cada corrida en pantalla.

@@ -129,6 +129,8 @@ export const crmApi = {
   verificarIngresos: () => axiosClient.post('/crm/verificar-ingresos'),
   notificarIngresos: () => axiosClient.post('/crm/notificar-ingresos'),
   notificarAgotados: () => axiosClient.post('/crm/notificar-agotados'),
+  ciclo: () => axiosClient.post('/crm/ciclo'),
+  resumenDiario: () => axiosClient.post('/crm/resumen-diario'),
 };
 
 export const propuestasApi = {  listar: (soloPendientes = false) => axiosClient.get('/propuestas', { params: { soloPendientes } }),
