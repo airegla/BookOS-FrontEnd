@@ -147,6 +147,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 
 - **Todo modal**: crear/editar nunca navega a otra pagina.
 - **Nada borra trabajo**: carrito de venta y borrador de remito persisten en localStorage (`usePersistentWork`).
+- **El buscador F7 conserva su estado**: cerrar el modal no borra el texto ni los resultados (volves con F7 y esta igual); se limpia con el boton **Limpiar**.
 - **El Secretario es contextual**: al ver un remito/cliente, su JSON se inyecta solo.
 - **Estilos en un solo lugar**: `src/styles/globals.css` (colores, tarjetas, modales, panel del
   agente, layout, labels `.field-label` / `.form-grid`, tablas). `app.css` solo ajustes mobile.

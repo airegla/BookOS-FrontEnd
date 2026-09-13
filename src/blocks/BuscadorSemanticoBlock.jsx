@@ -3,7 +3,9 @@
 // descripcion: F7 — el buscador SEMANTICO del kernel como modal global, con las MISMAS tarjetas
 //   del asistente (titulo, score, autor/editorial, precio y stock) y sus acciones: agregar el
 //   renglon cuando se esta facturando y preguntarle al Secretario. Desde aca tambien se abre la
-//   pagina del Asistente de ventas.
+//   pagina del Asistente de ventas. PERSISTENTE: cerrar no pierde nada (texto, resultados y
+//   consulta se conservan; una busqueda en curso sigue viva y al volver con F7 esta ahi). El
+//   boton Limpiar arranca de cero.
 
 import { useEffect, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
@@ -22,14 +24,11 @@ export default function BuscadorSemanticoBlock({ abierto, onCerrar, enFacturar =
   const [cargando, setCargando] = useState(false);
   const inputRef = useRef(null);
 
+  // El modal es PERSISTENTE: cerrar NO borra nada (texto, resultados y consulta sobreviven; la
+  // busqueda en curso sigue viva porque el componente no se desmonta). Para empezar de cero
+  // esta el boton Limpiar.
   useEffect(() => {
-    if (!abierto) {
-      setTexto('');
-      setResultados([]);
-      setConsultado('');
-      setError('');
-      return;
-    }
+    if (!abierto) return undefined;
     const t = setTimeout(() => inputRef.current && inputRef.current.focus(), 80);
     return () => clearTimeout(t);
   }, [abierto]);
@@ -65,11 +64,21 @@ export default function BuscadorSemanticoBlock({ abierto, onCerrar, enFacturar =
     onCerrar();
   };
 
+  const limpiar = () => {
+    setTexto('');
+    setResultados([]);
+    setConsultado('');
+    setError('');
+    if (inputRef.current) inputRef.current.focus();
+  };
+
   const footer = (
     <div className="flex items-center justify-between gap-2 w-full">
       <span className="text-xs text-muted">
         Busca por significado en todo el catalogo{clienteIdActivo ? ' (con el cliente activo como contexto)' : ''}. Enter para buscar.
-        El primer buscar del dia arma el indice del kernel, puede tardar unos segundos.
+        {cargando
+          ? ' Buscando... (el primer buscar del dia arma el indice: puede tardar unos segundos; podes cerrar y volver con F7, el resultado queda).'
+          : ' La busqueda se conserva al cerrar: volve con F7 y sigue ahi.'}
       </span>
       <div className="flex gap-2">
         {onAbrirAsistente && (
@@ -77,6 +86,7 @@ export default function BuscadorSemanticoBlock({ abierto, onCerrar, enFacturar =
             Abrir el Asistente
           </button>
         )}
+        <button type="button" className="btn btn-ghost text-xs" onClick={limpiar}>Limpiar</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={onCerrar}>Cerrar (Esc)</button>
       </div>
     </div>
