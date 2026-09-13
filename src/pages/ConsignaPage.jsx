@@ -178,7 +178,7 @@ export default function ConsignaPage() {
         tipo: 'PROVEEDOR',
         proveedorId: Number(devProveedor),
         motivo: devMotivo || null,
-        items: devItems.map((i) => ({ ean13: i.ean13, cantidad: Number(i.cantidad) })),
+        items: devItems.map((i) => ({ ean13: i.ean13, cantidad: Number(i.cantidad), tipoSolicitada: i.tipoSolicitada || 'AUTO' })),
       });
       setMensaje('Devolución registrada ✓');
       setDevAbierto(false); setDevItems([]); setDevMotivo(''); setDevProveedor('');
@@ -201,6 +201,18 @@ export default function ConsignaPage() {
     { clave: 'ean13', titulo: 'EAN', editable: true, ancho: 150 },
     { clave: 'titulo', titulo: 'Titulo', editable: true, ancho: 260 },
     { clave: 'cantidad', titulo: 'Cant.', editable: true, tipo: 'number', ancho: 80 },
+    {
+      clave: 'tipoSolicitada',
+      titulo: 'Sale de',
+      ancho: 140,
+      render: (it, i, setCampo) => (
+        <select className="input-os" style={{ padding: '4px 8px' }} value={it.tipoSolicitada || 'AUTO'} onChange={(e) => setCampo(i, 'tipoSolicitada', e.target.value)}>
+          <option value="AUTO">Auto (C → F)</option>
+          <option value="CONSIGNA">Consigna</option>
+          <option value="FIRME">Firme</option>
+        </select>
+      ),
+    },
   ];
 
   const colLiquidaciones = [
@@ -249,7 +261,7 @@ export default function ConsignaPage() {
       <DebugTag nombre="ConsignaPage" />
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Consignación</h2>
-        <span className="text-xs text-muted">liquidaciones · sábanas · devoluciones (FIFE consigna→firme)</span>
+        <span className="text-xs text-muted">liquidaciones · sábanas · devoluciones (FIFE: consigna / firme / auto)</span>
       </div>
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
@@ -382,7 +394,7 @@ export default function ConsignaPage() {
         </div>
         <ItemsEditorBlock items={devItems} onChange={setDevItems} onRemove={(i) => setDevItems(devItems.filter((_, idx) => idx !== i))} columnas={colDevItems} vacio="Agrega items con EAN + cantidad" />
         <div className="flex gap-2 mt-3">
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => setDevItems([...devItems, { ean13: '', titulo: '', cantidad: 1 }])}>+ Item</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => setDevItems([...devItems, { ean13: '', titulo: '', cantidad: 1, tipoSolicitada: 'AUTO' }])}>+ Item</button>
           <ImportarCsvBlock etiqueta="Importar CSV" onCargar={importarDev} />
           <ImportarDocumentoBlock etiqueta="Importar documento" onCargar={importarDevDoc} />
         </div>

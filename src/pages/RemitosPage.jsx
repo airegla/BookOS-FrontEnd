@@ -24,7 +24,7 @@ export default function RemitosPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [proveedores, setProveedores] = useState([]);
-  const [borrador, setBorrador, limpiarBorrador] = usePersistentWork('remito', { proveedor: '', numero: '', fecha: '', observaciones: '', items: [] });
+  const [borrador, setBorrador, limpiarBorrador] = usePersistentWork('remito', { proveedor: '', numero: '', fecha: '', observaciones: '', tipoStockAfectado: 'CONSIGNA', items: [] });
   const [itemEan, setItemEan] = useState('');
   const [itemCantidad, setItemCantidad] = useState('');
   const [itemCosto, setItemCosto] = useState('');
@@ -83,10 +83,29 @@ export default function RemitosPage() {
         numero: borrador.numero || null,
         fecha: borrador.fecha || null,
         observaciones: borrador.observaciones || null,
+        tipoStockAfectado: borrador.tipoStockAfectado || 'CONSIGNA',
         items: borrador.items,
       });
       setMensaje(`Remito #${res.data.id} creado ✓`);
       limpiarBorrador();
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  // Ingreso del remito: suma los libros al stock con la regla FIFE del tipo elegido.
+  const confirmarIngreso = async (id) => {
+    try {
+      await remitosApi.confirmar(id);
+      setMensaje(`Remito #${id} confirmado: stock ingresado ✓`);
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const anularRem = async (id) => {
+    if (!window.confirm(`¿Anular el remito #${id}? Se revierte el stock ingresado.`)) return;
+    try {
+      await remitosApi.anular(id);
+      setMensaje(`Remito #${id} anulado ✓`);
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -133,12 +152,19 @@ export default function RemitosPage() {
     { clave: 'id', titulo: 'ID' },
     { clave: 'numero', titulo: 'Nro', render: (r) => r.numero || '—' },
     { clave: 'proveedor', titulo: 'Proveedor' },
+    { clave: 'tipoStockAfectado', titulo: 'Ingreso', render: (r) => <span className="agente-badge">{r.tipoStockAfectado || 'CONSIGNA'}</span> },
     { clave: 'fecha', titulo: 'Fecha', render: (r) => (r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR') : '—') },
     { clave: 'estado', titulo: 'Estado' },
     { clave: 'acciones', titulo: '', render: (r) => (
       <div className="flex gap-2">
         <button type="button" className="btn btn-ghost text-xs" onClick={() => ver(r)}>Ver</button>
-        <button type="button" className="btn btn-primary text-xs" onClick={() => cruzar(r.id)}>Cruzar faltantes</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => cruzar(r.id)}>Cruzar faltantes</button>
+        {(r.estado === 'pendiente' || r.estado === 'cruzado') && (
+          <button type="button" className="btn btn-primary text-xs" onClick={() => confirmarIngreso(r.id)}>Confirmar ingreso</button>
+        )}
+        {r.estado === 'ingresado' && (
+          <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularRem(r.id)}>Anular</button>
+        )}
       </div>
     ) },
   ];
@@ -181,10 +207,18 @@ export default function RemitosPage() {
             <input className="input-os" type="date" value={borrador.fecha} onChange={(e) => setCampo('fecha', e.target.value)} />
           </label>
           <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Tipo de ingreso (FIFE)</span>
+            <select className="input-os" value={borrador.tipoStockAfectado || 'CONSIGNA'} onChange={(e) => setCampo('tipoStockAfectado', e.target.value)}>
+              <option value="CONSIGNA">Consigna (actual + original)</option>
+              <option value="FIRME">Firme (stock propio)</option>
+            </select>
+          </label>
+          <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Observaciones</span>
             <input className="input-os" placeholder="Observaciones (opc.)" value={borrador.observaciones} onChange={(e) => setCampo('observaciones', e.target.value)} />
           </label>
         </div>
+        <p className="text-xs text-muted mt-2">El remito <strong>nunca genera deuda</strong>: solo mueve los libros y se valoriza (el costo por línea alimenta la rentabilidad). La deuda nace con la factura del proveedor.</p>
       </div>
 
       {/* TABLA DE ITEMS */}
