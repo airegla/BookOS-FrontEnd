@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { agenteApi } from '../api/api';
 
-export default function useAgenteStream(onHerramienta) {
+export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
   const [mensajes, setMensajes] = useState([]);
   const [estado, setEstado] = useState('');
   const [candidatos, setCandidatos] = useState([]);
@@ -87,7 +87,7 @@ export default function useAgenteStream(onHerramienta) {
     setMensajes((prev) => [...prev, { rol: 'usuario', texto, adjunto: adjunto ? adjunto.nombre : null }]);
 
     try {
-      const respuesta = await agenteApi.chat(texto.trim(), contexto, adjunto, conversacionId);
+      const respuesta = await agenteApi.chat(texto.trim(), contexto, adjunto, conversacionId, perfil);
       const reader = respuesta.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -162,7 +162,7 @@ export default function useAgenteStream(onHerramienta) {
       setEstado('');
       setCargando(false);
     }
-  }, [cargando, onHerramienta, conversacionId]);
+  }, [cargando, onHerramienta, conversacionId, perfil]);
 
   return { mensajes, estado, candidatos, textoActual, cargando, enviar, agregarMensaje, conversacionId, nuevaConversacion, cargarConversacion };
 }

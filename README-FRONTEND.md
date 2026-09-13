@@ -153,3 +153,11 @@ src/
   deshabilitado; el detalle vacio ya no muestra un `null`. El agente suma `materias_proponer`
   (propone materia para titulos sin materia por vecinos semanticos, exportable a CSV) y
   `materias_asignar` (asignacion en lote con preview y confirmacion).
+- **CRM + Asistente de ventas (doc 06, E-BR1)**: menu nuevo **CRM** (Asistente, Pedidos, Radar,
+  Propuestas, Campañas, Config CRM) y el chat del agente quedo **extraido a `blocks/ChatAgente.jsx`**
+  (reutilizable por perfil): el panel lateral del Secretario y la pagina **Asistente de ventas**
+  comparten el mismo componente (mismo motor, misma conversacion persistente; cambia el perfil
+  `secretario`/`ventas` y el texto de arranque, con las tarjetas de candidatos y "Agregar a la
+  venta" iguales). Las paginas Pedidos/Radar/Propuestas/Campañas/Config CRM indican su etapa del
+  plan (`E-BR2`, `E-BR4`, `E-BR1 parte 2`). La vista del kernel paso a llamarse **Propuestas
+  Kernel** para no chocar con la del CRM.

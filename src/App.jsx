@@ -32,6 +32,8 @@ import PesosPage from './pages/PesosPage';
 import LogsPage from './pages/LogsPage';
 import ColaPage from './pages/ColaPage';
 import MemoriaPage from './pages/MemoriaPage';
+import AsistenteVentasPage from './pages/AsistenteVentasPage';
+import CrmEnConstruccion from './pages/CrmEnConstruccion';
 import { authApi } from './api/api';
 import { useAppContext } from './AppContext';
 
@@ -140,11 +142,47 @@ export default function App() {
           {vista === 'Usuarios' && <UsuariosPage esAdmin={esAdmin} />}
           {vista === 'Desarrollo' && <DesarrolloPage esAdmin={esAdmin} />}
           {vista === 'Salud' && <SaludPage esAdmin={esAdmin} />}
-          {vista === 'Propuestas' && <PropuestasPage esAdmin={esAdmin} />}
+          {vista === 'Propuestas Kernel' && <PropuestasPage esAdmin={esAdmin} />}
           {vista === 'Pesos' && <PesosPage esAdmin={esAdmin} />}
           {vista === 'Logs' && <LogsPage />}
           {vista === 'Cola' && <ColaPage />}
           {vista === 'Memoria' && <MemoriaPage esAdmin={esAdmin} />}
+          {vista === 'Asistente' && <AsistenteVentasPage />}
+          {vista === 'Pedidos' && (
+            <CrmEnConstruccion
+              titulo="Pedidos de cliente"
+              etapa="E-BR2"
+              detalle="El ciclo del titulo que no esta en stock: alta, agrupacion por proveedor, mail de control y deteccion del ingreso por el ledger."
+            />
+          )}
+          {vista === 'Radar' && (
+            <CrmEnConstruccion
+              titulo="Radar"
+              etapa="E-BR2"
+              detalle="Seguimiento por estados (Pendiente -> Solicitado -> Ingresado -> Notificado) con acciones, paginador y export."
+            />
+          )}
+          {vista === 'Propuestas' && (
+            <CrmEnConstruccion
+              titulo="Propuestas de titulos"
+              etapa="E-BR4"
+              detalle="Generacion manual por cliente (cliente, cantidad, aclaracion) con envio por mail, y campanas por grupo de clientes."
+            />
+          )}
+          {vista === 'Campañas' && (
+            <CrmEnConstruccion
+              titulo="Campañas"
+              etapa="E-BR4"
+              detalle="Parametros en observaciones + grupo/subgrupo de clientes -> el asistente arma el mail de cada cliente en borrador."
+            />
+          )}
+          {vista === 'Config CRM' && (
+            <CrmEnConstruccion
+              titulo="Configuracion del CRM"
+              etapa="E-BR1 (parte 2)"
+              detalle="Mail (SMTP con prueba desde aca), Telegram (token/chat), toggles de notificaciones, perfil y umbrales."
+            />
+          )}
         </main>
         <AgenteChatBlock />
       </div>

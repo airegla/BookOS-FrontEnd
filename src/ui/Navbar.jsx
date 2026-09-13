@@ -16,7 +16,8 @@ const GRUPOS = [
   { nombre: 'Compras', items: ['Compras', 'Remitos', 'Proveedores', 'Cuenta corriente proveedor', 'Consigna'] },
   { nombre: 'Stock', items: ['Inventario', 'Transportes', 'Mayorista'] },
   { nombre: 'Catalogo', items: ['Catalogo', 'Referencias'] },
-  { nombre: 'Kernel', items: ['Salud', 'Propuestas', 'Pesos', 'Logs', 'Cola', 'Memoria'] },
+  { nombre: 'CRM', items: ['Asistente', 'Pedidos', 'Radar', 'Propuestas', 'Campañas', 'Config CRM'] },
+  { nombre: 'Kernel', items: ['Salud', 'Propuestas Kernel', 'Pesos', 'Logs', 'Cola', 'Memoria'] },
   { nombre: 'Sistema', items: ['Config', 'Empresa', 'Usuarios', 'Parametros', 'Desarrollo'] },
 ];
 

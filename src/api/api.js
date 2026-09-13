@@ -246,7 +246,8 @@ export const agenteApi = {
   // SSE sobre POST: devuelve el body del fetch para leer el stream.
   // adjunto: { nombre, contenido } — el CSV crudo viaja como texto en el body.
   // conversacionId: continuidad del hilo (el backend lo crea y lo devuelve en el evento resultado).
-  chat: (mensaje, contexto, adjunto, conversacionId = null) => {
+  // perfil: 'secretario' (tecnico) | 'ventas' (asistente de mostrador) — mismo motor, otra semilla/tools.
+  chat: (mensaje, contexto, adjunto, conversacionId = null, perfil = 'secretario') => {
     const token = localStorage.getItem('bookos_token');
     return fetch(`${import.meta.env.VITE_API_URL || '/api'}/agente/chat`, {
       method: 'POST',
@@ -254,7 +255,7 @@ export const agenteApi = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ mensaje, contexto, adjunto: adjunto || null, conversacionId: conversacionId || null }),
+      body: JSON.stringify({ mensaje, contexto, adjunto: adjunto || null, conversacionId: conversacionId || null, perfil }),
     });
   },
   // Confirmacion de una escritura destructiva: misma tool con confirmado:true, sin LLM.
