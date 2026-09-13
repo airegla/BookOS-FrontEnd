@@ -35,6 +35,7 @@ import MemoriaPage from './pages/MemoriaPage';
 import AgentePage from './pages/AgentePage';
 import PedidosPage from './pages/PedidosPage';
 import RadarPage from './pages/RadarPage';
+import PropuestasVentaPage from './pages/PropuestasVentaPage';
 import AsistenteVentasPage from './pages/AsistenteVentasPage';
 import ConfigCrmPage from './pages/ConfigCrmPage';
 import CrmEnConstruccion from './pages/CrmEnConstruccion';
@@ -155,13 +156,7 @@ export default function App() {
           {vista === 'Asistente' && <AsistenteVentasPage />}
           {vista === 'Pedidos' && <PedidosPage />}
           {vista === 'Radar' && <RadarPage />}
-          {vista === 'Propuestas' && (
-            <CrmEnConstruccion
-              titulo="Propuestas de titulos"
-              etapa="E-BR4"
-              detalle="Generacion manual por cliente (cliente, cantidad, aclaracion) con envio por mail, y campanas por grupo de clientes."
-            />
-          )}
+          {vista === 'Propuestas' && <PropuestasVentaPage />}
           {vista === 'Campañas' && (
             <CrmEnConstruccion
               titulo="Campañas"

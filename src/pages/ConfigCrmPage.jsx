@@ -13,7 +13,7 @@ import { configApi, mailerApi, telegramApi } from '../api/api';
 export default function ConfigCrmPage() {
   const [catalogo, setCatalogo] = useState([]);
   const [mailer, setMailer] = useState(null);
-  const [mailForm, setMailForm] = useState({ host: '', port: '', user: '', pass: '', from: '' });
+  const [mailForm, setMailForm] = useState({ host: '', port: '', user: '', pass: '', from: '', redirigirA: '' });
   const [pruebaMail, setPruebaMail] = useState('');
   const [telegram, setTelegram] = useState(null);
   const [tgForm, setTgForm] = useState({ token: '', chatId: '' });
@@ -32,6 +32,7 @@ export default function ConfigCrmPage() {
         user: m.data.user || '',
         pass: '',
         from: m.data.from || '',
+        redirigirA: m.data.redirigirA || '',
       }));
       setPruebaMail((prev) => prev || m.data.from || '');
       const t = await telegramApi.estado();
@@ -144,7 +145,22 @@ export default function ConfigCrmPage() {
           <Input label="Usuario" value={mailForm.user} onChange={(e) => setMailForm({ ...mailForm, user: e.target.value })} placeholder="cuenta@gmail.com" />
           <Input label="Password (dejar vacío para no cambiarla)" type="password" value={mailForm.pass} onChange={(e) => setMailForm({ ...mailForm, pass: e.target.value })} placeholder={mailer && mailer.pass ? mailer.pass : ''} />
           <Input label="Remitente (from)" value={mailForm.from} onChange={(e) => setMailForm({ ...mailForm, from: e.target.value })} placeholder="Librería El Maltés <cuenta@gmail.com>" />
+          <Input
+            label="MODO PRUEBA: redirigir TODOS los mails a"
+            value={mailForm.redirigirA}
+            onChange={(e) => setMailForm({ ...mailForm, redirigirA: e.target.value })}
+            placeholder="airegla@gmail.com (vacío = manda a los destinatarios reales)"
+          />
         </div>
+        {mailer && mailer.redirigirA ? (
+          <p className="text-xs mt-2" style={{ color: '#b45309', fontWeight: 600 }}>
+            ⚠️ MODO PRUEBA ACTIVO: ningún mail sale a clientes reales; todos van a <span className="font-mono">{mailer.redirigirA}</span> (con el destinatario original en el asunto).
+          </p>
+        ) : (
+          <p className="text-xs text-muted mt-2">
+            Sin redirección: los mails salen a los destinatarios reales (clientes y proveedores).
+          </p>
+        )}
         <div className="flex items-end gap-2 flex-wrap mt-1">
           <button type="button" className="btn btn-primary text-sm" disabled={cargando} onClick={guardarMail}>Guardar mail</button>
           <label className="text-sm flex-1 min-w-[220px]">

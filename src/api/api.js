@@ -131,6 +131,14 @@ export const crmApi = {
   notificarAgotados: () => axiosClient.post('/crm/notificar-agotados'),
   ciclo: () => axiosClient.post('/crm/ciclo'),
   resumenDiario: () => axiosClient.post('/crm/resumen-diario'),
+  tematicas: (clienteId) => axiosClient.get(`/crm/clientes/${clienteId}/tematicas`),
+  asignarTematicas: (clienteId, datos) => axiosClient.post(`/crm/clientes/${clienteId}/tematicas`, datos),
+  quitarTematica: (clienteId, materiaId) => axiosClient.delete(`/crm/clientes/${clienteId}/tematicas/${materiaId}`),
+  sembrarTematicas: (clienteId, perfiles = []) => axiosClient.post(`/crm/clientes/${clienteId}/tematicas/sembrar`, { perfiles }),
+  propuestas: (params = {}) => axiosClient.get('/crm/propuestas', { params }),
+  armarPropuesta: (datos) => axiosClient.post('/crm/propuestas', datos),
+  enviarPropuesta: (id) => axiosClient.post(`/crm/propuestas/${id}/enviar`),
+  descartarPropuesta: (id) => axiosClient.delete(`/crm/propuestas/${id}`),
 };
 
 export const propuestasApi = {  listar: (soloPendientes = false) => axiosClient.get('/propuestas', { params: { soloPendientes } }),
