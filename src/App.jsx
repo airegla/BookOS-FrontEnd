@@ -36,10 +36,10 @@ import AgentePage from './pages/AgentePage';
 import PedidosPage from './pages/PedidosPage';
 import RadarPage from './pages/RadarPage';
 import PropuestasVentaPage from './pages/PropuestasVentaPage';
+import CampaniasPage from './pages/CampaniasPage';
 import AsistenteVentasPage from './pages/AsistenteVentasPage';
 import ConfigCrmPage from './pages/ConfigCrmPage';
 import PlantillasMailPage from './pages/PlantillasMailPage';
-import CrmEnConstruccion from './pages/CrmEnConstruccion';
 import { authApi } from './api/api';
 import { useAppContext } from './AppContext';
 
@@ -158,13 +158,7 @@ export default function App() {
           {vista === 'Pedidos' && <PedidosPage />}
           {vista === 'Radar' && <RadarPage />}
           {vista === 'Propuestas' && <PropuestasVentaPage />}
-          {vista === 'Campañas' && (
-            <CrmEnConstruccion
-              titulo="Campañas"
-              etapa="E-BR4"
-              detalle="Parametros en observaciones + grupo/subgrupo de clientes -> el asistente arma el mail de cada cliente en borrador."
-            />
-          )}
+          {vista === 'Campañas' && <CampaniasPage />}
           {vista === 'Config CRM' && <ConfigCrmPage />}
           {vista === 'Plantillas mail' && <PlantillasMailPage />}
         </main>

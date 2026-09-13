@@ -119,8 +119,7 @@ export const usuariosApi = {
 };
 
 // CRM (doc 06): pedidos de clientes, grupos y despacho, radar de ingresos y notificaciones.
-export const crmApi = {
-  resumen: () => axiosClient.get('/crm/resumen'),
+export const crmApi = {  resumen: () => axiosClient.get('/crm/resumen'),
   pedidos: (params = {}) => axiosClient.get('/crm/pedidos', { params }),
   crearPedido: (datos) => axiosClient.post('/crm/pedidos', datos),
   estadoPedido: (id, estado, forzar = false) => axiosClient.put(`/crm/pedidos/${id}/estado`, { estado, forzar }),
@@ -131,6 +130,7 @@ export const crmApi = {
   notificarAgotados: () => axiosClient.post('/crm/notificar-agotados'),
   ciclo: () => axiosClient.post('/crm/ciclo'),
   resumenDiario: () => axiosClient.post('/crm/resumen-diario'),
+  perfiles: () => axiosClient.get('/crm/perfiles'),
   tematicas: (clienteId) => axiosClient.get(`/crm/clientes/${clienteId}/tematicas`),
   asignarTematicas: (clienteId, datos) => axiosClient.post(`/crm/clientes/${clienteId}/tematicas`, datos),
   quitarTematica: (clienteId, materiaId) => axiosClient.delete(`/crm/clientes/${clienteId}/tematicas/${materiaId}`),
@@ -311,6 +311,20 @@ export const telegramApi = {
   estado: () => axiosClient.get('/telegram'),
   guardar: (datos) => axiosClient.put('/telegram', datos),
   probar: () => axiosClient.post('/telegram/probar', {}),
+};
+
+// Campañas del CRM (D7): configuracion, segmento, generacion por lotes, revision y envio.
+export const campaniasApi = {
+  listar: (params = {}) => axiosClient.get('/campanias', { params }),
+  crear: (datos) => axiosClient.post('/campanias', datos),
+  detalle: (id) => axiosClient.get(`/campanias/${id}`),
+  actualizar: (id, datos) => axiosClient.put(`/campanias/${id}`, datos),
+  descartar: (id) => axiosClient.delete(`/campanias/${id}`),
+  segmento: (id) => axiosClient.get(`/campanias/${id}/segmento`),
+  generar: (id, datos) => axiosClient.post(`/campanias/${id}/generar`, datos),
+  revisar: (id, propuestaId, datos) => axiosClient.post(`/campanias/${id}/propuestas/${propuestaId}/revisar`, datos),
+  revisarTodas: (id, datos) => axiosClient.post(`/campanias/${id}/revisar-todas`, datos),
+  enviar: (id, datos) => axiosClient.post(`/campanias/${id}/enviar`, datos),
 };
 
 // Plantillas de los mails del sistema (CRM > Plantillas mail): asunto y cuerpo editables, vista
