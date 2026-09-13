@@ -8,13 +8,15 @@ import { useEffect, useState } from 'react';
 import Toggle from '../ui/Toggle';
 import DebugTag from '../ui/DebugTag';
 import Input from '../ui/Input';
-import { configApi, mailerApi, telegramApi } from '../api/api';
+import { configApi, mailerApi, telegramApi, crmApi } from '../api/api';
 
 export default function ConfigCrmPage() {
   const [catalogo, setCatalogo] = useState([]);
   const [mailer, setMailer] = useState(null);
   const [mailForm, setMailForm] = useState({ host: '', port: '', user: '', pass: '', from: '', redirigirA: '' });
   const [pruebaMail, setPruebaMail] = useState('');
+  const [avisos, setAvisos] = useState(null);
+  const [avisoMail, setAvisoMail] = useState('');
   const [telegram, setTelegram] = useState(null);
   const [tgForm, setTgForm] = useState({ token: '', chatId: '' });
   const [bot, setBot] = useState(null);
@@ -44,6 +46,11 @@ export default function ConfigCrmPage() {
         redirigirA: m.data.redirigirA || '',
       }));
       setPruebaMail((prev) => prev || m.data.from || '');
+    } catch (err) { aviso(err); }
+    try {
+      const a = await crmApi.config();
+      setAvisos(a.data);
+      setAvisoMail((prev) => prev || a.data.emailControl || '');
     } catch (err) { aviso(err); }
     try {
       const t = await telegramApi.estado();
@@ -119,6 +126,25 @@ export default function ConfigCrmPage() {
     try {
       const r = await mailerApi.probar(pruebaMail);
       setMensaje(`✓ ${r.message || `Prueba enviada a ${pruebaMail}`}`);
+    } catch (err) {
+      setMensaje(`⚠️ ${err.message}`);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  // Avisos internos (mail de control): destino de los mails de control del sistema (despacho de
+  // pedidos, resumen diario, y los ciclos automaticos). Vacio = remitente del mailer.
+  const guardarAviso = async () => {
+    setCargando(true);
+    setMensaje('');
+    try {
+      const r = await crmApi.configGuardar({ emailControl: avisoMail });
+      setAvisos(r.data);
+      setMensaje(r.data.emailControl
+        ? `Mail de control guardado: ${r.data.emailControl}`
+        : 'Mail de control vacio: los avisos van al remitente del mailer.');
+      cargar();
     } catch (err) {
       setMensaje(`⚠️ ${err.message}`);
     } finally {
@@ -218,6 +244,27 @@ export default function ConfigCrmPage() {
           </label>
           <button type="button" className="btn text-sm" disabled={cargando || !pruebaMail} onClick={probarMail}>Enviar prueba</button>
         </div>
+      </div>
+
+      <div className="card p-4 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="font-semibold">Avisos internos (mail de control)</h3>
+          <span className="agente-badge" style={{ color: avisos && avisos.emailControl ? '#15803d' : undefined }}>
+            {avisos ? (avisos.emailControl ? 'propio' : (avisos.remitente ? 'remitente del mailer' : 'sin destino')) : '...'}
+          </span>
+        </div>
+        <p className="text-sm text-muted mb-3">
+          Destinatario de los avisos internos: el mail de control de pedidos despachados, el resumen
+          diario y los avisos de los ciclos automaticos. Vacío = usa el remitente del mailer.
+        </p>
+        <div className="flex items-end gap-2 flex-wrap">
+          <label className="text-sm flex-1 min-w-[260px]">
+            <span className="field-label">Mail de control</span>
+            <input className="input-os" value={avisoMail} onChange={(e) => setAvisoMail(e.target.value)} placeholder="airegla@gmail.com" />
+          </label>
+          <button type="button" className="btn btn-primary text-sm" disabled={cargando} onClick={guardarAviso}>Guardar</button>
+        </div>
+        {avisos && <p className="text-xs text-muted mt-2">Efectivo ahora: <span className="font-mono">{avisos.efectivo || '-'}</span></p>}
       </div>
 
       <div className="card p-4 mb-4">
