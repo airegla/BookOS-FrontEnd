@@ -1,8 +1,8 @@
 // BookOS - ConfigCrmPage.jsx
 // ruta: bookos/frontend/src/pages/ConfigCrmPage.jsx
 // descripcion: configuracion del CRM (doc 06): mail (SMTP con prueba de envio real), Telegram
-//   (bot con prueba) y los toggles del modulo (notificaciones, radar, envio a proveedor).
-//   El password/token nunca vuelven de la API (se muestran enmascarados).
+//   (bot con prueba) y los toggles del modulo (grupo 'crm' del catalogo: notificaciones, radar,
+//   intentos de pedido, envio a proveedor). El password/token nunca vuelven de la API.
 
 import { useEffect, useState } from 'react';
 import Toggle from '../ui/Toggle';
@@ -10,15 +10,8 @@ import DebugTag from '../ui/DebugTag';
 import Input from '../ui/Input';
 import { configApi, mailerApi, telegramApi } from '../api/api';
 
-const TOGGLES_CRM = [
-  'NOTIFICACIONES_ENABLED',
-  'RADAR_ENABLED',
-  'TELEGRAM_ENABLED',
-  'ENVIO_PROVEEDOR_ENABLED',
-];
-
 export default function ConfigCrmPage() {
-  const [toggles, setToggles] = useState({});
+  const [catalogo, setCatalogo] = useState([]);
   const [mailer, setMailer] = useState(null);
   const [mailForm, setMailForm] = useState({ host: '', port: '', user: '', pass: '', from: '' });
   const [pruebaMail, setPruebaMail] = useState('');
@@ -30,7 +23,7 @@ export default function ConfigCrmPage() {
   const cargar = async () => {
     try {
       const cfg = await configApi.obtener();
-      setToggles(cfg.data.toggles || {});
+      setCatalogo(cfg.data.catalogo || []);
       const m = await mailerApi.estado();
       setMailer(m.data);
       setMailForm((prev) => ({
@@ -51,11 +44,9 @@ export default function ConfigCrmPage() {
 
   useEffect(() => { cargar(); }, []); // eslint-disable-line
 
-  const valorToggle = (clave) => {
-    const v = toggles[clave];
-    if (v === undefined || v === null || v === '') return false;
-    return !(v === false || v === 'false' || v === '0');
-  };
+  // El catalogo trae el valor efectivo (DB > default) y la descripcion de cada toggle del CRM.
+  const activoDe = (t) => !(t.valor === false || t.valor === 'false' || t.valor === '0' || t.valor === '');
+  const togglesCrm = catalogo.filter((t) => t.grupo === 'crm');
 
   const cambiarToggle = async (clave, valor) => {
     try {
@@ -185,16 +176,18 @@ export default function ConfigCrmPage() {
       <div className="card p-4">
         <h3 className="font-semibold mb-3">Interruptores del CRM</h3>
         <div className="space-y-3">
-          {TOGGLES_CRM.map((clave) => (
-            <div key={clave} className="flex items-center gap-3">
-              <Toggle activo={valorToggle(clave)} onChange={(v) => cambiarToggle(clave, v)} />
-              <span className="text-sm font-mono">{clave}</span>
+          {togglesCrm.map((t) => (
+            <div key={t.clave}>
+              <div className="flex items-center gap-3">
+                <Toggle activo={activoDe(t)} onChange={(v) => cambiarToggle(t.clave, v)} />
+                <span className="text-sm font-mono">{t.clave}</span>
+              </div>
+              <p className="text-xs text-muted mt-1">{t.descripcion}</p>
             </div>
           ))}
         </div>
         <p className="text-xs text-muted mt-3">
-          NOTIFICACIONES = avisos a clientes (ingresos/agotados) · RADAR = detección de ingresos ·
-          TELEGRAM = avisos internos · ENVIO_PROVEEDOR = pedidos automáticos (hoy apagado: sale solo el mail de control).
+          Los interruptores del <strong>agente</strong> (prompt, pasos, manuales de herramientas) viven en Kernel ▾ → Agente.
         </p>
       </div>
     </div>

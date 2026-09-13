@@ -64,22 +64,14 @@ export default function ConfigPage({ esAdmin }) {
       <h2 className="text-lg font-semibold mb-4">Configuracion</h2>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
-      {agente && (
-        <div className="card p-4 mb-4">
-          <h3 className="font-semibold mb-3">Agente (el Secretario)</h3>
-          <div className="text-sm space-y-1">
-            <div className="flex items-center gap-2">
-              <span>LLM:</span>
-              <span className="agente-badge" style={{ color: agente.llmConfigurado && agente.llmEnabled ? '#15803d' : 'var(--danger)' }}>
-                {agente.llmConfigurado ? (agente.llmEnabled ? 'activo' : 'apagado (LLM_ENABLED=false)') : 'sin credencial (DEEPSEEK_API_KEY vacía)'}
-              </span>
-            </div>
-            <div className="text-muted text-xs">modelos: <span className="font-mono">{Array.isArray(agente.modelos) ? agente.modelos.join(', ') : agente.modelos}</span></div>
-            <div className="text-muted text-xs">hasta {agente.maxPasos} pasos por turno · presupuesto {agente.presupuestoDia} llamadas/día</div>
-            <div className="text-muted text-xs">uso y rutas de hoy: Kernel ▾ → Logs · métricas: /api/agente/metricas</div>
-          </div>
-        </div>
-      )}
+      <div className="card p-4 mb-4">
+        <h3 className="font-semibold mb-2">El agente</h3>
+        <p className="text-sm text-muted">
+          El Secretario y el Asistente de ventas comparten motor y configuración: estado del LLM, prompt
+          (completo o híbrido), pasos del loop y el inventario de herramientas viven en
+          <strong> Kernel ▾ → Agente</strong>.
+        </p>
+      </div>
 
       <div className="card p-4 mb-4">
         <h3 className="font-semibold mb-3">Toggles del OS</h3>

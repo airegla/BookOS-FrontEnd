@@ -140,6 +140,8 @@ export const kernelApi = {
   registroDetalle: (id) => axiosClient.get(`/kernel/registro/${id}`),
   observaciones: (params = {}) => axiosClient.get('/kernel/observaciones', { params }),
   observacionesCorrer: (payload = {}) => axiosClient.post('/kernel/observaciones/correr', payload),
+  herramientas: () => axiosClient.get('/kernel/herramientas'),
+  herramientasCalibrar: () => axiosClient.post('/kernel/herramientas/calibrar'),
 };
 
 export const auditoriaApi = {

@@ -32,6 +32,7 @@ import PesosPage from './pages/PesosPage';
 import LogsPage from './pages/LogsPage';
 import ColaPage from './pages/ColaPage';
 import MemoriaPage from './pages/MemoriaPage';
+import AgentePage from './pages/AgentePage';
 import AsistenteVentasPage from './pages/AsistenteVentasPage';
 import ConfigCrmPage from './pages/ConfigCrmPage';
 import CrmEnConstruccion from './pages/CrmEnConstruccion';
@@ -143,6 +144,7 @@ export default function App() {
           {vista === 'Usuarios' && <UsuariosPage esAdmin={esAdmin} />}
           {vista === 'Desarrollo' && <DesarrolloPage esAdmin={esAdmin} />}
           {vista === 'Salud' && <SaludPage esAdmin={esAdmin} />}
+          {vista === 'Agente' && <AgentePage esAdmin={esAdmin} />}
           {vista === 'Propuestas Kernel' && <PropuestasPage esAdmin={esAdmin} />}
           {vista === 'Pesos' && <PesosPage esAdmin={esAdmin} />}
           {vista === 'Logs' && <LogsPage />}

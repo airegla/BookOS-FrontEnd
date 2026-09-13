@@ -166,4 +166,9 @@ src/
   guardado en la base), formularios de mail (host, puerto, usuario, password, remitente) y Telegram
   (token, chat id) con **Guardar** y **Enviar prueba** (el de mail admite destinatario; la clave
   guardada no se devuelve nunca y dejarla vacia no la pisa), y los **interruptores del CRM**:
-  `NOTIFICACIONES_ENABLED`, `RADAR_ENABLED`, `TELEGRAM_ENABLED`, `ENVIO_PROVEEDOR_ENABLED`.
+  `NOTIFICACIONES_ENABLED`, `RADAR_ENABLED`, `TELEGRAM_ENABLED`, `ENVIO_PROVEEDOR_ENABLED`.- **Agente en el Kernel (2026-09-13)**: los toggles del agente salen de Config del CRM (que ahora
+  edita solo lo suyo, por el `grupo: 'crm'` del catalogo) y viven en **Kernel ▾ → Agente**: estado
+  del LLM (activo/modelos/presupuesto), **prompt completo o hibrido**, cuantas herramientas van con
+  manual completo, pasos del loop, techo de contexto y presupuesto diario, mas el **inventario de
+  herramientas** (mas usadas por uso real, sin uso — candidatas a poda — y boton Recalibrar ahora).
+  El agente es uno solo: la pagina lo dice y unifica Secretario + Asistente de ventas.
