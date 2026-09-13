@@ -3,7 +3,9 @@
 // descripcion: importacion masiva por CSV (plan 09). Admin importa catalogo y referencias;
 //   todo el equipo actualiza precios (con bloqueo opcional de bajas). Flujo: config -> mapeo de
 //   columnas -> preview sin efectos -> aplicacion por lotes -> historial con detalle por fila
-//   y descargas. Regla: lo que no se mapea, no se modifica.
+//   y descargas. Regla: lo que no se mapea, no se modifica. Incluye la pestana Bandeja (modulo J,
+//   admin): subir documentos de precios (CSV/Excel/PDF), procesar, ver las actualizaciones
+//   PENDIENTES y aprobarlas o anularlas desde el propio historial.
 
 import { useEffect, useState } from 'react';
 import { importadorApi } from '../api/api';
@@ -96,6 +98,21 @@ const MODO_LABEL = {
   solo_precios: 'Solo precios',
 };
 
+const CARPETAS_BANDEJA = [
+  { id: 'entrada', label: 'Entrada' },
+  { id: 'revisar', label: 'Revisar' },
+  { id: 'procesado', label: 'Procesado' },
+  { id: 'error', label: 'Error' },
+];
+
+const columnasPreviewPrecios = [
+  { titulo: 'Clave', clave: 'clave' },
+  { titulo: 'Titulo', clave: 'titulo', render: (f) => <span className="text-xs">{f.titulo || '—'}</span> },
+  { titulo: 'Precio actual', clave: 'pa', render: (f) => money(f.precio && f.precio.antes) },
+  { titulo: 'Precio nuevo', clave: 'pn', render: (f) => money(f.precio && f.precio.despues) },
+  { titulo: 'Estado', clave: 'e', render: (f) => <span className="text-xs">{f.estado}</span> },
+];
+
 const COLOR_ESTADO = {
   CREADO: '#157347',
   ACTUALIZADO: '#0d6efd',
@@ -103,6 +120,8 @@ const COLOR_ESTADO = {
   OMITIDO: '#b8860b',
   COMPLETADA: '#157347',
   EN_PROCESO: '#b8860b',
+  PENDIENTE: '#d97706',
+  ANULADA: '#6b7280',
 };
 
 function EstadoBadge({ estado }) {
@@ -148,7 +167,12 @@ export default function ImportadorPage({ esAdmin = false }) {
   const [histPage, setHistPage] = useState(1);
   const [detalle, setDetalle] = useState(null);
 
+  const [bandeja, setBandeja] = useState({ pendientes: [], carpetas: { entrada: [], procesado: [], revisar: [], error: [] } });
+  const [bandejaResultado, setBandejaResultado] = useState(null);
+  const [previewPend, setPreviewPend] = useState(null);
+
   const esPrecios = tab === 'precios';
+  const enFlujo = tab === 'importar' || tab === 'precios';
   const entidadId = tab === 'precios' ? 'precios' : 'catalogo';
   const ENT = ENTIDADES[entidadId];
 
@@ -176,8 +200,18 @@ export default function ImportadorPage({ esAdmin = false }) {
     }
   };
 
+  const cargarBandeja = async () => {
+    try {
+      const r = await importadorApi.bandeja();
+      setBandeja(r.data);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    }
+  };
+
   useEffect(() => {
     if (tab === 'historial') cargarHistorial(histPage);
+    if (tab === 'bandeja') cargarBandeja();
   }, [tab, histPage]);
 
   // ── Paso 1: archivo ──────────────────────────────────────────────────────────
@@ -332,10 +366,163 @@ export default function ImportadorPage({ esAdmin = false }) {
     descargarDesdeServidor(`/api/archivos/${imp.archivoId}/descarga`, `importacion_${imp.id}_original.csv`);
   };
 
+  // ── Bandeja de documentos de precios (modulo J) ────────────────────────────
+  const refrescarTodo = async () => {
+    await cargarBandeja();
+    if (tab === 'historial') await cargarHistorial(histPage);
+  };
+
+  const alSubirBandeja = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setError('');
+    setAviso('');
+    if (file.size > 8 * 1024 * 1024) {
+      setError('El archivo supera los 8MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = String(reader.result || '').split(',')[1] || '';
+        await importadorApi.bandejaSubir({ nombre: file.name, contenido: base64 });
+        setAviso(`"${file.name}" quedo en la bandeja: procesala o espera al cron.`);
+        await cargarBandeja();
+      } catch (err) {
+        setError(err.response?.data?.message || err.message);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const procesarArchivo = async (nombre) => {
+    setCargando(true);
+    setError('');
+    setAviso('');
+    try {
+      const r = await importadorApi.bandejaProcesar({ nombre });
+      setBandejaResultado(r.data);
+      await refrescarTodo();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const procesarTodoBandeja = async () => {
+    setCargando(true);
+    setError('');
+    setAviso('');
+    try {
+      const r = await importadorApi.bandejaProcesarTodo();
+      setBandejaResultado(r.data);
+      await refrescarTodo();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const verPreviewPendiente = async (imp) => {
+    setError('');
+    try {
+      const r = await importadorApi.bandejaPreview(imp.importacionId != null ? imp.importacionId : imp.id);
+      setPreviewPend(r.data);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    }
+  };
+
+  const aprobarPendiente = async (imp) => {
+    const id = imp.importacionId != null ? imp.importacionId : imp.id;
+    if (!window.confirm(`¿Aprobar la actualizacion #${id}? Se aplican las subas; las bajas quedan afuera.`)) return;
+    setCargando(true);
+    setError('');
+    try {
+      const r = await importadorApi.bandejaAprobar({ importacionId: id });
+      setAviso(`Actualizacion #${id} aprobada: ${r.data.actualizados} precio(s) actualizados, ${r.data.omitidos} omitidos.`);
+      await refrescarTodo();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const anularPendiente = async (imp) => {
+    const id = imp.importacionId != null ? imp.importacionId : imp.id;
+    if (!window.confirm(`¿Anular la actualizacion #${id}? No se aplica ningun precio.`)) return;
+    setCargando(true);
+    setError('');
+    try {
+      await importadorApi.bandejaAnular({ importacionId: id });
+      setAviso(`Actualizacion #${id} anulada: no se aplico nada.`);
+      await refrescarTodo();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const limpiarBandeja = async (incluirRevisar) => {
+    const texto = incluirRevisar
+      ? '¿Vaciar las carpetas procesado, error y TAMBIEN revisar? Los pendientes siguen como PENDIENTE en el historial.'
+      : '¿Vaciar las carpetas procesado y error?';
+    if (!window.confirm(texto)) return;
+    setError('');
+    try {
+      const r = await importadorApi.bandejaLimpiar(incluirRevisar);
+      const b = r.data.borrados || {};
+      setAviso(`Limpieza: ${b.procesado || 0} de procesado, ${b.error || 0} de error${incluirRevisar ? `, ${b.revisar || 0} de revisar` : ''}.`);
+      await cargarBandeja();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    }
+  };
+
+  const columnasBandejaPend = [
+    { titulo: '#', clave: 'id', render: (p) => `#${p.importacionId}` },
+    { titulo: 'Archivo', clave: 'archivo', render: (p) => <span className="text-xs">{p.archivo || '—'}</span> },
+    { titulo: 'Creada', clave: 'fecha', render: (p) => <span className="text-xs">{fecha(p.creada)}</span> },
+    {
+      titulo: 'Acciones',
+      clave: 'acc',
+      render: (p) => (
+        <div className="flex gap-1 flex-wrap">
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => verPreviewPendiente(p)}>Ver preview</button>
+          <button type="button" className="btn btn-primary text-xs" disabled={cargando} onClick={() => aprobarPendiente(p)}>Aprobar</button>
+          <button type="button" className="btn btn-ghost text-xs" disabled={cargando} onClick={() => anularPendiente(p)}>Anular</button>
+        </div>
+      ),
+    },
+  ];
+
+  const archivosBandeja = CARPETAS_BANDEJA.flatMap((c) => (bandeja.carpetas[c.id] || []).map((a) => ({ ...a, carpeta: c.id })));
+  const columnasBandejaArchivos = [
+    { titulo: 'Carpeta', clave: 'carpeta', render: (a) => <span className="text-xs">{((CARPETAS_BANDEJA.find((c) => c.id === a.carpeta) || {}).label) || a.carpeta}</span> },
+    { titulo: 'Archivo', clave: 'nombre', render: (a) => <span className="text-xs font-semibold">{a.nombre}</span> },
+    { titulo: 'Tamaño', clave: 'bytes', render: (a) => <span className="text-xs">{Math.max(1, Math.round(a.bytes / 1024))} KB</span> },
+    { titulo: 'Fecha', clave: 'modificado', render: (a) => <span className="text-xs">{fecha(a.modificado)}</span> },
+    {
+      titulo: 'Acciones',
+      clave: 'acc',
+      render: (a) => (a.carpeta === 'entrada' ? (
+        <button type="button" className="btn btn-ghost text-xs" disabled={cargando} onClick={() => procesarArchivo(a.nombre)}>Procesar</button>
+      ) : <span className="text-xs text-muted">—</span>),
+    },
+  ];
+
+  const resultadosBandeja = bandejaResultado ? (bandejaResultado.resultados || [bandejaResultado]) : [];
+
   // ── Render ───────────────────────────────────────────────────────────────────
   const TABS = [
     ...(esAdmin ? [{ id: 'importar', label: 'Importar (catalogo y referencias)' }] : []),
     { id: 'precios', label: 'Actualizar precios' },
+    ...(esAdmin ? [{ id: 'bandeja', label: 'Bandeja (documentos)' }] : []),
     { id: 'historial', label: 'Historial' },
   ];
 
@@ -409,8 +596,18 @@ export default function ImportadorPage({ esAdmin = false }) {
       clave: 'acc',
       render: (f) => (
         <div className="flex gap-1 flex-wrap">
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirDetalle(f, 1)}>Ver</button>
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarResultado(f)}>CSV resultado</button>
+          {f.estado === 'PENDIENTE' ? (
+            <>
+              <button type="button" className="btn btn-ghost text-xs" onClick={() => verPreviewPendiente(f)}>Ver preview</button>
+              <button type="button" className="btn btn-primary text-xs" disabled={cargando} onClick={() => aprobarPendiente(f)}>Aprobar</button>
+              <button type="button" className="btn btn-ghost text-xs" disabled={cargando} onClick={() => anularPendiente(f)}>Anular</button>
+            </>
+          ) : (
+            <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirDetalle(f, 1)}>Ver</button>
+          )}
+          {f.estado !== 'PENDIENTE' && (
+            <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarResultado(f)}>CSV resultado</button>
+          )}
           {f.archivoId && (
             <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarOriginal(f)}>CSV original</button>
           )}
@@ -466,7 +663,7 @@ export default function ImportadorPage({ esAdmin = false }) {
       {error && <div className="card p-3 mb-3 text-sm" style={{ borderLeft: '4px solid #dc3545' }}>{error}</div>}
       {aviso && <div className="card p-3 mb-3 text-sm" style={{ borderLeft: '4px solid #b8860b' }}>{aviso}</div>}
 
-      {tab !== 'historial' && (
+      {enFlujo && (
         <div className="card p-3 mb-3">
           <div className="flex gap-3 items-end flex-wrap">
             <div>
@@ -502,7 +699,7 @@ export default function ImportadorPage({ esAdmin = false }) {
         </div>
       )}
 
-      {tab !== 'historial' && archivo && (
+      {enFlujo && archivo && (
         <div className="card p-3 mb-3">
           <h3 className="font-semibold mb-2 text-sm">Mapeo de columnas (paso 2)</h3>
           <Table columnas={columnasMapeo} filas={ENT.campos} vacio="Sin campos" />
@@ -515,7 +712,7 @@ export default function ImportadorPage({ esAdmin = false }) {
         </div>
       )}
 
-      {tab !== 'historial' && preview && (
+      {enFlujo && preview && (
         <div className="card p-3 mb-3">
           <h3 className="font-semibold mb-2 text-sm">Previsualizacion</h3>
           <div className="flex gap-3 flex-wrap mb-2 text-sm">
@@ -616,6 +813,90 @@ export default function ImportadorPage({ esAdmin = false }) {
         </div>
       )}
 
+      {tab === 'bandeja' && (
+        <div className="flex flex-col gap-3">
+          <div className="card p-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="font-semibold text-sm">Bandeja de documentos de precios</h3>
+                <p className="text-xs text-muted">
+                  CSV, Excel o PDF con listas de editoriales. El cron la procesa cada 30 minutos;
+                  aca tambien podes procesarla a mano. Con el modo automatico apagado cada documento
+                  queda PENDIENTE para aprobar o anular.
+                </p>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                <label className="btn btn-primary text-xs" style={{ cursor: 'pointer' }}>
+                  Subir documento...
+                  <input type="file" accept=".csv,.txt,.xlsx,.xls,.pdf" style={{ display: 'none' }} onChange={alSubirBandeja} />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-ghost text-xs"
+                  disabled={cargando || !(bandeja.carpetas.entrada || []).length}
+                  onClick={procesarTodoBandeja}
+                >
+                  Procesar todo ({(bandeja.carpetas.entrada || []).length})
+                </button>
+                <button type="button" className="btn btn-ghost text-xs" onClick={() => limpiarBandeja(false)}>
+                  Limpiar procesado/error
+                </button>
+                {(bandeja.carpetas.revisar || []).length > 0 && (
+                  <button type="button" className="btn btn-ghost text-xs" onClick={() => limpiarBandeja(true)}>
+                    Limpiar tambien revisar
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-3">
+            <h4 className="font-semibold text-sm mb-2">Actualizaciones pendientes ({(bandeja.pendientes || []).length})</h4>
+            <Table columnas={columnasBandejaPend} filas={bandeja.pendientes} vacio="No hay actualizaciones pendientes" />
+          </div>
+
+          <div className="card p-3">
+            <h4 className="font-semibold text-sm mb-2">Documentos por carpeta</h4>
+            <Table columnas={columnasBandejaArchivos} filas={archivosBandeja} vacio="La bandeja esta vacia" />
+          </div>
+
+          {resultadosBandeja.length > 0 && (
+            <div className="card p-3">
+              <h4 className="font-semibold text-sm mb-2">
+                {bandejaResultado.procesados !== undefined ? `Ultimo procesamiento (${bandejaResultado.procesados} documento/s)` : 'Resultado'}
+              </h4>
+              <div className="flex flex-col gap-2">
+                {resultadosBandeja.map((r) => (
+                  <div key={r.archivo} className="text-xs" style={{ borderLeft: '3px solid var(--border)', paddingLeft: 10 }}>
+                    <div className="font-semibold">
+                      {r.archivo} — <EstadoBadge estado={r.estado} /> {r.motivo ? <span className="text-muted">({r.motivo})</span> : null}
+                    </div>
+                    {r.resumen && (
+                      <div className="text-muted mt-1">
+                        {r.resumen.coincidentes} coincidencia(s) · {r.resumen.suben} suba(s) · {r.resumen.bajan} baja(s)
+                        {r.resumen.sinMatch ? ` · ${r.resumen.sinMatch} sin cruzar` : ''}
+                        {r.resumen.fuera50 ? ` · ${r.resumen.fuera50} fuera de +50%` : ''}
+                        {r.carpeta ? ` · ${r.carpeta}` : ''}
+                      </div>
+                    )}
+                    {(r.bajasListadas || []).length > 0 && (
+                      <div className="mt-1">
+                        <span className="text-muted">Bajas para revisar a mano:</span>
+                        <ul style={{ paddingLeft: 16 }}>
+                          {r.bajasListadas.map((b) => (
+                            <li key={b.clave}>{b.titulo}: {money(b.antes)} → {money(b.despues)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <Modal abierto={!!resultado} onClose={() => setResultado(null)} titulo="Importacion finalizada" ancho="560px"
         footer={(
           <>
@@ -660,6 +941,28 @@ export default function ImportadorPage({ esAdmin = false }) {
               onCambiar={(p) => abrirDetalle(detalle.importacion, p)}
               etiqueta="filas"
             />
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        abierto={!!previewPend}
+        onClose={() => setPreviewPend(null)}
+        titulo={previewPend ? `Preview actualizacion #${previewPend.importacionId}` : ''}
+        ancho="860px"
+        footer={(<button type="button" className="btn" onClick={() => setPreviewPend(null)}>Cerrar</button>)}
+      >
+        {previewPend && (
+          <div>
+            <div className="text-xs text-muted mb-2">
+              {previewPend.archivo || 'documento'} · {previewPend.preview.total} filas · {previewPend.preview.coincidentes} cruzan ·
+              {' '}{previewPend.preview.precios.suben} suben · {previewPend.preview.precios.bajan} bajan
+              ({previewPend.preview.precios.bajasBloqueadas} bloqueadas) · {previewPend.preview.precios.iguales} iguales
+            </div>
+            <Table columnas={columnasPreviewPrecios} filas={previewPend.preview.muestra} vacio="Sin muestra" />
+            <div className="text-xs text-muted mt-2">
+              Sin efectos: aprobar aplica las subas (las bajas quedan afuera); anular no toca nada.
+            </div>
           </div>
         )}
       </Modal>

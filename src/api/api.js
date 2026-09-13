@@ -350,6 +350,15 @@ export const importadorApi = {
   aplicarPrecios: (payload) => axiosClient.post('/importador/precios', payload),
   historial: (params) => axiosClient.get('/importador', { params }),
   detalle: (id, params) => axiosClient.get(`/importador/${id}/items`, { params }),
+  // Bandeja de documentos de precios (admin): carpeta de entrada + actualizaciones pendientes.
+  bandeja: () => axiosClient.get('/importador/bandeja'),
+  bandejaSubir: (payload) => axiosClient.post('/importador/bandeja/subir', payload),
+  bandejaProcesar: (payload) => axiosClient.post('/importador/bandeja/procesar', payload),
+  bandejaProcesarTodo: () => axiosClient.post('/importador/bandeja/procesar-todo', {}),
+  bandejaPreview: (id) => axiosClient.get(`/importador/bandeja/${id}/preview`),
+  bandejaAprobar: (payload) => axiosClient.post('/importador/bandeja/aprobar', payload),
+  bandejaAnular: (payload) => axiosClient.post('/importador/bandeja/anular', payload),
+  bandejaLimpiar: (incluirRevisar = false) => axiosClient.delete('/importador/bandeja/limpiar', { params: incluirRevisar ? { incluirRevisar: true } : {} }),
 };
 
 export const manualApi = {
