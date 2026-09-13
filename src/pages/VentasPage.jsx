@@ -172,9 +172,11 @@ export default function VentasPage() {
         clienteId: clienteId || null,
         descuentoGlobal,
       };
-      if (pagos.length > 1) {
+      if (pagos.length > 1 || tipo === 'PEDIDO' || tipo === 'PRESUPUESTO') {
+        const esPendiente = tipo === 'PEDIDO' || tipo === 'PRESUPUESTO';
         const suma = pagos.reduce((a, p) => a + (Number(p.monto) || 0), 0);
-        if (Math.abs(suma - total) > 0.01) { setMensaje(`⚠️ La suma de pagos (${fmt(suma)}) no coincide con el total (${fmt(total)})`); return; }
+        if (suma > total + 0.01) { setMensaje(`⚠️ La suma de pagos (${fmt(suma)}) supera el total (${fmt(total)})`); return; }
+        if (!esPendiente && Math.abs(suma - total) > 0.01) { setMensaje(`⚠️ La suma de pagos (${fmt(suma)}) no coincide con el total (${fmt(total)})`); return; }
         payload.pagos = pagos;
       } else if (pagos.length === 1) {
         payload.metodoPago = pagos[0].metodoPago;
@@ -374,6 +376,12 @@ export default function VentasPage() {
         }
       >
         <p className="text-sm mb-3">Total: <strong>{fmt(total)}</strong> · Suma pagos: {fmt(sumaPagos)}</p>
+        {(tipo === 'PEDIDO' || tipo === 'PRESUPUESTO') && (
+          <p className="text-xs mb-2" style={{ color: 'var(--accent)' }}>
+            {tipo}: lo cobrado ahora es la <strong>seña</strong> (puede ser menor al total); el saldo queda pendiente.
+            {sumaPagos < total && <> Saldo pendiente: <strong>{fmt(total - sumaPagos)}</strong>.</>}
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3 mb-3">
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Monto recibido</span>

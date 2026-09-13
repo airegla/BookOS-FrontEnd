@@ -9,7 +9,7 @@ import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
-import { cajaApi } from '../api/api';
+import { cajaApi, parametrosApi } from '../api/api';
 import { descargarCsv } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
 
@@ -27,6 +27,7 @@ function Tarjeta({ titulo, valor, color }) {
 export default function CajaPage() {
   const [actual, setActual] = useState(null);
   const [cierres, setCierres] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [form, setForm] = useState({ tipo: 'INGRESO', concepto: '', monto: '', metodoPago: 'EFECTIVO' });
   const [cierreForm, setCierreForm] = useState({ saldoRealDeclarado: '', montoApertura: '', observaciones: '' });
   const [cerrarAbierto, setCerrarAbierto] = useState(false);
@@ -46,6 +47,10 @@ export default function CajaPage() {
   };
 
   useEffect(() => { cargar(); }, []); // eslint-disable-line
+
+  useEffect(() => {
+    parametrosApi.categoriasCaja().then((res) => setCategorias(res.data || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (actual) setContextoActual({ vista: 'caja', totales: actual.totales });
@@ -171,7 +176,8 @@ export default function CajaPage() {
               <option value="CHEQUE">CHEQUE</option>
             </select>
           </div>
-          <Input label="Concepto" value={form.concepto} onChange={(e) => setForm({ ...form, concepto: e.target.value })} />
+          <Input label="Concepto" list="dl-categorias-caja" value={form.concepto} onChange={(e) => setForm({ ...form, concepto: e.target.value })} />
+          <datalist id="dl-categorias-caja">{categorias.map((c) => <option key={c.id} value={c.nombre} />)}</datalist>
           <Input label="Monto" type="number" value={form.monto} onChange={(e) => setForm({ ...form, monto: e.target.value })} />
           <button type="button" className="btn btn-primary" onClick={registrar}>Registrar</button>
         </div>

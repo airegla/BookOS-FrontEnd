@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
+import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { inventarioApi } from '../api/api';
 import { useAppContext } from '../AppContext';
@@ -40,6 +41,11 @@ export default function InventarioPage() {
   const [aConsigna, setAConsigna] = useState(0);
   const [aMotivo, setAMotivo] = useState('');
 
+  const [ajustes, setAjustes] = useState([]);
+  const [ajPage, setAjPage] = useState(1);
+  const [ajTotal, setAjTotal] = useState(0);
+  const [ajusteVer, setAjusteVer] = useState(null);
+
   const { setContextoActual, pedirConsulta } = useAppContext();
 
   const cargar = async (q = busqueda) => {
@@ -51,6 +57,28 @@ export default function InventarioPage() {
   };
 
   useEffect(() => { cargar(''); }, []); // eslint-disable-line
+
+  const cargarAjustes = async (p = ajPage) => {
+    try {
+      const res = await inventarioApi.ajustes({ page: p, limit: 20 });
+      const data = res.data || res;
+      setAjustes(data.filas || []);
+      setAjTotal(data.total || 0);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  useEffect(() => { cargarAjustes(ajPage); }, [ajPage]); // eslint-disable-line
+
+  const anularAjuste = async (a) => {
+    if (!window.confirm(`¿Anular el ajuste ${a.numero || `#${a.id}`}? Se revierte el stock.`)) return;
+    try {
+      await inventarioApi.anularAjuste(a.id);
+      setMensaje(`Ajuste ${a.numero || `#${a.id}`} anulado (stock revertido) ✓`);
+      setAjusteVer(null);
+      cargarAjustes();
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
 
   useEffect(() => { setContextoActual({ vista: 'inventario', articulos: total }); }, [total]); // eslint-disable-line
 
@@ -65,6 +93,23 @@ export default function InventarioPage() {
 
   const tipoSel = TIPOS_AJUSTE.find((t) => t.id === aTipo) || TIPOS_AJUSTE[0];
   const cantidadAjuste = Math.abs(Number(aCantidad) || 0);
+
+  const columnasAjustes = [
+    { clave: 'numero', titulo: 'Numero', render: (a) => a.numero || `#${a.id}` },
+    { clave: 'fecha', titulo: 'Fecha', render: (a) => new Date(a.fecha).toLocaleString('es-AR') },
+    { clave: 'tipoMovimiento', titulo: 'Tipo' },
+    { clave: 'articulos', titulo: 'Articulo', render: (a) => (a.items || []).map((i) => (i.articulo ? i.articulo.titulo : `#${i.articuloId}`)).join(', ').slice(0, 60) },
+    { clave: 'deltas', titulo: 'Deltas', render: (a) => (a.items || []).map((i) => `F${i.deltaFirme >= 0 ? '+' : ''}${i.deltaFirme} C${i.deltaConsignaActual >= 0 ? '+' : ''}${i.deltaConsignaActual} O${i.deltaConsignaOriginal >= 0 ? '+' : ''}${i.deltaConsignaOriginal}`).join(' · ') },
+    { clave: 'estado', titulo: 'Estado', render: (a) => <span className="agente-badge">{a.estado}</span> },
+    { clave: 'acciones', titulo: '', render: (a) => (
+      <div className="flex gap-2">
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => setAjusteVer(a)}>Ver</button>
+        {a.tipoMovimiento === 'AJUSTE' && a.estado === 'ACTIVO' && (
+          <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularAjuste(a)}>Anular</button>
+        )}
+      </div>
+    ) },
+  ];
 
   const ejecutarAjuste = async () => {
     const payload = { ean13: ajustar.ean13, motivo: aMotivo };
@@ -186,6 +231,47 @@ export default function InventarioPage() {
           <input className="input-os" value={aMotivo} onChange={(e) => setAMotivo(e.target.value)} />
         </label>
         <p className="text-xs text-muted">El ajuste queda en el ledger de stock con su motivo; no modifica comprobantes.</p>
+      </Modal>
+
+      <h3 className="font-semibold mb-2 mt-6">Historial de ajustes</h3>
+      <Table columnas={columnasAjustes} filas={ajustes} vacio="Sin ajustes registrados" />
+      <Paginador page={ajPage} total={ajTotal} limite={20} onCambiar={setAjPage} etiqueta="ajustes" />
+
+      <Modal abierto={Boolean(ajusteVer)} onClose={() => setAjusteVer(null)} titulo={ajusteVer ? `Ajuste ${ajusteVer.numero || `#${ajusteVer.id}`}` : ''} ancho="680px"
+        footer={ajusteVer ? (
+          <div className="flex gap-2">
+            {ajusteVer.tipoMovimiento === 'AJUSTE' && ajusteVer.estado === 'ACTIVO' && (
+              <button type="button" className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => anularAjuste(ajusteVer)}>Anular (revierte stock)</button>
+            )}
+            <button type="button" className="btn btn-primary" onClick={() => setAjusteVer(null)}>Cerrar</button>
+          </div>
+        ) : null}
+      >
+        {ajusteVer && (
+          <>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm mb-3">
+              <div><span className="text-muted">Fecha: </span>{new Date(ajusteVer.fecha).toLocaleString('es-AR')}</div>
+              <div><span className="text-muted">Tipo: </span>{ajusteVer.tipoMovimiento}</div>
+              <div><span className="text-muted">Estado: </span>{ajusteVer.estado}</div>
+              <div><span className="text-muted">Referencia: </span>{ajusteVer.referenciaId || '-'}</div>
+              {ajusteVer.observaciones && <div className="col-span-2"><span className="text-muted">Motivo: </span>{ajusteVer.observaciones}</div>}
+            </div>
+            <table className="table-os">
+              <thead><tr><th>Articulo</th><th>Firme</th><th>Consigna</th><th>Original</th><th>Stock previo (F/C/O)</th></tr></thead>
+              <tbody>
+                {(ajusteVer.items || []).map((i) => (
+                  <tr key={i.id}>
+                    <td>{i.articulo ? i.articulo.titulo : `#${i.articuloId}`}</td>
+                    <td>{i.deltaFirme >= 0 ? '+' : ''}{i.deltaFirme}</td>
+                    <td>{i.deltaConsignaActual >= 0 ? '+' : ''}{i.deltaConsignaActual}</td>
+                    <td>{i.deltaConsignaOriginal >= 0 ? '+' : ''}{i.deltaConsignaOriginal}</td>
+                    <td className="text-xs text-muted">{i.stockFirmePrevio} / {i.stockConsignaActualPrevio} / {i.stockConsignaOriginalPrevio}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </Modal>
     </div>
   );

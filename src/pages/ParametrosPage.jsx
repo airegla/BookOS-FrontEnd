@@ -1,6 +1,7 @@
 // BookOS - ParametrosPage.jsx
 // ruta: bookos/frontend/src/pages/ParametrosPage.jsx
-// descripcion: parametros del OS — metodos de pago (bookerp: tipos de pago).
+// descripcion: parametros del OS — metodos de pago (bookerp: tipos de pago) y
+//   categorias de caja (bookerp: categorias de los movimientos manuales).
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
@@ -9,8 +10,14 @@ import DebugTag from '../ui/DebugTag';
 import { parametrosApi } from '../api/api';
 import { useAppContext } from '../AppContext';
 
+const TABS = [
+  { id: 'metodos', label: 'Metodos de pago' },
+  { id: 'categorias', label: 'Categorias de caja' },
+];
+
 export default function ParametrosPage() {
-  const [metodos, setMetodos] = useState([]);
+  const [tab, setTab] = useState('metodos');
+  const [filas, setFilas] = useState([]);
   const [mensaje, setMensaje] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
   const [nombre, setNombre] = useState('');
@@ -18,20 +25,23 @@ export default function ParametrosPage() {
 
   const { setContextoActual, pedirConsulta } = useAppContext();
 
-  const cargar = async () => {
+  const esMetodos = tab === 'metodos';
+
+  const cargar = async (t = tab) => {
     try {
-      const res = await parametrosApi.metodosPago();
-      setMetodos(res.data || []);
+      const res = t === 'metodos' ? await parametrosApi.metodosPago() : await parametrosApi.categoriasCaja();
+      setFilas(res.data || []);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
-  useEffect(() => { cargar(); }, []); // eslint-disable-line
-  useEffect(() => { setContextoActual({ vista: 'parametros', metodosPago: metodos.length }); }, [metodos.length]); // eslint-disable-line
+  useEffect(() => { cargar(tab); }, [tab]); // eslint-disable-line
+  useEffect(() => { setContextoActual({ vista: 'parametros', tab, total: filas.length }); }, [tab, filas.length]); // eslint-disable-line
 
   const crear = async () => {
     try {
-      await parametrosApi.crearMetodoPago({ nombre, descripcion: descripcion || null });
-      setMensaje('Metodo de pago creado ✓');
+      if (esMetodos) await parametrosApi.crearMetodoPago({ nombre, descripcion: descripcion || null });
+      else await parametrosApi.crearCategoriaCaja({ nombre, descripcion: descripcion || null });
+      setMensaje(esMetodos ? 'Metodo de pago creado ✓' : 'Categoria de caja creada ✓');
       setModalAbierto(false); setNombre(''); setDescripcion('');
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
@@ -39,16 +49,19 @@ export default function ParametrosPage() {
 
   const alternar = async (m) => {
     try {
-      await parametrosApi.actualizarMetodoPago(m.id, { activo: !m.activo });
+      if (esMetodos) await parametrosApi.actualizarMetodoPago(m.id, { activo: !m.activo });
+      else await parametrosApi.actualizarCategoriaCaja(m.id, { activo: !m.activo });
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
   const eliminar = async (m) => {
-    if (!window.confirm(`¿Eliminar el metodo de pago "${m.nombre}"?`)) return;
+    const etiqueta = esMetodos ? 'el metodo de pago' : 'la categoria';
+    if (!window.confirm(`¿Eliminar ${etiqueta} "${m.nombre}"?`)) return;
     try {
-      await parametrosApi.eliminarMetodoPago(m.id);
-      setMensaje('Metodo de pago eliminado ✓');
+      if (esMetodos) await parametrosApi.eliminarMetodoPago(m.id);
+      else await parametrosApi.eliminarCategoriaCaja(m.id);
+      setMensaje(esMetodos ? 'Metodo de pago eliminado ✓' : 'Categoria eliminada ✓');
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -71,19 +84,25 @@ export default function ParametrosPage() {
       <DebugTag nombre="ParametrosPage" />
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Parámetros</h2>
-        <span className="text-xs text-muted">métodos de pago (bookerp: tipos de pago)</span>
+        <span className="text-xs text-muted">metodos de pago · categorias de caja (bookerp)</span>
       </div>
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
-      <div className="flex justify-end gap-2 mb-4">
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Tengo ${metodos.length} metodos de pago configurados. ¿Que me sugeris?`)}>Preguntar al Secretario</button>
-        <button type="button" className="btn btn-primary text-xs" onClick={() => setModalAbierto(true)}>+ Método de pago</button>
+      <div className="flex gap-2 mb-4">
+        {TABS.map((t) => (
+          <button key={t.id} type="button" className={`btn ${tab === t.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab(t.id)}>{t.label}</button>
+        ))}
       </div>
 
-      <Table columnas={columnas} filas={metodos} vacio="Sin metodos de pago" exportable exportarNombre="metodos_pago" />
+      <div className="flex justify-end gap-2 mb-4">
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Tengo ${filas.length} ${esMetodos ? 'metodos de pago' : 'categorias de caja'} configurados. ¿Que me sugeris?`)}>Preguntar al Secretario</button>
+        <button type="button" className="btn btn-primary text-xs" onClick={() => setModalAbierto(true)}>{esMetodos ? '+ Método de pago' : '+ Categoría de caja'}</button>
+      </div>
 
-      <Modal abierto={modalAbierto} onClose={() => setModalAbierto(false)} titulo="Nuevo método de pago" ancho="420px"
+      <Table columnas={columnas} filas={filas} vacio={esMetodos ? 'Sin metodos de pago' : 'Sin categorias de caja'} exportable exportarNombre={tab === 'metodos' ? 'metodos_pago' : 'categorias_caja'} />
+
+      <Modal abierto={modalAbierto} onClose={() => setModalAbierto(false)} titulo={esMetodos ? 'Nuevo método de pago' : 'Nueva categoría de caja'} ancho="420px"
         footer={
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setModalAbierto(false)}>Cancelar</button>
@@ -93,12 +112,13 @@ export default function ParametrosPage() {
       >
         <label className="block mb-3">
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Nombre</span>
-          <input className="input-os" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="EFECTIVO, TARJETA..." />
+          <input className="input-os" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={esMetodos ? 'EFECTIVO, TARJETA...' : 'SUELDOS, FLETES, GASTOS VARIOS...'} />
         </label>
         <label className="block mb-3">
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Descripción</span>
           <input className="input-os" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
         </label>
+        {!esMetodos && <p className="text-xs text-muted">Las categorias se sugieren al cargar el concepto de un movimiento manual de caja.</p>}
       </Modal>
     </div>
   );

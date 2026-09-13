@@ -113,4 +113,12 @@ src/
 - **Inventario FIFE (F6.10)**: el modal de ajuste ofrece los **tipos** del bookerp (alta/baja firme,
   alta/baja consigna con su original, firme↔consigna) con la cantidad positiva y el calculo visible
   ("Aplica: firme +2 · consigna −2 · original +0"), mas el modo **personalizado** con deltas a mano.
-  El historial de ajustes y la anulacion quedan como tramo aparte (necesitan endpoints nuevos).
+- **Seña en pedidos (F6.8b)**: en PEDIDO/PRESUPUESTO la suma de pagos puede ser **menor** al total:
+  lo cobrado es la seña (entra a caja como "SENA PEDIDO #n") y el modal muestra el **saldo pendiente**;
+  la suma nunca puede superar el total.
+- **Categorías de caja (F6.9)**: solapa nueva en Parámetros (tabla `parametros` por tipo) y el
+  concepto del movimiento manual de caja las sugiere con un datalist. No cambia el esquema de caja.
+- **Historial de ajustes de inventario (F6.10b)**: seccion nueva en Inventario con el listado de
+  documentos AJUSTE/REVERSO (numero, fecha, articulo, deltas, estado), **Ver** con motivo y stock
+  previo, y **Anular (revierte stock)**: aplica los deltas invertidos y deja un documento REVERSO
+  con `referenciaId`; el original queda ANULADO (inmutable a partir de ahi).

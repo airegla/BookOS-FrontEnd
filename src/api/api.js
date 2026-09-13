@@ -212,6 +212,8 @@ export const inventarioApi = {
   stock: (params = {}) => axiosClient.get('/inventario', { params }),
   transferir: (payload) => axiosClient.post('/inventario/transferir', payload),
   ajustar: (payload) => axiosClient.post('/inventario/ajustar', payload),
+  ajustes: (params = {}) => axiosClient.get('/inventario/ajustes', { params }),
+  anularAjuste: (id) => axiosClient.post(`/inventario/ajustes/${id}/anular`),
 };
 
 export const newsletterApi = {
@@ -225,6 +227,10 @@ export const parametrosApi = {
   crearMetodoPago: (payload) => axiosClient.post('/parametros/metodos-pago', payload),
   actualizarMetodoPago: (id, payload) => axiosClient.put(`/parametros/metodos-pago/${id}`, payload),
   eliminarMetodoPago: (id) => axiosClient.delete(`/parametros/metodos-pago/${id}`),
+  categoriasCaja: () => axiosClient.get('/parametros/categorias-caja'),
+  crearCategoriaCaja: (payload) => axiosClient.post('/parametros/categorias-caja', payload),
+  actualizarCategoriaCaja: (id, payload) => axiosClient.put(`/parametros/categorias-caja/${id}`, payload),
+  eliminarCategoriaCaja: (id) => axiosClient.delete(`/parametros/categorias-caja/${id}`),
 };
 
 export const importadorApi = {
