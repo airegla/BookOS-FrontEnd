@@ -5,7 +5,8 @@
 //   afecta stock hasta confirmarse (al confirmar genera la compra).
 //   FACTURA_GENERICA: la factura del proveedor cuando el ingreso ya se hizo por
 //   remito: asienta la deuda en la CC y NO mueve stock (el caso espejo del remito, que
-//   mueve stock y no asienta deuda).
+//   mueve stock y no asienta deuda). Carga de renglones por buscador, Importar CSV
+//   (codigo;cantidad;precio;descuento) o Cargar documento (recuperables, con liquidaciones).
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
@@ -14,6 +15,7 @@ import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
 import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
 import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
+import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import Paginador from '../ui/Paginador';
 import { descargarCsv } from '../utils/exportar';
 import SelectBuscador from '../ui/SelectBuscador';
@@ -85,6 +87,22 @@ export default function ComprasPage() {
     if (!ean || !cantidad) return;
     setBorrador({ ...borrador, items: [...borrador.items, { ean13: ean, cantidad: Number(cantidad), precioUnitario: precio ? Number(precio) : 0, descuento: descLinea ? Number(descLinea) : 0 }] });
     setEan(''); setCantidad(''); setPrecio(''); setDescLinea('');
+  };
+
+  // Importar CSV (codigo;cantidad;precio;descuento): carga rapida de renglones al documento.
+  const importarItemsCsv = (filas) => {
+    const nuevos = (filas || [])
+      .filter((f) => (f.ean13 || f.codigo) && Number(f.cantidad) > 0)
+      .map((f) => ({
+        ean13: String(f.ean13 || f.codigo),
+        titulo: f.titulo || '',
+        cantidad: Number(f.cantidad),
+        precioUnitario: Number(f.precio ?? f.costo ?? 0) || 0,
+        descuento: Number(f.descuento ?? 0) || 0,
+      }));
+    if (!nuevos.length) { setMensaje('⚠️ El CSV no trajo renglones con código y cantidad'); return; }
+    setBorrador((b) => ({ ...b, items: [...b.items, ...nuevos] }));
+    setMensaje(`Cargados ${nuevos.length} renglones del CSV ✓`);
   };
 
   // Subtotal por renglon y totales del comprobante (con descuento global).
@@ -288,7 +306,8 @@ export default function ComprasPage() {
             onSeleccionar={(a) => setBorrador({ ...borrador, items: [...borrador.items, { ean13: a.ean13, titulo: a.titulo, cantidad: 1, precioUnitario: 0 }] })}
           />
         </div>
-        <div className="mb-3">
+        <div className="mb-3 flex items-center gap-2 flex-wrap">
+          <ImportarCsvBlock etiqueta="Importar CSV" onCargar={importarItemsCsv} />
           <CargarDocumentoBlock
             etiqueta="Cargar remito / pedido / compra"
             proveedorId={borrador.proveedorId ? Number(borrador.proveedorId) : null}
@@ -303,6 +322,7 @@ export default function ComprasPage() {
               setMensaje(`Cargados ${nuevos.length} renglones de ${meta.tipo} #${meta.id} ✓${salteados ? ` (${salteados} sin codigo, salteados)` : ''}`);
             }}
           />
+          <span className="text-xs text-muted">CSV: código;cantidad;precio;descuento (las columnas de más se ignoran)</span>
         </div>
         <div className="flex gap-2 mb-3">
           <input className="input-os" placeholder="EAN13" value={ean} onChange={(e) => setEan(e.target.value)} />

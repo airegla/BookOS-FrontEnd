@@ -12,7 +12,7 @@ const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
 function normItems(items) {
   return (items || []).map((it) => ({
-    ean13: String(it.ean13 || it.codigo || ''),
+    ean13: String(it.ean13 || it.codigo || it.barras || ''),
     titulo: it.titulo || '',
     cantidad: Number(it.cantidad) || 1,
     precio: Number(it.precio ?? it.precioUnitario ?? it.precio_lista ?? 0) || 0,
@@ -83,7 +83,7 @@ const TABS = [
       const r = await mayoristaApi.listarRemitos({ limit: 100 });
       return (r.data || []).map((d) => ({
         id: d.id, numero: `#${d.id}`, fecha: d.createdAt,
-        entidad: `${d.origen} → ${d.destino}`, tipo: d.tipoRemito, items: normItems(d.items),
+        entidad: `${(d.origen && d.origen.nombre) || '—'} → ${(d.destino && d.destino.nombre) || '—'}`, tipo: d.tipoRemito, items: normItems(d.items),
       }));
     },
   },
@@ -93,7 +93,7 @@ const TABS = [
       const r = await mayoristaApi.listarVentas({ limit: 100 });
       return (r.data || []).map((d) => ({
         id: d.id, numero: `#${d.id}`, fecha: d.createdAt,
-        entidad: d.clienteNombre || `Cliente #${d.clienteId || '?'}`, tipo: d.tipoComprobante, items: normItems(d.items),
+        entidad: (d.cliente && d.cliente.nombre) || `Cliente #${d.clienteId || '?'}`, tipo: d.tipoComprobante, items: normItems(d.items),
       }));
     },
   },
@@ -103,7 +103,7 @@ const TABS = [
       const r = await mayoristaApi.listarSabanas({ limit: 100 });
       return (r.data || []).map((d) => ({
         id: d.id, numero: `#${d.id}`, fecha: d.createdAt,
-        entidad: d.clienteNombre || `Cliente #${d.clienteId || '?'}`, tipo: 'SABANA', items: normItems(d.items),
+        entidad: (d.cliente && d.cliente.nombre) || `Cliente #${d.clienteId || '?'}`, tipo: 'SABANA', items: normItems(d.items),
       }));
     },
   },

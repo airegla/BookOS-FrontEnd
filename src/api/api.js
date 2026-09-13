@@ -231,6 +231,11 @@ export const mayoristaApi = {
   pdfVenta: (id) => axiosClient.get(`/mayorista/ventas/${id}/pdf`),
   mailVenta: (id, payload = {}) => axiosClient.post(`/mayorista/ventas/${id}/mail`, payload),
   crearDevolucion: (payload) => axiosClient.post('/mayorista/devoluciones', payload),
+  obtenerDevolucion: (id) => axiosClient.get(`/mayorista/devoluciones/${id}`),
+  anularDevolucion: (id) => axiosClient.post(`/mayorista/devoluciones/${id}/anular`),
+  csvDevolucion: (id) => axiosClient.get(`/mayorista/devoluciones/${id}/csv`),
+  pdfDevolucion: (id) => axiosClient.get(`/mayorista/devoluciones/${id}/pdf`),
+  mailDevolucion: (id, payload = {}) => axiosClient.post(`/mayorista/devoluciones/${id}/mail`, payload),
   crearSabana: (payload) => axiosClient.post('/mayorista/sabanas', payload),
   crearAjuste: (payload) => axiosClient.post('/mayorista/ajustes', payload),
 };

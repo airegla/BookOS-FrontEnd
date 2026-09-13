@@ -14,6 +14,7 @@ const TIPOS = [
   { valor: 'remito', label: 'Remitos' },
   { valor: 'pedido', label: 'Pedidos a proveedor' },
   { valor: 'compra', label: 'Compras' },
+  { valor: 'liquidacion', label: 'Liquidaciones de consigna' },
 ];
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 const fecha = (f) => (f ? new Date(f).toLocaleDateString('es-AR') : '—');
