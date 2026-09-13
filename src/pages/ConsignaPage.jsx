@@ -42,6 +42,8 @@ export default function ConsignaPage() {
   const [concProveedor, setConcProveedor] = useState('');
   const [concTexto, setConcTexto] = useState('');
   const [concPrev, setConcPrev] = useState(null);
+  const [concAplicar, setConcAplicar] = useState(null); // preview del ajuste sugerido (A-3b)
+  const [concAplicando, setConcAplicando] = useState(false);
 
   // devolucion nueva
   const [devAbierto, setDevAbierto] = useState(false);
@@ -215,6 +217,27 @@ export default function ConsignaPage() {
 
   const anularLiquidacion = async (id) => { try { await consignaApi.anularLiquidacion(id); setMensaje('Liquidación anulada ✓'); cargar(); } catch (e) { setMensaje(`⚠️ ${e.message}`); } };
   const anularConciliacion = async (id) => { try { await consignaApi.anularConciliacion(id); setMensaje('Conciliación anulada ✓'); cargar(); } catch (e) { setMensaje(`⚠️ ${e.message}`); } };
+
+  // Aplicar el ajuste sugerido (espejo FIFE: actual + original) — preview primero, nunca automático.
+  const abrirAplicar = async (c) => {
+    try {
+      const res = await consignaApi.previsualizarAplicarConciliacion(c.id);
+      setConcAplicar({ conc: c, ...res.data });
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const confirmarAplicar = async () => {
+    if (!concAplicar) return;
+    setConcAplicando(true);
+    try {
+      const res = await consignaApi.aplicarConciliacion(concAplicar.conc.id);
+      const d = res.data || {};
+      const omitidas = (d.omitidas || []).length;
+      setMensaje(`Ajustes aplicados: ${(d.aplicadas || []).length}${omitidas ? ` · ${omitidas} omitidas` : ''}${d.aplicada === false ? ' (nada para aplicar)' : ''}`);
+      setConcAplicar(null);
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); } finally { setConcAplicando(false); }
+  };
   const anularDevolucion = async (id) => { try { await consignaApi.anularDevolucion(id); setMensaje('Devolución anulada ✓'); cargar(); } catch (e) { setMensaje(`⚠️ ${e.message}`); } };
 
   // ---- Preparado de devolución (CSV del proveedor × stock de los locales) ----
@@ -316,10 +339,11 @@ export default function ConsignaPage() {
   const colConciliaciones = [
     { clave: 'id', titulo: 'ID' },
     { clave: 'proveedor', titulo: 'Proveedor', render: (c) => nombreProv(c) },
-    { clave: 'estado', titulo: 'Estado', render: (c) => <span className="agente-badge">{c.estado}</span> },
+    { clave: 'estado', titulo: 'Estado', render: (c) => <span className="agente-badge">{c.estado}{c.aplicada ? ' · ajustada' : ''}</span> },
     { clave: 'acciones', titulo: '', render: (c) => (
       <div className="flex gap-2">
         <button type="button" className="btn btn-ghost text-xs" onClick={() => setDetalle({ tipo: 'conciliacion', doc: c })}>Ver</button>
+        {c.estado !== 'ANULADA' && !c.aplicada && <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirAplicar(c)}>Aplicar</button>}
         {c.estado !== 'ANULADA' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularConciliacion(c.id)}>Anular</button>}
         <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('conciliacion', c.id)}>🧠</button>
       </div>
@@ -513,6 +537,48 @@ export default function ConsignaPage() {
               ))}
             </tbody>
           </table>
+        )}
+      </Modal>
+
+      {/* Aplicar el ajuste sugerido de una conciliacion (espejo FIFE: actual + original) */}
+      <Modal abierto={!!concAplicar} onClose={() => setConcAplicar(null)} titulo={`Aplicar ajuste ${concAplicar ? concAplicar.conc.numero : ''}`} ancho="880px"
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setConcAplicar(null)}>Cancelar</button>
+            <button type="button" className="btn btn-primary" disabled={concAplicando || !concAplicar || concAplicar.totales.aAplicar === 0} onClick={confirmarAplicar}>
+              {concAplicando ? 'Aplicando...' : `Aplicar ${concAplicar ? concAplicar.totales.aAplicar : 0} ajustes`}
+            </button>
+          </>
+        }
+      >
+        {concAplicar && (
+          <>
+            <p className="text-sm mb-3">
+              Cada diferencia se aplica por el <strong>ajuste de inventario</strong> (queda auditable y reversible en Inventario):
+              sube o baja la <strong>consigna actual y la original juntas</strong>, así el título queda reconocido por el proveedor y vendible.
+            </p>
+            <p className="text-xs text-muted mb-3">
+              Subir: +{concAplicar.totales.subir} · Bajar: {concAplicar.totales.bajar} · No aplicables: {concAplicar.totales.noAplicables}
+            </p>
+            <table className="table-os">
+              <thead><tr><th>EAN</th><th>Titulo</th><th>Acción</th><th>Actual</th><th>Original</th><th>Estado</th></tr></thead>
+              <tbody>
+                {concAplicar.filas.map((f, i) => (
+                  <tr key={i}>
+                    <td className="font-mono text-xs">{f.ean13}</td>
+                    <td>{f.titulo || '—'}</td>
+                    <td className="text-xs">{f.accion}</td>
+                    <td className="font-mono text-xs">{f.actual === null ? '—' : `${f.actual} → ${f.nuevoActual}`}</td>
+                    <td className="font-mono text-xs">{f.original === null ? '—' : `${f.original} → ${f.nuevoOriginal}`}</td>
+                    <td>{f.aplicable
+                      ? <span style={{ color: 'var(--success)' }}>Se aplica</span>
+                      : <span style={{ color: 'var(--danger)' }}>{f.motivo}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </Modal>
 
