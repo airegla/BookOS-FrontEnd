@@ -23,7 +23,7 @@ const sinStock = (fila) => {
 function CampoTexto({ label, campo, form, setForm, listaId }) {
   return (
     <label className="block mb-3">
-      <span className="block text-xs uppercase tracking-widest text-muted mb-1">{label}</span>
+      <span className="field-label">{label}</span>
       <input
         className="input-os"
         list={listaId}
@@ -207,7 +207,7 @@ export default function CatalogoPage() {
         )}
       >
         {error && <p className="text-sm mb-3" style={{ color: 'var(--danger)' }}>{error}</p>}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="form-grid">
           <Input label="EAN13 / barras" value={form.ean13 || ''} onChange={(e) => setForm({ ...form, ean13: e.target.value })} disabled={Boolean(editando)} />
           <Input label="ISBN" value={form.isbn || ''} onChange={(e) => setForm({ ...form, isbn: e.target.value })} onBlur={() => resolverEditorialPorIsbn(form.isbn)} />
         </div>
@@ -216,7 +216,7 @@ export default function CatalogoPage() {
           Autores y materias que no existan se crean solos al guardar (unico por nombre).
           Si el ISBN tiene editorial conocida, se completa al salir de ese campo.
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="form-grid">
           <CampoTexto label="Autor" campo="autor" form={form} setForm={setForm} listaId="dl-autores" />
           <CampoTexto label="Editorial" campo="editorial" form={form} setForm={setForm} listaId="dl-editoriales" />
           <CampoTexto label="Autor 2" campo="autor2" form={form} setForm={setForm} listaId="dl-autores" />
@@ -227,7 +227,7 @@ export default function CatalogoPage() {
           <Input label="Precio de lista" type="number" value={form.precio ?? ''} onChange={(e) => setForm({ ...form, precio: e.target.value === '' ? null : Number(e.target.value) })} />
         </div>
         <label className="block mb-3">
-          <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
+          <span className="field-label">Proveedor</span>
           <select className="input-os" value={form.proveedorId || ''} onChange={(e) => setForm({ ...form, proveedorId: e.target.value ? Number(e.target.value) : null })}>
             <option value="">Sin proveedor</option>
             {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}

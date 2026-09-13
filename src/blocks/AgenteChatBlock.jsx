@@ -335,7 +335,7 @@ export default function AgenteChatBlock() {
       </button>
       <aside className={`agente-panel ${abierto ? 'agente-abierto' : ''}`}>
         <DebugTag nombre="AgenteChatBlock" />
-        <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="agente-header px-4 py-3 flex items-center gap-2">
           <span className="font-semibold text-sm">El Secretario</span>
           {estado && <span className="agente-badge agente-badge-analizando">{estado}</span>}
           {contextoActual && (
@@ -362,7 +362,7 @@ export default function AgenteChatBlock() {
           <button type="button" className="btn btn-ghost text-xs agente-cerrar" onClick={() => setAbierto(false)} title="Cerrar">✕</button>
         </div>
         {panelConvs && (
-          <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border)', maxHeight: 260, overflowY: 'auto' }}>
+          <div className="agente-historial px-4 py-2" style={{ maxHeight: 260, overflowY: 'auto' }}>
             <div className="text-xs text-muted mb-1">Conversaciones guardadas (más recientes primero):</div>
             {listaConvs.length === 0 && <div className="text-xs text-muted">Todavía no hay conversaciones guardadas.</div>}
             {listaConvs.map((c) => (
@@ -376,7 +376,7 @@ export default function AgenteChatBlock() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ minHeight: 0 }}>
+        <div className="agente-mensajes px-4 py-3 space-y-3">
           {mensajes.length === 0 && (
             <div className="text-xs text-muted leading-relaxed">
               <p className="mb-2">Te ayudo desde aca. Si estas viendo un remito o un cliente, ya lo se.</p>
@@ -493,7 +493,7 @@ export default function AgenteChatBlock() {
           )}
         </div>
 
-        <div className="p-3" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="agente-input-wrap p-3">
           {(adjuntoPendiente || aviso) && (
             <div className="flex items-center gap-2 mb-2 text-xs flex-wrap">
               {adjuntoPendiente && <span className="agente-badge">📎 {adjuntoPendiente.nombre}</span>}

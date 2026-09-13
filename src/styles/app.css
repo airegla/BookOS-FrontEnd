@@ -21,10 +21,9 @@ html, body {
     white-space: nowrap;
   }
 
-  /* Tarjetas modales: que nunca desborden la pantalla. */
-  .modal-card {
-    max-width: calc(100vw - 32px) !important;
-    max-height: 88vh;
-    overflow: auto;
+  /* Modales: nunca desbordan la pantalla; scrollea solo el cuerpo del modal. */
+  .modal-content {
+    max-width: calc(100vw - 32px);
+    max-height: 92dvh;
   }
 }

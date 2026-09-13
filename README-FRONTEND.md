@@ -38,7 +38,14 @@ src/
 - **Todo modal**: crear/editar nunca navega a otra pagina.
 - **Nada borra trabajo**: carrito de venta y borrador de remito persisten en localStorage (`usePersistentWork`).
 - **El Secretario es contextual**: al ver un remito/cliente, su JSON se inyecta solo.
-- **Estilos en un solo lugar**: `src/styles/globals.css` (colores, tarjetas, modales, panel del agente).
+- **Estilos en un solo lugar**: `src/styles/globals.css` (colores, tarjetas, modales, panel del
+  agente, layout, labels `.field-label` / `.form-grid`, tablas). `app.css` solo ajustes mobile.
+- **Layout OS (3 zonas fijas)**: `bookos-app` ocupa `100dvh`; el navbar y el panel del Secretario
+  no scrollean. La unica barra de scroll es la del `main` (`.bookos-main`). El chat tiene
+  cabecera fija, mensajes con scroll (`.agente-mensajes`) y entrada siempre visible
+  (`.agente-input-wrap`). En <=1024px el panel se abre a pantalla completa con el boton flotante.
+- **Modal con pie visible**: `Modal.jsx` usa `modal-header` / `modal-body` / `modal-footer`;
+  scrollea solo el cuerpo, el titulo y los botones (Guardar/Cancelar) quedan siempre a la vista.
 - **debug_mode**: `VITE_DEBUG_MODE=true` muestra marca de agua y DebugTag por componente.
 - **El stock no se edita desde el catalogo**: el modal de articulos NO manda campos de stock
   (el backend rechaza el payload si vienen); el stock se ajusta por inventario/transferencia

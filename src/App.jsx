@@ -114,10 +114,10 @@ export default function App() {
   const esAdmin = usuario.rol === 'admin';
 
   return (
-    <div className={debug ? 'debug-watermark' : ''}>
+    <div className={`bookos-app${debug ? ' debug-watermark' : ''}`}>
       <Navbar vista={vista} onCambiarVista={cambiarVista} usuario={usuario} onLogout={salir} />
       <div className="bookos-layout">
-        <main className="p-6 overflow-y-auto">
+        <main className="bookos-main p-6">
           {vista === 'Catalogo' && <CatalogoPage />}
           {vista === 'Facturar' && <VentasPage />}
           {vista === 'Ventas del dia/periodo' && <VentasPeriodoPage />}

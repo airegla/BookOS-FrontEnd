@@ -5,7 +5,7 @@
 export default function Input({ label, ...props }) {
   return (
     <label className="block mb-3">
-      {label && <span className="block text-xs uppercase tracking-widest text-muted mb-1">{label}</span>}
+      {label && <span className="field-label">{label}</span>}
       <input className="input-os" {...props} />
     </label>
   );

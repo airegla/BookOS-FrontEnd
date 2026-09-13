@@ -22,13 +22,13 @@ export default function Modal({ abierto, onClose, titulo, children, footer, anch
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: ancho }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="modal-header flex items-center justify-between px-6 py-4">
           <h3 className="font-semibold text-base">{titulo}</h3>
           <button type="button" className="btn btn-ghost text-muted" onClick={onClose}>✕</button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="modal-body px-6 py-4">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 px-6 py-4" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="modal-footer flex justify-end gap-2 px-6 py-4">
             {footer}
           </div>
         )}
