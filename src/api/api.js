@@ -53,6 +53,9 @@ export const ventasApi = {
   notaCredito: (id, payload = {}) => axiosClient.post(`/ventas/${id}/nota-credito`, payload),
   notaDebito: (id, payload = {}) => axiosClient.post(`/ventas/${id}/nota-debito`, payload),
   pendientes: () => axiosClient.get('/ventas/pendientes'),
+  csv: (id) => axiosClient.get(`/ventas/${id}/csv`),
+  pdf: (id) => axiosClient.get(`/ventas/${id}/pdf`),
+  mail: (id, payload = {}) => axiosClient.post(`/ventas/${id}/mail`, payload),
 };
 
 export const remitosApi = {

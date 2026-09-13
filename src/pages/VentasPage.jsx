@@ -335,6 +335,26 @@ export default function VentasPage() {
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
+  // E14: descarga por documento — CSV/PDF al storage y mail con adjuntos (MODO PRUEBA si esta activo).
+  const descargar = async (v, formato) => {
+    try {
+      const res = await ventasApi[formato](v.id);
+      const d = res.data || {};
+      await descargarDesdeServidor(`/archivos/${d.archivoId}/descarga`, d.nombre);
+      setMensaje(`${d.nombre} descargado ✓`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const enviarPorMail = async (v) => {
+    try {
+      const res = await ventasApi.mail(v.id);
+      const d = res.data || {};
+      setMensaje(d.enviado
+        ? `Comprobante enviado a ${d.a || 'el cliente'}${d.redirigido ? ' (MODO PRUEBA)' : ''} ✓`
+        : `⚠️ No se pudo enviar: ${d.motivo || 'sin configurar'}`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
   // Nota de credito: abre el modal con las cantidades a devolver (renglon por renglon).
   const abrirNc = () => {
     const inicial = {};
@@ -389,6 +409,9 @@ export default function VentasPage() {
     { clave: 'acciones', titulo: '', render: (v) => (
       <div className="flex gap-2">
         <button type="button" className="btn btn-ghost text-xs" onClick={() => verDetalle(v)}>Ver</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargar(v, 'csv')}>CSV</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargar(v, 'pdf')}>PDF</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarPorMail(v)}>Mail</button>
       </div>
     ) },
   ];
