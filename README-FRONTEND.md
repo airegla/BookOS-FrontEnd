@@ -86,3 +86,17 @@ src/
   de emision, nro, estado, stock afectado, descuento global, renglones con precio/descuento/subtotal
   y total) con **Exportar CSV**, **Anular** (revierte stock) y contexto inyectado al Secretario.
   `comprasApi.obtener(id)` consume `GET /api/compras/:id`.
+- **Proveedores ajustado (F6.4)**: modal de 12 campos (razon social, fantasia, codigo interno,
+  CUIT, telefono, email, **bonificacion %**, **transporte asignado**, direccion, localidad, activo,
+  observaciones) y el boton **Ver** abre la **ficha + cuenta corriente** (saldo con la nota
+  "positivo = le debemos" y ultimos 10 movimientos).
+- **Alta al vuelo de maestros (F6.5)**: el modal de articulos avisa que los autores/materias
+  inexistentes se crean solos al guardar (backend `resolverAutor`/`resolverMateria`/`resolverEditorial`)
+  y **completa la editorial por la raiz del ISBN** al salir del campo (como el bookerp).
+- **Informe del cierre Z (F6.6)**: el historial de cierres tiene **Ver informe**: KPIs del cierre
+  (total ventas, efectivo teorico/declarado, diferencia, tarjetas, transferencias, cheques,
+  cantidad de movimientos) + **todos los movimientos del turno** y **Exportar CSV**.
+- **Editar medio de pago (F6.6)**: en los movimientos del turno, el boton **Metodo** abre el modal
+  para cambiar el medio (EFECTIVO/TARJETA/TRANSFERENCIA/CHEQUE). La regla es la elegida por el
+  vectorHumano: **solo movimientos del turno abierto**; un movimiento de un cierre Z ya cerrado
+  devuelve error y no se puede tocar.

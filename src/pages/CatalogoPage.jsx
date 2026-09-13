@@ -95,6 +95,16 @@ export default function CatalogoPage() {
     } catch (err) { setError(err.message); }
   };
 
+  // bookerp: si no hay editorial escrita, se resuelve por la raiz del ISBN al salir del campo.
+  const resolverEditorialPorIsbn = async (isbn) => {
+    if (!isbn || form.editorial) return;
+    try {
+      const res = await editorialesApi.resolver(isbn);
+      const ed = res.data || res;
+      if (ed && ed.nombre) setForm((f) => ({ ...f, editorial: ed.nombre }));
+    } catch { /* sin coincidencia: no interrumpe la carga */ }
+  };
+
   const guardar = async () => {
     try {
       const payload = sinStock(form);
@@ -199,9 +209,13 @@ export default function CatalogoPage() {
         {error && <p className="text-sm mb-3" style={{ color: 'var(--danger)' }}>{error}</p>}
         <div className="grid grid-cols-2 gap-3">
           <Input label="EAN13 / barras" value={form.ean13 || ''} onChange={(e) => setForm({ ...form, ean13: e.target.value })} disabled={Boolean(editando)} />
-          <Input label="ISBN" value={form.isbn || ''} onChange={(e) => setForm({ ...form, isbn: e.target.value })} />
+          <Input label="ISBN" value={form.isbn || ''} onChange={(e) => setForm({ ...form, isbn: e.target.value })} onBlur={() => resolverEditorialPorIsbn(form.isbn)} />
         </div>
         <Input label="Titulo" value={form.titulo || ''} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
+        <p className="text-xs text-muted mb-3">
+          Autores y materias que no existan se crean solos al guardar (unico por nombre).
+          Si el ISBN tiene editorial conocida, se completa al salir de ese campo.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <CampoTexto label="Autor" campo="autor" form={form} setForm={setForm} listaId="dl-autores" />
           <CampoTexto label="Editorial" campo="editorial" form={form} setForm={setForm} listaId="dl-editoriales" />

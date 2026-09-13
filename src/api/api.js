@@ -65,6 +65,7 @@ export const remitosApi = {
 export const cajaApi = {
   actual: () => axiosClient.get('/caja/actual'),
   movimiento: (datos) => axiosClient.post('/caja/manual', datos),
+  editarMetodo: (id, metodoPago) => axiosClient.put(`/caja/movimientos/${id}/metodo`, { metodoPago }),
   cerrar: (datos) => axiosClient.post('/caja/cerrar', datos),
   cierres: () => axiosClient.get('/caja/cierres'),
   detalleCierre: (id) => axiosClient.get(`/caja/cierres/${id}`),

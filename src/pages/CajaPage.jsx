@@ -10,6 +10,7 @@ import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
 import { cajaApi } from '../api/api';
+import { descargarCsv } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
 
 const MONEDA = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
@@ -29,6 +30,9 @@ export default function CajaPage() {
   const [form, setForm] = useState({ tipo: 'INGRESO', concepto: '', monto: '', metodoPago: 'EFECTIVO' });
   const [cierreForm, setCierreForm] = useState({ saldoRealDeclarado: '', montoApertura: '', observaciones: '' });
   const [cerrarAbierto, setCerrarAbierto] = useState(false);
+  const [detalleCierre, setDetalleCierre] = useState(null);
+  const [pagoEditando, setPagoEditando] = useState(null);
+  const [metodoNuevo, setMetodoNuevo] = useState('EFECTIVO');
   const [mensaje, setMensaje] = useState('');
   const { setContextoActual, pedirConsulta } = useAppContext();
 
@@ -66,11 +70,55 @@ export default function CajaPage() {
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
+  const abrirMetodo = (mov) => {
+    setPagoEditando(mov);
+    setMetodoNuevo(mov.metodoPagoNombre || 'EFECTIVO');
+  };
+
+  // Solo movimientos del turno abierto (el backend rechaza los ya cerrados).
+  const guardarMetodo = async () => {
+    try {
+      await cajaApi.editarMetodo(pagoEditando.id, metodoNuevo);
+      setMensaje(`Movimiento #${pagoEditando.id}: medio de pago actualizado a ${metodoNuevo} ✓`);
+      setPagoEditando(null);
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const verCierre = async (id) => {
+    try {
+      const res = await cajaApi.detalleCierre(id);
+      setDetalleCierre(res.data || res);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const exportarCierre = (detalle) => {
+    descargarCsv(`cierre-z-${detalle.cierre.id}`, [
+      { titulo: 'Fecha', clave: 'fecha' },
+      { titulo: 'Tipo', clave: 'tipo' },
+      { titulo: 'Concepto', clave: 'concepto' },
+      { titulo: 'Metodo', clave: 'metodoPagoNombre' },
+      { titulo: 'Monto', clave: 'monto' },
+    ], detalle.movimientos || []);
+  };
+
   const columnas = [
+    { clave: 'fecha', titulo: 'Fecha', render: (m) => new Date(m.fecha).toLocaleString('es-AR') },
     { clave: 'tipo', titulo: 'Tipo' },
     { clave: 'concepto', titulo: 'Concepto' },
     { clave: 'monto', titulo: 'Monto', render: (m) => <span style={{ color: m.tipo === 'EGRESO' ? 'var(--danger)' : 'var(--success)' }}>{MONEDA(m.monto)}</span> },
-    { clave: 'metodoPago', titulo: 'Metodo' },
+    { clave: 'metodoPagoNombre', titulo: 'Metodo' },
+    { clave: 'acciones', titulo: '', render: (m) => (
+      <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirMetodo(m)}>Metodo</button>
+    ) },
+  ];
+
+  const columnasDetalleCierre = [
+    { clave: 'fecha', titulo: 'Fecha', render: (m) => new Date(m.fecha).toLocaleString('es-AR') },
+    { clave: 'tipo', titulo: 'Tipo' },
+    { clave: 'concepto', titulo: 'Concepto' },
+    { clave: 'metodoPagoNombre', titulo: 'Metodo' },
+    { clave: 'monto', titulo: 'Monto', render: (m) => <span style={{ color: m.tipo === 'EGRESO' ? 'var(--danger)' : 'var(--success)' }}>{MONEDA(m.monto)}</span> },
   ];
 
   const columnasCierres = [
@@ -78,6 +126,9 @@ export default function CajaPage() {
     { clave: 'fecha', titulo: 'Fecha', render: (c) => new Date(c.createdAt).toLocaleString('es-AR') },
     { clave: 'totalVentas', titulo: 'Total ventas', render: (c) => MONEDA(c.totalVentas) },
     { clave: 'diferenciaEfectivo', titulo: 'Diferencia', render: (c) => <span style={{ color: Number(c.diferenciaEfectivo) === 0 ? 'var(--muted)' : 'var(--danger)' }}>{MONEDA(c.diferenciaEfectivo)}</span> },
+    { clave: 'acciones', titulo: '', render: (c) => (
+      <button type="button" className="btn btn-ghost text-xs" onClick={() => verCierre(c.id)}>Ver informe</button>
+    ) },
   ];
 
   return (
@@ -145,6 +196,65 @@ export default function CajaPage() {
         <Input label="Monto de apertura" type="number" value={cierreForm.montoApertura} onChange={(e) => setCierreForm({ ...cierreForm, montoApertura: e.target.value })} />
         <Input label="Observaciones" value={cierreForm.observaciones} onChange={(e) => setCierreForm({ ...cierreForm, observaciones: e.target.value })} />
         <p className="text-xs text-muted">Al cerrar se vincula el turno y se asienta el ajuste por sobrante/faltante automatico.</p>
+      </Modal>
+
+      <Modal abierto={Boolean(detalleCierre)} onClose={() => setDetalleCierre(null)} titulo={detalleCierre ? `Informe del cierre Z #${detalleCierre.cierre.id}` : ''} ancho="880px"
+        footer={detalleCierre ? (
+          <div className="flex gap-2">
+            <button type="button" className="btn btn-ghost" onClick={() => exportarCierre(detalleCierre)}>Exportar CSV</button>
+            <button type="button" className="btn btn-primary" onClick={() => setDetalleCierre(null)}>Cerrar</button>
+          </div>
+        ) : null}
+      >
+        {detalleCierre && (
+          <>
+            <div className="text-xs text-muted mb-3">
+              Apertura: {new Date(detalleCierre.cierre.fechaApertura).toLocaleString('es-AR')} ·
+              Cierre: {new Date(detalleCierre.cierre.fechaCierre).toLocaleString('es-AR')} ·
+              Apertura declarada: {MONEDA(detalleCierre.cierre.montoApertura)}
+              {detalleCierre.cierre.observaciones ? ` · ${detalleCierre.cierre.observaciones}` : ''}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <Tarjeta titulo="Total ventas" valor={MONEDA(detalleCierre.cierre.totalVentas)} />
+              <Tarjeta titulo="Efectivo teorico" valor={MONEDA(detalleCierre.cierre.totalEfectivoTeorico)} />
+              <Tarjeta titulo="Efectivo declarado" valor={MONEDA(detalleCierre.cierre.totalEfectivoDeclarado)} />
+              <Tarjeta titulo="Diferencia" valor={MONEDA(detalleCierre.cierre.diferenciaEfectivo)} color={Number(detalleCierre.cierre.diferenciaEfectivo) === 0 ? undefined : 'var(--danger)'} />
+              <Tarjeta titulo="Tarjetas" valor={MONEDA(detalleCierre.cierre.totalTarjetas)} />
+              <Tarjeta titulo="Transferencias" valor={MONEDA(detalleCierre.cierre.totalTransferencias)} />
+              <Tarjeta titulo="Cheques" valor={MONEDA(detalleCierre.cierre.totalCheques)} />
+              <Tarjeta titulo="Movimientos del turno" valor={(detalleCierre.movimientos || []).length} />
+            </div>
+            <Table columnas={columnasDetalleCierre} filas={detalleCierre.movimientos || []} vacio="Sin movimientos" />
+          </>
+        )}
+      </Modal>
+
+      <Modal abierto={Boolean(pagoEditando)} onClose={() => setPagoEditando(null)} titulo={pagoEditando ? `Editar medio de pago - movimiento #${pagoEditando.id}` : ''} ancho="420px"
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setPagoEditando(null)}>Cancelar</button>
+            <button type="button" className="btn btn-primary" onClick={guardarMetodo}>Guardar</button>
+          </>
+        )}
+      >
+        {pagoEditando && (
+          <>
+            <p className="text-sm mb-3">
+              {pagoEditando.concepto} · <strong>{MONEDA(pagoEditando.monto)}</strong>
+              <span className="text-muted"> (actual: {pagoEditando.metodoPagoNombre || '-'})</span>
+            </p>
+            <label className="block mb-3">
+              <span className="block text-xs uppercase tracking-widest text-muted mb-1">Nuevo medio de pago</span>
+              <select className="input-os" value={metodoNuevo} onChange={(e) => setMetodoNuevo(e.target.value)}>
+                <option value="EFECTIVO">EFECTIVO</option>
+                <option value="TARJETA">TARJETA</option>
+                <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                <option value="CHEQUE">CHEQUE</option>
+              </select>
+            </label>
+            <p className="text-xs text-muted">Solo movimientos del turno abierto: un cierre Z ya cerrado queda inmutable.</p>
+          </>
+        )}
       </Modal>
     </div>
   );
