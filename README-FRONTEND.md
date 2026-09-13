@@ -36,6 +36,102 @@ src/
   utils/             desarrolloPreguntas.js (instalador extensible)
 ```
 
+<!-- ARBOL:INICIO (generado por backend/scripts/arbol-readmes.js - no editar a mano) -->
+## Arbol de archivos
+
+_Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`)._
+
+**src/**
+
+- `App.jsx` — shell del OS. Login JWT, navbar de 7 vistas y layout contenido + Secretario lateral (persistente). Cambiar de vista no borra nada.
+- `AppContext.jsx` — contexto del OS. Lleva el contexto de pantalla que se inyecta al Secretario (ej. el remito que estas viendo) y los ultimos recomendados para cerrar el ciclo de outcome en la venta.
+- `constants.js` — Constantes compartidas del frontend (fuente única).
+- `main.jsx` — punto de entrada React. Carga la hoja de estilos unica del OS.
+
+**src/api/**
+
+- `api.js` — modulos de acceso a cada dominio del backend.
+- `axiosClient.js` — cliente HTTP unico del OS. Inyecta el JWT y desempaqueta el envelope {success, message, data}. En 401 limpia sesion.
+
+**src/blocks/**
+
+- `AgenteChatBlock.jsx` — El Secretario. Panel lateral persistente del layout: envuelve a ChatAgente (perfil secretario) en el aside del grid, con el boton flotante que lo abre a pantalla completa en pantallas chicas. El chat en si (estado, SSE, render del envelope) vive en blocks/ChatAgente.jsx y es compartido con el Asistente de ventas (perfil 'ventas').
+- `BuscadorArticuloBlock.jsx` — buscador de articulos para agregar a un comprobante (EAN, titulo, autor o editorial) con debounce 300 ms y sugerencias (patron bookerp). Se usa en ventas, compras y remitos para no depender de tipear el EAN de memoria.
+- `CargarDocumentoBlock.jsx` — carga el contenido de un comprobante de otro modulo dentro del que se esta armando (patron bookerp): elegis un remito/pedido/compra recuperable y sus renglones se copian al borrador actual. Muestra preview antes de cargar.
+- `ChatAgente.jsx` — chat del agente, reutilizable por perfil. El Secretario (panel lateral) y el Asistente de ventas (pagina del CRM) comparten este componente: mismo motor, misma conversacion persistente y mismo render del envelope; cambia la semilla/tools del backend (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada.
+- `ImportarCsvBlock.jsx` — importador CSV reutilizable. Dos destinos: 1) "Cargar en la vista": llama onCargar(filas) para meter las filas en el documento que se esta trabajando (items de venta, remito, liquidacion...). 2) "Procesar con el Secretario": adjunta el CSV al contexto y le pide al agente que lo procese con la herramienta que corresponda.
+- `ImportarDocumentoBlock.jsx` — modal "Importar documento" (bookerp: ImportarComprobanteModalBlock). Pestañas por módulo (pedidos, compras, remitos, liquidaciones, devoluciones), búsqueda, selección con vista previa y carga de los libros al trabajo actual.
+- `InteresesClienteBlock.jsx` — intereses de un cliente (doc 06 P5): tematicas cargadas con su origen, alta y baja, siembra de un perfil default y la afinidad REAL medida de sus compras. Es el mismo bloque en la ficha ("Ver") y en la edicion del cliente: lo que se ve es lo que se edita.
+- `ItemsEditorBlock.jsx` — tabla editable generica para cargar items de un comprobante (venta, remito). Recibe columnas configurables y delega cambios al padre.
+- `ManualBlock.jsx` — el manual vivo de BookOS en un modal con 4 solapas (uso tecnico, el Secretario, el Kernel y los flujos). Renderiza el markdown simple del backend (secciones, listas, tablas, notas) y los diagramas Mermaid como graficos.
+
+**src/hooks/**
+
+- `useAgenteStream.js` — consumo del SSE del Secretario (POST + stream). Expone estados, candidatos, la pregunta del agente (confirmacion/clarificacion) y el texto que llega palabra por palabra. El adjunto viaja como { nombre, contenido }.
+- `useIsMobile.js` — Hook para detectar viewport móvil (matchMedia).
+- `usePagination.js` — Hook de paginación + búsqueda en memoria para tablas.
+- `usePersistentWork.js` — borradores que sobreviven al cambio de pagina (localStorage). Regla de oro del OS: cambiar de pagina NO borra trabajo.
+
+**src/pages/**
+
+- `AgentePage.jsx` — el agente en el Kernel (es uno solo: Secretario y Asistente de ventas comparten motor). Muestra su estado (LLM, modelo, pasos, presupuesto), sus toggles (prompt completo o hibrido, cuantas herramientas con manual completo, pasos del loop, techo de contexto) y el inventario de herramientas con el uso real (la automejora: lo calibra la reflexion).
+- `AsistenteVentasPage.jsx` — el Asistente de VENTAS: chat de mostrador embebido como pagina (perfil 'ventas' del agente). Comparte motor y kernel con el Secretario, con semilla y herramientas acotadas a la venta (catalogo, clientes, informes, pedidos y archivos).
+- `CajaPage.jsx` — arqueo de caja y cierre Z (reglas de bookerp). Estado del turno, movimientos manuales, cierre con diferencia y historial. Integrado al Secretario (contexto de caja).
+- `CatalogoPage.jsx` — catalogo enriquecido. Listado paginado + busqueda hibrida semantica + modal de alta/edicion (todo en modal, nada borra trabajo).
+- `ClientesPage.jsx` — ABM de clientes y visualizacion de su grafo de interacciones (EVITA_AUTOR / PREFIERE_EDITORIAL / RECHAZO_IMPLICITO) inferido sin clics.
+- `ColaPage.jsx` — panel de Cola del enriquecimiento (E4/E7): estados de la cola, pendientes por prioridad, cobertura del stock activo, breakers de las fuentes externas y presupuesto LLM del dia. Descarga del estado en CSV.
+- `ComprasPage.jsx` — ingreso de compras a proveedores (candado FIFE firme/consigna), historial/anulacion + pedido a proveedor (bookerp) en modal. El pedido no afecta stock hasta confirmarse (al confirmar genera la compra).
+- `ConfigCrmPage.jsx` — configuracion del CRM (doc 06): mail (SMTP con prueba de envio real), Telegram (bot con prueba) y los toggles del modulo (grupo 'crm' del catalogo: notificaciones, radar, intentos de pedido, envio a proveedor). El password/token nunca vuelven de la API.
+- `ConfigPage.jsx` — configuracion del OS: estado del agente (LLM activo, modelo, presupuesto), toggles en caliente (runtimeConfig) y propuestas del Secretario (cristalizacion v2). Los pesos del ranking viven en Kernel > Pesos (versionados con rollback).
+- `ConsignaPage.jsx` — flujo de consignacion: liquidaciones, conciliador de sabanas y devoluciones (motor FIFE). Interconectado con el Secretario (contexto + consulta + observaciones LLM de cada documento).
+- `CrmEnConstruccion.jsx` — placeholder honesto de las paginas del CRM que llegan en etapas posteriores (doc 06): dice que es, para que sirve y en que etapa del plan se construye.
+- `CtaCtePage.jsx` — cuenta corriente unificada (clientes y proveedores comparten la misma tabla). Estado de cuenta, recibos, anulacion y observacion de comportamiento del Secretario (LLM estudia los movimientos y se semanticiza).
+- `DesarrolloPage.jsx` — instalador PoC. Entrevista simple (nombre, pais, rubro, como te llega el stock, como vendes). Las preguntas viven en utils/desarrolloPreguntas.js: agregar una pregunta no toca codigo core. Las respuestas se guardan en empresa.config (puerta abierta al JSON maestro del LLM en una fase futura).
+- `EmpresaPage.jsx` — datos de la empresa (fiscales AR por defecto). Editable, nunca
+- `InventarioPage.jsx` — deposito e inventario: stock por articulo, transferencia local<->deposito y ajuste de inventario (firme/consigna).
+- `LogsPage.jsx` — panel de Logs. Dos vistas ordenadas (mas nuevo primero): actividad del LLM y del agente (llm_audit_log) y pipeline de enriquecimiento (enriquecimiento_intento). Filtros por modulo/ruta/proveedor/etapa y descarga CSV.
+- `MayoristaPage.jsx` — modulo mayorista (bookerp): remitos entre depositos, ventas mayoristas, devoluciones, sabanas y ajustes de consignacion de cliente. Interconectado con el Secretario: inyecta contexto, escucha instrucciones y permite observar cada documento (🧠).
+- `MemoriaPage.jsx` — panel de Memoria del Secretario. Muestra lo que quedo guardado por tipo (nota, buena_practica, decision, ultimo_trabajo), permite filtrar, descargar y (admin) eliminar entradas. La memoria entra al prompt del agente en cada turno.
+- `NewsletterPage.jsx` — suscriptores del newsletter (integrado al CRM). Altas/bajas manuales y listado exportable.
+- `ParametrosPage.jsx` — parametros del OS — metodos de pago (bookerp: tipos de pago) y categorias de caja (bookerp: categorias de los movimientos manuales).
+- `PedidosPage.jsx` — pedidos de clientes del CRM (doc 06): alta, filtros por estado y busqueda, paginado server-side, cambio de estado por fila y export CSV. Los estados son los 6 del ciclo de vida (Pendiente -> Solicitado -> Ingresado -> Notificado | Agotado | Cancelado).
+- `PesosPage.jsx` — panel de Pesos del kernel. Edita los pesos vigentes (admin), guardarlos crea una version nueva que pasa a gobernar el ranking; cualquier version anterior puede reactivarse (rollback). El banco de pruebas mide antes/despues con la serie fija.
+- `PropuestasPage.jsx` — panel de Propuestas. La reflexion y el calibrador dejan aca lo que proponen (marcadores, pesos, reglas) con su detalle y observacion; aprobar una propuesta la aplica de verdad (marcador o version de pesos). Solo el admin aprueba o rechaza.
+- `PropuestasVentaPage.jsx` — propuestas de lectura del CRM (doc 06 P5/D6): el operario elige cliente, cantidad y una aclaracion, el asistente arma la propuesta (tematicas + afinidad + stock, seleccion y motivos por LLM) y queda en BORRADOR para revisarla antes de mandarla por mail.
+- `ProveedoresPage.jsx` — ABM de proveedores (regla bookerp: no se puede borrar si tiene compras asociadas).
+- `RadarPage.jsx` — el Radar del CRM (doc 06): foto de los pedidos por estado, los grupos que se despacharian por proveedor y las corridas del ciclo — verificar ingresos (ledger), notificar ingresos (mail al cliente + aviso interno) y notificar agotados.
+- `ReferenciasPage.jsx` — referencias maestras del catalogo — autores, materias y editoriales (bookerp: aut__autores, mtr__materias, editoriales). CRUD completo + "Preguntar al Secretario" + observacion LLM sobre el portfolio de cada editorial.
+- `RemitosPage.jsx` — ingreso de remitos en esquema "cabecera + tabla de items" + cruce de faltantes. Interconectado con el Secretario: inyecta el borrador y escucha instrucciones (refrescar, cruzar) para que el agente opere la vista.
+- `SaludPage.jsx` — panel de Salud del kernel (doc 01 §8). Muestra el ultimo reporte de la auditoria diaria (checks con nivel y detalle) y la tendencia de las corridas; el admin puede disparar una corrida y descargar la serie.
+- `TransportesPage.jsx` — transportes y depositos (eje del modulo mayorista). CRUD simple, stock por deposito y conexion con el Secretario.
+- `UsuariosPage.jsx` — ABM de usuarios con la regla indegradable visible: el ultimo admin no se puede borrar, desactivar ni degradar (el backend lo bloquea).
+- `VentasPage.jsx` — comprobante de venta en esquema "cabecera + tabla de items". Features bookerp: multi-pago, pendientes/recuperar (PEDIDO/PRESUPUESTO), giftcard (PDF), captura de email/newsletter y F10. Interconectado con el
+- `VentasPeriodoPage.jsx` — listado de ventas por periodo (el dia o un rango) con subtotales, filtro por tipo, paginado server-side y descarga CSV. Equivale a los "listados de la venta del dia y por periodo" del sistema legacy.
+
+**src/styles/**
+
+- `app.css`
+- `globals.css` — base Tailwind + variables del OS (identidad visual de Meta). UNICO LUGAR para modificar estilos globales: colores, tarjetas, botones, tablas, modales y panel del agente. /
+
+**src/ui/**
+
+- `DebugTag.jsx` — marca de identificacion de componente cuando debug_mode esta activo (VITE_DEBUG_MODE). debug_mode=false -> no renderiza nada.
+- `Input.jsx` — input estandarizado del OS (clase .input-os).
+- `MermaidDiagram.jsx` — renderiza un diagrama Mermaid (texto) como SVG dentro del manual.
+- `Modal.jsx` — modal base del OS. Todo lo que crea/edita pasa por aca para no perder trabajo al navegar. Cierra con ESC.
+- `Navbar.jsx` — navegacion del OS agrupada en bloques semanticos. Cada grupo es un desplegable; el grupo que contiene la vista actual queda resaltado. Cambiar de pagina NO borra trabajo (estado en React).
+- `Paginador.jsx` — controles de paginacion server-side (page / limite / total) para los listados del OS. Patron bookerp: el backend pagina, la vista solo navega.
+- `Table.jsx` — tabla base del OS (clase .table-os del globals.css). Si recibe exportable=true, agrega un boton "Exportar CSV" que descarga el listado que se esta viendo (usa los datos crudos de cada fila).
+- `Toggle.jsx` — switch del OS (clases .toggle-track del globals.css).
+
+**src/utils/**
+
+- `csv.js` — parseo de CSV del lado del cliente + mapeo de columnas por alias. Se usa para importar un listado en el documento actual o adjuntarlo al Secretario.
+- `desarrolloPreguntas.js` — preguntas del instalador PoC. Agregar una pregunta = agregar un objeto aca; el formulario se arma solo y las respuestas se guardan en empresa.config. No se toca codigo core.
+- `exportar.js` — exportacion del lado del cliente. Dos caminos: - descargarCsv: CSV inmediato desde los datos que YA estan en pantalla (listado, carrito, detalle) sin tocar el backend. - descargarDesdeServidor: baja un archivo generado por el backend (una tool del Secretario o el endpoint /exportacion) usando el JWT.
+
+<!-- ARBOL:FIN -->
+
 ## Reglas del OS
 
 - **Todo modal**: crear/editar nunca navega a otra pagina.

@@ -244,6 +244,47 @@ body {
   color: var(--primary);
 }
 
+/* Intereses del cliente (doc 06 P5): tematicas cargadas y afinidad real medida de sus compras */
+.bloque-clientes {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+.chip-tema {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--primary);
+}
+.chip-tema button {
+  line-height: 1;
+  opacity: 0.65;
+}
+.chip-tema button:hover {
+  opacity: 1;
+}
+.chip-afinidad {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.lista-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 /* Marca de agua debug_mode §7 */
 .debug-watermark::after {
   content: "DEBUG_MODE";

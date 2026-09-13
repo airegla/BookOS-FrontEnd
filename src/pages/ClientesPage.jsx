@@ -10,6 +10,7 @@ import Input from '../ui/Input';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { clientesApi, ctaCteApi } from '../api/api';
+import InteresesClienteBlock from '../blocks/InteresesClienteBlock';
 import { useAppContext } from '../AppContext';
 
 // Condiciones frente al IVA frecuentes (dato heredado del legacy: puede venir texto libre).
@@ -62,6 +63,8 @@ export default function ClientesPage() {
   };
 
   // Ficha completa + cuenta corriente (bookerp: el "Ver" del cliente muestra su estado de cuenta).
+  // Los intereses (tematicas + afinidad) los muestra el bloque InteresesClienteBlock, que se usa
+  // igual en "Ver" y en "Editar": lo que se ve es lo que se edita.
   const verFicha = async (cliente) => {
     try {
       const res = await ctaCteApi.estadoCuenta({ clienteId: cliente.id });
@@ -165,6 +168,7 @@ export default function ClientesPage() {
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Observaciones</span>
           <textarea className="input-os resize-none" rows={2} value={form.observaciones || ''} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
         </label>
+        {editando && <InteresesClienteBlock clienteId={editando.id} onMensaje={setMensaje} />}
       </Modal>
 
       <Modal abierto={Boolean(ficha)} onClose={() => setFicha(null)} titulo={ficha ? `Ficha - ${ficha.cliente.nombre}` : ''} ancho="760px"
@@ -191,6 +195,9 @@ export default function ClientesPage() {
               <div><span className="text-muted">Plazo de pago: </span>{ficha.cliente.diasPlazoPago ? `${ficha.cliente.diasPlazoPago} dias` : '-'}</div>
               {ficha.cliente.observaciones && <div className="col-span-2"><span className="text-muted">Observaciones: </span>{ficha.cliente.observaciones}</div>}
             </div>
+
+            <InteresesClienteBlock clienteId={ficha.cliente.id} onMensaje={setMensaje} />
+
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-semibold">Cuenta corriente</h4>
               <div className="text-sm">
