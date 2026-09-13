@@ -302,7 +302,7 @@ export default function VentasPage() {
   };
 
   const anular = async () => {
-    if (!window.confirm(`¿Anular la venta #${detalle.id}? Se restaura el stock.`)) return;
+    if (!window.confirm(`¿Anular la venta #${detalle.id}? Se revierte el stock, la caja y la cuenta corriente.`)) return;
     try {
       await ventasApi.anular(detalle.id);
       setMensaje(`Venta #${detalle.id} anulada (stock restaurado) ✓`);
@@ -337,7 +337,7 @@ export default function VentasPage() {
       <DebugTag nombre="VentasPage" />
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Ventas</h2>
-        <span className="text-xs text-muted">factura descuenta stock · pedido/presupuesto exigen cliente · anular restaura · F10 cobrar</span>
+        <span className="text-xs text-muted">factura descuenta stock · pedido/presupuesto exigen cliente · anular revierte stock, caja y CC · F10 cobrar</span>
       </div>
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}

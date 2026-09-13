@@ -18,13 +18,21 @@ export default function ConfigCrmPage() {
   const [telegram, setTelegram] = useState(null);
   const [tgForm, setTgForm] = useState({ token: '', chatId: '' });
   const [bot, setBot] = useState(null);
+  const [botError, setBotError] = useState(null);
+  const [botLeidoEn, setBotLeidoEn] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
 
+  // Cada bloque se carga por separado: si uno falla (p. ej. un 500 en config), los demas se
+  // refrescan igual y no quedan mostrando datos viejos como si fueran actuales (QA F-03).
   const cargar = async () => {
+    let fallo = false;
+    const aviso = (err) => { fallo = true; setMensaje(`⚠️ ${err.message}`); };
     try {
       const cfg = await configApi.obtener();
       setCatalogo(cfg.data.catalogo || []);
+    } catch (err) { aviso(err); }
+    try {
       const m = await mailerApi.estado();
       setMailer(m.data);
       setMailForm((prev) => ({
@@ -36,14 +44,22 @@ export default function ConfigCrmPage() {
         redirigirA: m.data.redirigirA || '',
       }));
       setPruebaMail((prev) => prev || m.data.from || '');
+    } catch (err) { aviso(err); }
+    try {
       const t = await telegramApi.estado();
       setTelegram(t.data);
       setTgForm({ token: '', chatId: t.data.chatId || '' });
+    } catch (err) { aviso(err); }
+    try {
       const b = await telegramApi.bot();
       setBot(b.data);
+      setBotError(null);
+      setBotLeidoEn(new Date());
     } catch (err) {
-      setMensaje(`⚠️ ${err.message}`);
+      setBotError(err.message);
     }
+    // El aviso de error viejo se limpia solo cuando esta recarga salio bien (QA F-02).
+    setMensaje((m) => (m.startsWith('⚠️') && !fallo ? '' : m));
   };
 
   useEffect(() => { cargar(); }, []); // eslint-disable-line
@@ -225,8 +241,8 @@ export default function ConfigCrmPage() {
       <div className="card p-4 mb-4">
         <div className="flex items-center gap-2 mb-2">
           <h3 className="font-semibold">Secretario por Telegram</h3>
-          <span className="agente-badge" style={{ color: bot && bot.activo ? '#15803d' : 'var(--danger)' }}>
-            {bot ? (bot.activo ? 'escuchando' : 'en pausa') : '...'}
+          <span className="agente-badge" style={{ color: botError ? '#b45309' : bot && bot.activo ? '#15803d' : 'var(--danger)' }}>
+            {botError ? 'sin lectura' : bot ? (bot.activo ? 'escuchando' : 'en pausa') : '...'}
           </span>
         </div>
         <p className="text-sm text-muted mb-3">
@@ -243,6 +259,14 @@ export default function ConfigCrmPage() {
           <div className="col-span-2"><span className="text-muted">Último mensaje: </span>{bot && bot.ultimoMensajeEn ? new Date(bot.ultimoMensajeEn).toLocaleString('es-AR') : '-'}</div>
           <div className="col-span-2"><span className="text-muted">Último error: </span>{bot && bot.ultimoError ? bot.ultimoError : '-'}</div>
         </div>
+        {botError && (
+          <p className="text-xs mb-2" style={{ color: '#b45309', fontWeight: 600 }}>
+            ⚠️ No se pudo leer el estado del bot ({botError}): los valores de arriba pueden ser viejos. Usá «Refrescar estado».
+          </p>
+        )}
+        {bot && !botError && botLeidoEn && (
+          <p className="text-xs text-muted mb-2">Estado leído: {botLeidoEn.toLocaleTimeString('es-AR')}</p>
+        )}
         {bot && !bot.activo && bot.motivo && <p className="text-xs mb-2" style={{ color: '#b45309', fontWeight: 600 }}>⚠️ En pausa: {bot.motivo}</p>}
         <div className="flex items-center gap-2 flex-wrap">
           <button type="button" className="btn text-sm" disabled={cargando} onClick={reiniciarBot}>Reiniciar escucha</button>
