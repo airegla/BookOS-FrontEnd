@@ -13,7 +13,7 @@ export async function buscarClientes(q, excluir = []) {
   const res = await clientesApi.listar({ search: q, limit: LIMITE });
   return (res.data || [])
     .filter((c) => !excluir.includes(c.id))
-    .map((c) => ({ id: c.id, etiqueta: c.nombre, detalle: c.telefono || c.documento || '' }));
+    .map((c) => ({ id: c.id, etiqueta: c.nombre, nombre: c.nombre, detalle: c.telefono || c.documento || '' }));
 }
 
 // Articulos para los renglones del mayorista: muestra EAN y precio de lista.
@@ -59,6 +59,7 @@ export async function buscarMayoristas(q) {
     .map((c) => ({
       id: c.id,
       etiqueta: c.nombre,
+      nombre: c.nombre,
       detalle: c.deposito ? c.deposito.nombre : 'sin depósito espejo',
       descuentoFijo: c.descuentoFijo,
       diasPlazoPago: c.diasPlazoPago,

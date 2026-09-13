@@ -5,10 +5,11 @@
 //   anulación); E8 — facturación completa: factura firme (mueve stock, o genérica solo-CC si ya se
 //   movió con remito en firme), baja de consigna (con el disponible de la sábana a la vista y la
 //   REGLA DURA) y NC libre; E9 — devoluciones (vuelve de consigna con el tope de la sábana o de
-//   firme con NC por el valorizado; el acuse PDF+CSV se genera al registrar). Todos los historiales
-//   con Ver/CSV/PDF/Mail/Anular/🧠, paginador server-side y buscador con debounce. Pedidos y
-//   sábanas/ajustes llegan en sus etapas (E10-E11) y por ahora muestran su historial con el aviso
-//   de la etapa.
+//   firme con NC por el valorizado; el acuse PDF+CSV se genera al registrar); E10 — pedidos de
+//   devolución: alta individual (con la sábana a la vista), lote por CSV de códigos o importando
+//   documento, aprobación, envío por mail y conciliación contra la devolución recibida (acuse con
+//   solicitado vs recibido). Todos los historiales con Ver/CSV/PDF/Mail/Anular/🧠, paginador
+//   server-side y buscador con debounce. Sábanas y ajustes llegan en E11.
 
 import { useEffect, useRef, useState } from 'react';
 import Table from '../ui/Table';
@@ -18,6 +19,8 @@ import TablaItemsPaginada from '../ui/TablaItemsPaginada';
 import SelectBuscador from '../ui/SelectBuscador';
 import MayoristaCabeceraBlock from '../blocks/MayoristaCabeceraBlock';
 import MayoristaTablaBlock from '../blocks/MayoristaTablaBlock';
+import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
+import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
 import { mayoristaApi, depositosApi, observacionesApi } from '../api/api';
 import { buscarMayoristas } from '../utils/selectores';
 import { descargarDesdeServidor } from '../utils/exportar';
@@ -35,7 +38,6 @@ const TABS = [
 
 // Cada solapa dice en qué etapa llega su escritura (lo que ya funciona es el historial).
 const ETAPA_ESCRITURA = {
-  pedidos: 'E10 — pedidos de devolución + conciliación',
   sabanas: 'E11 — emisión y envío de sábanas',
   ajustes: 'E11 — ajustes a la sábana del cliente',
 };
@@ -43,9 +45,19 @@ const ETAPA_ESCRITURA = {
 const CABECERA_VACIA = { cliente: null, depositoOrigenId: '', depositoDestinoId: '', tipoRemito: 'CONSIGNA', observaciones: '' };
 const FACTURA_VACIA = { cliente: null, tipoComprobante: 'FACTURA_MAYORISTA_FIRME', mueveStock: true, depositoOrigenId: '', descuentoGlobal: 0, monto: '', descuentoFijo: null, observaciones: '' };
 const DEVOLUCION_VACIA = { cliente: null, tipoComprobante: 'DEVOLUCION_CONSIGNA', depositoId: '', totalValorizado: '', descuentoFijo: null, observaciones: '' };
+const PEDIDO_VACIO = { cliente: null, observaciones: '' };
 // Historiales con paginador server-side (los demas listados se paginan en su etapa).
-const PAGINADOS = ['remitos', 'ventas', 'devoluciones'];
+const PAGINADOS = ['remitos', 'ventas', 'devoluciones', 'pedidos'];
 const LIMITE = 20;
+// Estados del pedido de devolucion con su etiqueta de pantalla.
+const ESTADO_PEDIDO = {
+  PENDIENTE: 'Pendiente',
+  APROBADO: 'Aprobado',
+  ENVIADO: 'Enviado',
+  CONCILIADO_PARCIAL: 'Conciliado parcial',
+  CONCILIADO_TOTAL: 'Conciliado total',
+  ANULADO: 'Anulado',
+};
 
 export default function MayoristaPage() {
   const [tab, setTab] = useState('resumen');
@@ -54,9 +66,9 @@ export default function MayoristaPage() {
   const [depositos, setDepositos] = useState([]);
   const [mensaje, setMensaje] = useState('');
   const [observacion, setObservacion] = useState(null);
-  const [pags, setPags] = useState({ remitos: 1, ventas: 1, devoluciones: 1 });
-  const [busq, setBusq] = useState({ remitos: '', ventas: '', devoluciones: '' });
-  const [totales, setTotales] = useState({ remitos: 0, ventas: 0, devoluciones: 0 });
+  const [pags, setPags] = useState({ remitos: 1, ventas: 1, devoluciones: 1, pedidos: 1 });
+  const [busq, setBusq] = useState({ remitos: '', ventas: '', devoluciones: '', pedidos: '' });
+  const [totales, setTotales] = useState({ remitos: 0, ventas: 0, devoluciones: 0, pedidos: 0 });
   const timers = useRef({});
   const [verRemito, setVerRemito] = useState(null);
   const [cab, setCab] = useState(CABECERA_VACIA);
@@ -69,6 +81,14 @@ export default function MayoristaPage() {
   const [itemsDev, setItemsDev] = useState([]);
   const [sabanaDev, setSabanaDev] = useState(null);
   const [verDev, setVerDev] = useState(null);
+  const [ped, setPed] = useState(PEDIDO_VACIO);
+  const [itemsPed, setItemsPed] = useState([]);
+  const [sabanaPed, setSabanaPed] = useState(null);
+  const [modoPed, setModoPed] = useState('individual');
+  const [fechaLimite, setFechaLimite] = useState('');
+  const [lote, setLote] = useState(null);
+  const [verPedido, setVerPedido] = useState(null);
+  const [conciliando, setConciliando] = useState(null);
   const { setContextoActual, pedirConsulta } = useAppContext();
 
   const cargarLista = async (t, { page = null, buscar = null } = {}) => {
@@ -122,19 +142,23 @@ export default function MayoristaPage() {
       borrador: tab === 'remitos' ? { cliente: cab.cliente ? cab.cliente.nombre : null, tipoRemito: cab.tipoRemito, origen: cab.depositoOrigenId, items: items.length, unidades: items.reduce((a, i) => a + Number(i.cantidad || 0), 0) } : undefined,
       borradorFactura: tab === 'ventas' ? { cliente: fact.cliente ? fact.cliente.nombre : null, tipo: fact.tipoComprobante, mueveStock: fact.mueveStock, items: itemsFact.length } : undefined,
       borradorDevolucion: tab === 'devoluciones' ? { cliente: dev.cliente ? dev.cliente.nombre : null, tipo: dev.tipoComprobante, items: itemsDev.length } : undefined,
+      borradorPedido: tab === 'pedidos' ? { cliente: ped.cliente ? ped.cliente.nombre : null, modo: modoPed, items: itemsPed.length } : undefined,
     });
-  }, [tab, cab, items, fact, itemsFact, dev, itemsDev]); // eslint-disable-line
+  }, [tab, cab, items, fact, itemsFact, dev, itemsDev, ped, itemsPed, modoPed]); // eslint-disable-line
 
   const setCampo = (campo, valor) => setCab((prev) => ({ ...prev, [campo]: valor }));
   const setCampoFact = (campo, valor) => setFact((prev) => ({ ...prev, [campo]: valor }));
   const setCampoDev = (campo, valor) => setDev((prev) => ({ ...prev, [campo]: valor }));
+  const setCampoPed = (campo, valor) => setPed((prev) => ({ ...prev, [campo]: valor }));
 
   // ---- Documento por documento (CSV / PDF / Mail / Anular): el mismo flujo para todos los documentos ----
   const docApi = (tipoDoc) => (tipoDoc === 'remito'
     ? { csv: mayoristaApi.csvRemito, pdf: mayoristaApi.pdfRemito, mail: mayoristaApi.mailRemito, anular: mayoristaApi.anularRemito }
     : tipoDoc === 'venta'
       ? { csv: mayoristaApi.csvVenta, pdf: mayoristaApi.pdfVenta, mail: mayoristaApi.mailVenta, anular: mayoristaApi.anularVenta }
-      : { csv: mayoristaApi.csvDevolucion, pdf: mayoristaApi.pdfDevolucion, mail: mayoristaApi.mailDevolucion, anular: mayoristaApi.anularDevolucion });
+      : tipoDoc === 'pedido'
+        ? { csv: mayoristaApi.csvPedido, pdf: mayoristaApi.pdfPedido, mail: mayoristaApi.mailPedido, anular: mayoristaApi.anularPedido }
+        : { csv: mayoristaApi.csvDevolucion, pdf: mayoristaApi.pdfDevolucion, mail: mayoristaApi.mailDevolucion, anular: mayoristaApi.anularDevolucion });
 
   const reimprimir = async (r, formato, tipoDoc = 'remito') => {
     try {
@@ -321,6 +345,121 @@ export default function MayoristaPage() {
     } catch (e) { setMensaje(`⚠️ ${e.message}`); }
   };
 
+  // ---- Pedidos de devolucion (E10) ----
+  // La sabana del cliente a la vista, igual que en la baja de consigna y la devolucion: el operario
+  // arma la solicitud viendo que tiene consignado cada titulo.
+  const cargarSabanaPed = async (cliente) => {
+    if (!cliente || !cliente.deposito) { setSabanaPed(null); return; }
+    try {
+      const res = await depositosApi.stock(cliente.deposito.id);
+      const mapa = {};
+      (res.data || []).forEach((f) => { mapa[f.articuloId] = Number(f.consignaActual || 0); });
+      setSabanaPed(mapa);
+    } catch (e) { setSabanaPed(null); }
+  };
+
+  const elegirClientePed = (c) => {
+    setPed((prev) => ({ ...prev, cliente: c || null }));
+    cargarSabanaPed(c);
+  };
+
+  const crearPedido = async () => {
+    if (!ped.cliente) { setMensaje('⚠️ Elegí el cliente mayorista'); return; }
+    if (!itemsPed.length) { setMensaje('⚠️ Agregá renglones'); return; }
+    try {
+      const res = await mayoristaApi.crearPedido({
+        clienteId: ped.cliente.id,
+        items: itemsPed.map((i) => ({ ean13: i.ean13, cantidad: Number(i.cantidad) })),
+        observaciones: ped.observaciones || null,
+      });
+      setMensaje(`Pedido ${res.data.numero} creado (borrador: aprobalo y se lo envías al cliente) ✓`);
+      setPed(PEDIDO_VACIO);
+      setItemsPed([]);
+      setSabanaPed(null);
+      cargarLista('pedidos');
+      mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  // De a lotes: el CSV de codigos viaja al backend, que analiza los espejos con consigna y arma un
+  // pedido por cliente (cantidad opcional; sin cantidad se pide todo lo consignado).
+  const generarLoteCsv = async (filas) => {
+    try {
+      const res = await mayoristaApi.generarPedidosCsv({
+        filas: filas.map((f) => ({ codigo: String(f.ean13 || f.codigo || ''), cantidad: f.cantidad != null && f.cantidad !== '' ? Number(f.cantidad) : null })),
+        fechaLimite: fechaLimite || null,
+        observaciones: ped.observaciones || null,
+      });
+      setLote(res.data || null);
+      const n = res.data && res.data.pedidos ? res.data.pedidos.length : 0;
+      setMensaje(n ? `${n} pedido(s) generado(s) ✓` : '⚠️ No se generaron pedidos (ver detalle)');
+      cargarLista('pedidos');
+      mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const verDetallePedido = async (p) => {
+    try {
+      const res = await mayoristaApi.obtenerPedido(p.id);
+      setVerPedido(res.data);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const aprobarPedidoDoc = async (p) => {
+    try {
+      const res = await mayoristaApi.aprobarPedido(p.id);
+      setMensaje(`Pedido ${res.data.numero} aprobado ✓`);
+      cargarLista('pedidos');
+      if (verPedido && verPedido.id === p.id) verDetallePedido(p);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const enviarPedidoDoc = async (p) => {
+    if (!window.confirm(`¿Enviar el pedido ${p.numero} por mail al cliente? (adjunta PDF + CSV de lo solicitado)`)) return;
+    try {
+      const res = await mayoristaApi.enviarPedido(p.id);
+      const d = res.data || {};
+      setMensaje(d.envio && d.envio.enviado ? `Pedido ${p.numero} enviado a ${d.envio.a}${d.envio.redirigido ? ' (MODO PRUEBA)' : ''} ✓` : `El mail no salió: ${(d.envio && d.envio.motivo) || 'sin detalle'}`);
+      cargarLista('pedidos');
+      if (verPedido && verPedido.id === p.id) verDetallePedido(p);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const anularPedidoDoc = async (p) => {
+    if (!window.confirm(`¿Anular el pedido ${p.numero}? El pedido es una solicitud: no mueve stock ni cuenta corriente.`)) return;
+    try {
+      const res = await mayoristaApi.anularPedido(p.id);
+      setMensaje(`Pedido ${res.data.numero} anulado ✓`);
+      cargarLista('pedidos');
+      if (verPedido && verPedido.id === p.id) verDetallePedido(p);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  // Conciliar: se eligen las devoluciones recibidas del cliente que todavia no estan vinculadas a un pedido.
+  const abrirConciliar = async (p) => {
+    try {
+      const res = await mayoristaApi.obtenerPedido(p.id);
+      const pedido = res.data;
+      const devs = await mayoristaApi.listarDevoluciones({ clienteId: pedido.clienteId, limit: 100 });
+      const vinculadas = (pedido.devoluciones || []).map((d) => d.id);
+      const opciones = (devs.data || []).filter((d) => d.estado !== 'ANULADA' && !vinculadas.includes(d.id) && !d.pedidoDevolucionId);
+      setConciliando({ pedido, opciones, devolucionId: opciones.length ? opciones[0].id : '' });
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const confirmarConciliacion = async () => {
+    if (!conciliando || !conciliando.devolucionId) return;
+    try {
+      const res = await mayoristaApi.conciliarPedido(conciliando.pedido.id, { devolucionId: Number(conciliando.devolucionId) });
+      const d = res.data || {};
+      const avisos = (d.avisos || []).length ? ` — avisos: ${d.avisos.join(' · ')}` : '';
+      setMensaje(`Pedido ${d.numero} quedó ${ESTADO_PEDIDO[d.estado] ? ESTADO_PEDIDO[d.estado].toLowerCase() : d.estado} ✓${avisos}`);
+      setConciliando(null);
+      cargarLista('pedidos');
+      if (verPedido && verPedido.id === d.id) setVerPedido(d);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
   const observar = async (tipo, id) => {
     try {
       const res = await observacionesApi.documento({ tipo, id });
@@ -401,6 +540,32 @@ export default function MayoristaPage() {
           <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarMail(d, 'devolucion')}>Mail</button>
           {d.estado !== 'ANULADA' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularDoc(d, 'devolucion')}>Anular</button>}
           <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('devolucion_mayorista', d.id)}>🧠</button>
+        </div>
+      ),
+    },
+  ];
+
+  // Pedidos de devolucion (E10): acciones segun estado. El pedido no mueve stock ni CC: por eso
+  // pasar a ENVIADO es el "Enviar" (mail al cliente) y el acuse recien aparece al conciliar.
+  const colPedidos = [
+    { clave: 'numero', titulo: 'Nro', render: (p) => <span className="font-mono text-xs">{p.numero}</span> },
+    { clave: 'cliente', titulo: 'Cliente', render: (p) => (p.cliente ? p.cliente.nombre : '—') },
+    { clave: 'estado', titulo: 'Estado', render: (p) => <span className="agente-badge">{ESTADO_PEDIDO[p.estado] || p.estado}</span> },
+    { clave: 'cruce', titulo: 'Solicitado / Recibido', render: (p) => `${p.totalSolicitadas} / ${p.totalConciliadas}${p.conciliado && p.totalDiferencia !== 0 ? ` (${p.totalDiferencia > 0 ? '+' : ''}${p.totalDiferencia})` : ''}` },
+    {
+      clave: 'acciones',
+      titulo: '',
+      render: (p) => (
+        <div className="flex gap-2">
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => verDetallePedido(p)}>Ver</button>
+          {p.estado === 'PENDIENTE' && <button type="button" className="btn btn-ghost text-xs" onClick={() => aprobarPedidoDoc(p)}>Aprobar</button>}
+          {p.estado === 'APROBADO' && <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarPedidoDoc(p)}>Enviar</button>}
+          {['ENVIADO', 'CONCILIADO_PARCIAL'].includes(p.estado) && <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirConciliar(p)}>Conciliar</button>}
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(p, 'csv', 'pedido')}>CSV</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(p, 'pdf', 'pedido')}>PDF</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarMail(p, 'pedido')}>Mail</button>
+          {['PENDIENTE', 'APROBADO', 'ENVIADO'].includes(p.estado) && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularPedidoDoc(p)}>Anular</button>}
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('pedido_devolucion', p.id)}>🧠</button>
         </div>
       ),
     },
@@ -654,7 +819,95 @@ export default function MayoristaPage() {
         </>
       )}
 
-      {['pedidos', 'sabanas', 'ajustes'].includes(tab) && (
+      {tab === 'pedidos' && (
+        <>
+          <div className="card p-3 mb-4">
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <h3 className="text-sm uppercase tracking-widest text-muted">Pedido de devolución</h3>
+              <div className="flex-1" />
+              <button type="button" className={`btn ${modoPed === 'individual' ? 'btn-primary' : 'btn-ghost'} text-xs`} onClick={() => setModoPed('individual')}>Individual</button>
+              <button type="button" className={`btn ${modoPed === 'lote' ? 'btn-primary' : 'btn-ghost'} text-xs`} onClick={() => setModoPed('lote')}>Lote por CSV de códigos</button>
+            </div>
+            {modoPed === 'individual' ? (
+              <>
+                <div className="flex gap-3 flex-wrap mb-3 items-end">
+                  <div style={{ minWidth: 240 }}>
+                    <span className="field-label">Cliente mayorista</span>
+                    <SelectBuscador
+                      valor={ped.cliente ? ped.cliente.id : null}
+                      etiquetaValor={ped.cliente ? ped.cliente.nombre : ''}
+                      placeholder="Buscar cliente mayorista..."
+                      buscar={buscarMayoristas}
+                      onSeleccionar={elegirClientePed}
+                    />
+                  </div>
+                  <div>
+                    <span className="field-label">Importar renglones de un documento (opcional)</span>
+                    <CargarDocumentoBlock
+                      etiqueta="Importar documento"
+                      onCargar={(filas) => setItemsPed((prev) => [...prev, ...filas.map((f) => ({ articuloId: f.articuloId || null, ean13: f.ean13 || f.codigo || f.barras || '', titulo: f.titulo || '', cantidad: Number(f.cantidad) || 1 }))])}
+                    />
+                  </div>
+                </div>
+                <input className="input-os mb-3" placeholder="Observaciones (opcional: a qué responde el pedido)" value={ped.observaciones} onChange={(e) => setCampoPed('observaciones', e.target.value)} />
+                <MayoristaTablaBlock
+                  items={itemsPed}
+                  onItems={setItemsPed}
+                  conTipoStock={false}
+                  sabana={sabanaPed}
+                  etiquetaVacio="Agregá los títulos que querés pedirle de vuelta al cliente (buscador o CSV código;cantidad)"
+                />
+                <div className="flex justify-between items-center mt-3 flex-wrap gap-2">
+                  <p className="text-xs text-muted">
+                    El pedido es una <strong>solicitud</strong>: no mueve stock ni cuenta corriente. La columna Sábana muestra lo
+                    que el cliente tiene consignado. Después se aprueba y se envía por mail; cuando llega la devolución se concilia
+                    y el acuse muestra el cruce solicitado vs recibido.
+                  </p>
+                  <button type="button" className="btn btn-primary" onClick={crearPedido} disabled={!ped.cliente || !itemsPed.length}>
+                    Crear pedido (borrador)
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex gap-3 flex-wrap mb-3 items-end">
+                  <label className="flex items-center gap-1 text-xs text-muted" title="Opcional: pedir solo los títulos cuyo último movimiento en la sábana sea anterior a esta fecha (pedido por antigüedad).">
+                    Solo movimientos hasta
+                    <input className="input-os" type="date" value={fechaLimite} onChange={(e) => setFechaLimite(e.target.value)} />
+                  </label>
+                  <div className="flex-1" style={{ minWidth: 240 }}>
+                    <span className="field-label">Observaciones (opcional)</span>
+                    <input className="input-os" value={ped.observaciones} onChange={(e) => setCampoPed('observaciones', e.target.value)} />
+                  </div>
+                </div>
+                <ImportarCsvBlock etiqueta="Generar pedidos por CSV de códigos" onCargar={generarLoteCsv} />
+                <div className="flex justify-between items-center mt-2 flex-wrap gap-2">
+                  <p className="text-xs text-muted">
+                    El CSV lleva códigos (EAN/código; la cantidad es opcional: sin cantidad se pide <strong>todo</strong> lo
+                    consignado). Se arma <strong>un pedido por cliente</strong> con los títulos que tenga en su sábana.
+                  </p>
+                  <p className="text-xs text-muted">CSV: código;cantidad</p>
+                </div>
+                {lote && (
+                  <div className="card p-2 mt-2" style={{ borderLeft: '3px solid var(--accent)' }}>
+                    <p className="text-sm">Pedidos generados: <strong>{lote.pedidos.length}</strong>{lote.pedidos.length ? ` (${lote.pedidos.map((p) => p.numero).join(', ')})` : ''}</p>
+                    {lote.avisos.length > 0 && <p className="text-xs text-muted">Avisos: {lote.avisos.join(' · ')}</p>}
+                    {lote.noEncontrados.length > 0 && <p className="text-xs text-muted">No encontrados: {lote.noEncontrados.join(', ')}</p>}
+                    {lote.sinConsigna.length > 0 && <p className="text-xs text-muted">Sin consigna en ninguna sábana: {lote.sinConsigna.join(', ')}</p>}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <Table columnas={colPedidos} filas={listas.pedidos} vacio="Sin pedidos de devolución" exportable exportarNombre="pedidos_devolucion" />
+          <div className="flex items-center gap-2 mt-2">
+            <input className="input-os" style={{ maxWidth: 260 }} placeholder="Buscar por número o cliente..." value={busq.pedidos} onChange={(e) => buscarEn('pedidos', e.target.value)} />
+          </div>
+          <Paginador page={pags.pedidos} total={totales.pedidos} limite={LIMITE} onCambiar={(p) => cargarLista('pedidos', { page: p })} etiqueta="pedidos" />
+        </>
+      )}
+
+      {['sabanas', 'ajustes'].includes(tab) && (
         <>
           <p className="text-xs text-muted mb-2">
             La escritura de esta solapa llega en {ETAPA_ESCRITURA[tab]}. Mientras tanto se ve el historial real.
@@ -754,6 +1007,81 @@ export default function MayoristaPage() {
             />
             <p className="text-xs text-muted mt-2">Se deja constancia de los libros recibidos. Si hay diferencias con lo devuelto, comunicarse para conciliarlas.</p>
             {verDev.observaciones && <p className="text-xs text-muted mt-1">{verDev.observaciones}</p>}
+          </>
+        )}
+      </Modal>
+
+      {/* Ver pedido de devolución (solicitud + cruce solicitado/recibido) */}
+      <Modal abierto={!!verPedido} onClose={() => setVerPedido(null)} titulo={verPedido ? `Pedido de devolución ${verPedido.numero}` : ''} ancho="780px">
+        {verPedido && (
+          <>
+            <p className="text-sm mb-2">
+              {verPedido.cliente ? verPedido.cliente.nombre : '—'} · <span className="agente-badge">{ESTADO_PEDIDO[verPedido.estado] || verPedido.estado}</span>
+              {verPedido.enviadoA ? ` · enviado a ${verPedido.enviadoA}${verPedido.enviadoEn ? ` (${new Date(verPedido.enviadoEn).toLocaleDateString('es-AR')})` : ''}` : ''}
+            </p>
+            <p className="text-xs text-muted mb-2">
+              Fecha: {new Date(verPedido.fecha).toLocaleDateString('es-AR')} · {verPedido.items.length} títulos · solicitado {verPedido.totalSolicitadas} u
+              {verPedido.conciliado ? ` · recibido ${verPedido.totalConciliadas} u · diferencia ${verPedido.totalDiferencia > 0 ? '+' : ''}${verPedido.totalDiferencia}` : ''}
+            </p>
+            <TablaItemsPaginada
+              items={verPedido.items}
+              headers={[<th key="ean">EAN</th>, <th key="tit">Título</th>, <th key="sol">Solicitado</th>, <th key="rec">Recibido</th>, <th key="dif">Diferencia</th>, <th key="est">Estado</th>]}
+              fila={(i, idx) => (
+                <tr key={idx}>
+                  <td className="font-mono text-xs">{i.barras || '—'}</td>
+                  <td>{i.titulo || i.descripcion}</td>
+                  <td>{i.cantidadSolicitada}</td>
+                  <td>{i.cantidadConciliada}</td>
+                  <td>{i.cantidadConciliada - i.cantidadSolicitada > 0 ? '+' : ''}{i.cantidadConciliada - i.cantidadSolicitada}</td>
+                  <td>{{ PENDIENTE: 'Falta', PARCIAL: 'Parcial', COMPLETO: 'Completo', EXCEDENTE: 'De más' }[i.estadoRenglon] || i.estadoRenglon}</td>
+                </tr>
+              )}
+            />
+            {verPedido.devoluciones.length > 0 && (
+              <p className="text-xs text-muted mt-2">Devoluciones recibidas: {verPedido.devoluciones.map((d) => `${d.numero} (${d.totalUnidades} u)`).join(' · ')}</p>
+            )}
+            {verPedido.observaciones && <p className="text-xs text-muted mt-1">{verPedido.observaciones}</p>}
+            <div className="flex gap-2 flex-wrap mt-3">
+              {verPedido.estado === 'PENDIENTE' && <button type="button" className="btn btn-primary text-xs" onClick={() => aprobarPedidoDoc(verPedido)}>Aprobar</button>}
+              {verPedido.estado === 'APROBADO' && <button type="button" className="btn btn-primary text-xs" onClick={() => enviarPedidoDoc(verPedido)}>Enviar por mail</button>}
+              {['ENVIADO', 'CONCILIADO_PARCIAL'].includes(verPedido.estado) && <button type="button" className="btn btn-primary text-xs" onClick={() => abrirConciliar(verPedido)}>Conciliar con devolución...</button>}
+              {['PENDIENTE', 'APROBADO', 'ENVIADO'].includes(verPedido.estado) && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularPedidoDoc(verPedido)}>Anular</button>}
+            </div>
+          </>
+        )}
+      </Modal>
+
+      {/* Conciliar: elegir la devolución recibida que responde al pedido */}
+      <Modal
+        abierto={!!conciliando}
+        onClose={() => setConciliando(null)}
+        titulo={conciliando ? `Conciliar ${conciliando.pedido.numero}` : ''}
+        ancho="640px"
+        footer={conciliando ? (
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setConciliando(null)}>Cancelar</button>
+            <button type="button" className="btn btn-primary" onClick={confirmarConciliacion} disabled={!conciliando.devolucionId}>Conciliar</button>
+          </>
+        ) : null}
+      >
+        {conciliando && (
+          <>
+            <p className="text-sm mb-2">Pedido {conciliando.pedido.numero} · solicitado {conciliando.pedido.totalSolicitadas} u (recibido hasta ahora {conciliando.pedido.totalConciliadas} u)</p>
+            {conciliando.opciones.length === 0 ? (
+              <p className="text-sm text-muted">No hay devoluciones recibidas de este cliente sin conciliar. Registrá primero la devolución (solapa Devoluciones) y después conciliá.</p>
+            ) : (
+              <>
+                <span className="field-label">Devolución recibida</span>
+                <select className="input-os mb-2" value={conciliando.devolucionId} onChange={(e) => setConciliando((prev) => ({ ...prev, devolucionId: e.target.value }))}>
+                  {conciliando.opciones.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.numero} · {d.tipoComprobante === 'DEVOLUCION_CONSIGNA' ? 'vuelve de consigna' : 'vuelve de firme'} · {d.totalUnidades} u · {new Date(d.fecha).toLocaleDateString('es-AR')}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted">El cruce se hace por título: lo recibido se acumula contra lo solicitado. El acuse (CSV/PDF/Mail) muestra solicitado vs recibido con las diferencias.</p>
+              </>
+            )}
           </>
         )}
       </Modal>
