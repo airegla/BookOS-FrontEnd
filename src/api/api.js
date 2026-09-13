@@ -275,3 +275,16 @@ export const documentosApi = {
   recuperables: (params = {}) => axiosClient.get('/documentos/recuperables', { params }),
   detalle: (tipo, id) => axiosClient.get(`/documentos/${tipo}/${id}`),
 };
+
+// Configuracion del CRM (doc 06): mailer SMTP y bot de Telegram (admin; claves enmascaradas).
+export const mailerApi = {
+  estado: () => axiosClient.get('/mailer'),
+  guardar: (datos) => axiosClient.put('/mailer', datos),
+  probar: (destinatario) => axiosClient.post('/mailer/probar', { destinatario }),
+};
+
+export const telegramApi = {
+  estado: () => axiosClient.get('/telegram'),
+  guardar: (datos) => axiosClient.put('/telegram', datos),
+  probar: () => axiosClient.post('/telegram/probar', {}),
+};

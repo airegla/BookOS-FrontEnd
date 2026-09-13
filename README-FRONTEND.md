@@ -161,3 +161,9 @@ src/
   venta" iguales). Las paginas Pedidos/Radar/Propuestas/Campañas/Config CRM indican su etapa del
   plan (`E-BR2`, `E-BR4`, `E-BR1 parte 2`). La vista del kernel paso a llamarse **Propuestas
   Kernel** para no chocar con la del CRM.
+- **Config CRM (E-BR1 parte 2)**: la pagina muestra el estado de los dos canales con badge
+  **configurado / sin configurar** (el mailer toma la config del servidor cuando no hay nada
+  guardado en la base), formularios de mail (host, puerto, usuario, password, remitente) y Telegram
+  (token, chat id) con **Guardar** y **Enviar prueba** (el de mail admite destinatario; la clave
+  guardada no se devuelve nunca y dejarla vacia no la pisa), y los **interruptores del CRM**:
+  `NOTIFICACIONES_ENABLED`, `RADAR_ENABLED`, `TELEGRAM_ENABLED`, `ENVIO_PROVEEDOR_ENABLED`.

@@ -33,6 +33,7 @@ import LogsPage from './pages/LogsPage';
 import ColaPage from './pages/ColaPage';
 import MemoriaPage from './pages/MemoriaPage';
 import AsistenteVentasPage from './pages/AsistenteVentasPage';
+import ConfigCrmPage from './pages/ConfigCrmPage';
 import CrmEnConstruccion from './pages/CrmEnConstruccion';
 import { authApi } from './api/api';
 import { useAppContext } from './AppContext';
@@ -176,13 +177,7 @@ export default function App() {
               detalle="Parametros en observaciones + grupo/subgrupo de clientes -> el asistente arma el mail de cada cliente en borrador."
             />
           )}
-          {vista === 'Config CRM' && (
-            <CrmEnConstruccion
-              titulo="Configuracion del CRM"
-              etapa="E-BR1 (parte 2)"
-              detalle="Mail (SMTP con prueba desde aca), Telegram (token/chat), toggles de notificaciones, perfil y umbrales."
-            />
-          )}
+          {vista === 'Config CRM' && <ConfigCrmPage />}
         </main>
         <AgenteChatBlock />
       </div>
