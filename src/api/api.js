@@ -77,6 +77,9 @@ export const cajaApi = {
   cerrar: (datos) => axiosClient.post('/caja/cerrar', datos),
   cierres: (params = {}) => axiosClient.get('/caja/cierres', { params }),
   detalleCierre: (id) => axiosClient.get(`/caja/cierres/${id}`),
+  csvCierre: (id) => axiosClient.get(`/caja/cierres/${id}/csv`),
+  pdfCierre: (id) => axiosClient.get(`/caja/cierres/${id}/pdf`),
+  mailCierre: (id, payload = {}) => axiosClient.post(`/caja/cierres/${id}/mail`, payload),
 };
 
 export const proveedoresApi = {
@@ -196,6 +199,9 @@ export const ctaCteApi = {
   registrarRecibo: (payload) => axiosClient.post('/ctacte/recibos', payload),
   anularRecibo: (movimientoId) => axiosClient.post(`/ctacte/recibos/${movimientoId}/anular`),
   observar: (payload) => axiosClient.post('/ctacte/observar', payload),
+  csv: (params = {}) => axiosClient.get('/ctacte/csv', { params }),
+  pdf: (params = {}) => axiosClient.get('/ctacte/pdf', { params }),
+  mail: (params = {}, payload = {}) => axiosClient.post('/ctacte/mail', payload, { params }),
 };
 
 export const observacionesApi = {
@@ -310,6 +316,9 @@ export const inventarioApi = {
   ajustar: (payload) => axiosClient.post('/inventario/ajustar', payload),
   ajustes: (params = {}) => axiosClient.get('/inventario/ajustes', { params }),
   anularAjuste: (id) => axiosClient.post(`/inventario/ajustes/${id}/anular`),
+  csvAjuste: (id) => axiosClient.get(`/inventario/ajustes/${id}/csv`),
+  pdfAjuste: (id) => axiosClient.get(`/inventario/ajustes/${id}/pdf`),
+  mailAjuste: (id, payload = {}) => axiosClient.post(`/inventario/ajustes/${id}/mail`, payload),
 };
 
 export const newsletterApi = {

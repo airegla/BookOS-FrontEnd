@@ -11,7 +11,7 @@ import Input from '../ui/Input';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { cajaApi, parametrosApi } from '../api/api';
-import { descargarCsv } from '../utils/exportar';
+import { descargarCsv, descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
 
 const MONEDA = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
@@ -112,6 +112,29 @@ export default function CajaPage() {
       { titulo: 'Metodo', clave: 'metodoPagoNombre' },
       { titulo: 'Monto', clave: 'monto' },
     ], detalle.movimientos || []);
+  };
+
+  // E14: descarga por documento del cierre Z (CSV / PDF guardado / mail interno).
+  const descargarCierreServidor = async (id, formato) => {
+    try {
+      const metodo = formato === 'csv' ? cajaApi.csvCierre : cajaApi.pdfCierre;
+      const res = await metodo(id);
+      const d = res.data || res;
+      await descargarDesdeServidor(`/archivos/${d.archivoId}/descarga`, d.nombre);
+      setMensaje(`Descarga ${formato.toUpperCase()} del cierre Z #${id} ✓`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const enviarCierreMail = async (id) => {
+    const destinatario = window.prompt('Mail del informe de cierre Z (documento interno: administracion o responsable):');
+    if (!destinatario) return;
+    try {
+      const res = await cajaApi.mailCierre(id, { destinatario });
+      const d = res.data || {};
+      setMensaje(d.enviado
+        ? `Cierre Z #${id} enviado a ${d.a || destinatario}${d.redirigido ? ' (MODO PRUEBA)' : ''} ✓`
+        : `⚠️ No se pudo enviar: ${d.motivo || 'sin configurar'}`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
   const columnas = [
@@ -219,6 +242,8 @@ export default function CajaPage() {
         footer={detalleCierre ? (
           <div className="flex gap-2">
             <button type="button" className="btn btn-ghost" onClick={() => exportarCierre(detalleCierre)}>Exportar CSV</button>
+            <button type="button" className="btn btn-ghost" onClick={() => descargarCierreServidor(detalleCierre.cierre.id, 'pdf')}>PDF</button>
+            <button type="button" className="btn btn-ghost" onClick={() => enviarCierreMail(detalleCierre.cierre.id)}>Enviar mail</button>
             <button type="button" className="btn btn-primary" onClick={() => setDetalleCierre(null)}>Cerrar</button>
           </div>
         ) : null}

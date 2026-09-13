@@ -12,6 +12,7 @@ import DebugTag from '../ui/DebugTag';
 import SelectBuscador from '../ui/SelectBuscador';
 import { buscarClientes, buscarProveedores } from '../utils/selectores';
 import { ctaCteApi } from '../api/api';
+import { descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
 
 const METODOS = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CHEQUE'];
@@ -98,6 +99,29 @@ export default function CtaCtePage({ lado = 'cliente' }) {
       await ctaCteApi.anularRecibo(movimientoId);
       setMensaje('Recibo anulado ✓');
       cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  // E14: descarga por documento del estado de cuenta completo (CSV / PDF / mail).
+  const paramsCuenta = () => (tipo === 'cliente' ? { clienteId: Number(clienteId) } : { proveedorId: Number(proveedorId) });
+
+  const descargarEstado = async (formato) => {
+    try {
+      const metodo = formato === 'csv' ? ctaCteApi.csv : ctaCteApi.pdf;
+      const res = await metodo(paramsCuenta());
+      const d = res.data || res;
+      await descargarDesdeServidor(`/archivos/${d.archivoId}/descarga`, d.nombre);
+      setMensaje(`Descarga ${formato.toUpperCase()} del estado de cuenta ✓`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const enviarEstadoMail = async () => {
+    try {
+      const res = await ctaCteApi.mail(paramsCuenta(), {});
+      const d = res.data || {};
+      setMensaje(d.enviado
+        ? `Estado de cuenta enviado a ${d.a || 'el mail de la ficha'}${d.redirigido ? ' (MODO PRUEBA)' : ''} ✓`
+        : `⚠️ No se pudo enviar: ${d.motivo || 'sin configurar'}`);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
@@ -192,7 +216,12 @@ export default function CtaCtePage({ lado = 'cliente' }) {
 
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold">Movimientos</h3>
-        <span className="text-sm">Saldo actual: <strong style={{ color: cuenta.saldoActual >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmt(cuenta.saldoActual)}</strong></span>
+        <div className="flex items-center gap-2">
+          <button type="button" className="btn btn-ghost text-xs" disabled={!seleccionado} onClick={() => descargarEstado('csv')}>CSV</button>
+          <button type="button" className="btn btn-ghost text-xs" disabled={!seleccionado} onClick={() => descargarEstado('pdf')}>PDF</button>
+          <button type="button" className="btn btn-ghost text-xs" disabled={!seleccionado} onClick={enviarEstadoMail}>Mail</button>
+          <span className="text-sm">Saldo actual: <strong style={{ color: cuenta.saldoActual >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmt(cuenta.saldoActual)}</strong></span>
+        </div>
       </div>
       <Table columnas={columnas} filas={cuenta.movimientos} vacio="Selecciona un cliente o proveedor" exportable exportarNombre="cuenta_corriente" />
       <Paginador page={page} total={total} limite={20} onCambiar={setPage} etiqueta="movimientos" />

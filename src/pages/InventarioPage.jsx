@@ -9,6 +9,7 @@ import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { inventarioApi } from '../api/api';
+import { descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
 
 // Tipos FIFE de ajuste (bookerp): cada uno define los deltas; la cantidad siempre es positiva.
@@ -84,6 +85,29 @@ export default function InventarioPage() {
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
+  // E14: descarga por documento del ajuste (CSV / PDF / mail con destinatario).
+  const descargarAjuste = async (a, formato) => {
+    try {
+      const metodo = formato === 'csv' ? inventarioApi.csvAjuste : inventarioApi.pdfAjuste;
+      const res = await metodo(a.id);
+      const d = res.data || res;
+      await descargarDesdeServidor(`/archivos/${d.archivoId}/descarga`, d.nombre);
+      setMensaje(`Descarga ${formato.toUpperCase()} del ajuste ${a.numero || `#${a.id}`} ✓`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const enviarAjusteMail = async (a) => {
+    const destinatario = window.prompt('Mail del aviso del ajuste (documento interno: departamento o responsable):');
+    if (!destinatario) return;
+    try {
+      const res = await inventarioApi.mailAjuste(a.id, { destinatario });
+      const d = res.data || {};
+      setMensaje(d.enviado
+        ? `Ajuste ${a.numero || `#${a.id}`} enviado a ${d.a || destinatario}${d.redirigido ? ' (MODO PRUEBA)' : ''} ✓`
+        : `⚠️ No se pudo enviar: ${d.motivo || 'sin configurar'}`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
   useEffect(() => { setContextoActual({ vista: 'inventario', articulos: total }); }, [total]); // eslint-disable-line
 
   const ejecutarTransferencia = async () => {
@@ -108,6 +132,9 @@ export default function InventarioPage() {
     { clave: 'acciones', titulo: '', render: (a) => (
       <div className="flex gap-2">
         <button type="button" className="btn btn-ghost text-xs" onClick={() => setAjusteVer(a)}>Ver</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarAjuste(a, 'csv')}>CSV</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarAjuste(a, 'pdf')}>PDF</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarAjusteMail(a)}>Mail</button>
         {a.tipoMovimiento === 'AJUSTE' && a.estado === 'ACTIVO' && (
           <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularAjuste(a)}>Anular</button>
         )}
