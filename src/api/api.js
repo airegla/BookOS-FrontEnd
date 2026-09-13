@@ -314,6 +314,8 @@ export const telegramApi = {
   estado: () => axiosClient.get('/telegram'),
   guardar: (datos) => axiosClient.put('/telegram', datos),
   probar: () => axiosClient.post('/telegram/probar', {}),
+  bot: () => axiosClient.get('/telegram/bot'),
+  botReiniciar: () => axiosClient.post('/telegram/bot/reiniciar', {}),
 };
 
 // Campañas del CRM (D7): configuracion, segmento, generacion por lotes, revision y envio.

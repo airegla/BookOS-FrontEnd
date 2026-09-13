@@ -17,6 +17,7 @@ export default function ConfigCrmPage() {
   const [pruebaMail, setPruebaMail] = useState('');
   const [telegram, setTelegram] = useState(null);
   const [tgForm, setTgForm] = useState({ token: '', chatId: '' });
+  const [bot, setBot] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
 
@@ -38,6 +39,8 @@ export default function ConfigCrmPage() {
       const t = await telegramApi.estado();
       setTelegram(t.data);
       setTgForm({ token: '', chatId: t.data.chatId || '' });
+      const b = await telegramApi.bot();
+      setBot(b.data);
     } catch (err) {
       setMensaje(`⚠️ ${err.message}`);
     }
@@ -125,6 +128,21 @@ export default function ConfigCrmPage() {
     }
   };
 
+  // Escucha del Secretario (E-BR5): reiniciar sirve cuando se acaba de encender el toggle.
+  const reiniciarBot = async () => {
+    setCargando(true);
+    setMensaje('');
+    try {
+      const r = await telegramApi.botReiniciar();
+      setMensaje(`✓ ${r.message || 'Escucha reiniciada'}`);
+      setBot(r.data);
+    } catch (err) {
+      setMensaje(`⚠️ ${err.message}`);
+    } finally {
+      setCargando(false);
+    }
+  };
+
   return (
     <div>
       <DebugTag nombre="ConfigCrmPage" />
@@ -189,6 +207,35 @@ export default function ConfigCrmPage() {
           <button type="button" className="btn btn-primary text-sm" disabled={cargando} onClick={guardarTg}>Guardar Telegram</button>
           <button type="button" className="btn text-sm" disabled={cargando || !(telegram && telegram.configurado)} onClick={probarTg}>Enviar prueba</button>
           <span className="text-xs text-muted">Creá el bot con @BotFather y pasale el chat id del grupo o chat interno.</span>
+        </div>
+      </div>
+
+      <div className="card p-4 mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <h3 className="font-semibold">Secretario por Telegram</h3>
+          <span className="agente-badge" style={{ color: bot && bot.activo ? '#15803d' : 'var(--danger)' }}>
+            {bot ? (bot.activo ? 'escuchando' : 'en pausa') : '...'}
+          </span>
+        </div>
+        <p className="text-sm text-muted mb-3">
+          Con el interruptor <span className="font-mono text-xs">TELEGRAM_SECRETARIO_ENABLED</span> encendido, el bot
+          atiende como el Secretario en el chat autorizado (long-polling: no hace falta URL pública).
+          Los demás chats reciben el rechazo y quedan registrados.
+        </p>
+        <div className="text-xs text-muted grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+          <div><span className="text-muted">Chat autorizado: </span><span className="font-mono">{bot && bot.chatId ? bot.chatId : '-'}</span></div>
+          <div><span className="text-muted">Conversación: </span>{bot && bot.conversacionId ? `#${bot.conversacionId}` : '-'}</div>
+          <div><span className="text-muted">Mensajes: </span>{bot ? bot.procesados : '-'}</div>
+          <div><span className="text-muted">Rechazados: </span>{bot ? bot.rechazados : '-'}</div>
+          <div><span className="text-muted">Offset: </span>{bot ? bot.offset : '-'}</div>
+          <div className="col-span-2"><span className="text-muted">Último mensaje: </span>{bot && bot.ultimoMensajeEn ? new Date(bot.ultimoMensajeEn).toLocaleString('es-AR') : '-'}</div>
+          <div className="col-span-2"><span className="text-muted">Último error: </span>{bot && bot.ultimoError ? bot.ultimoError : '-'}</div>
+        </div>
+        {bot && !bot.activo && bot.motivo && <p className="text-xs mb-2" style={{ color: '#b45309', fontWeight: 600 }}>⚠️ En pausa: {bot.motivo}</p>}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button type="button" className="btn text-sm" disabled={cargando} onClick={reiniciarBot}>Reiniciar escucha</button>
+          <button type="button" className="btn btn-ghost text-sm" onClick={cargar}>Refrescar estado</button>
+          <span className="text-xs text-muted">Comandos: /nueva (tema aparte) · /ayuda · `confirmar` para las escrituras pendientes.</span>
         </div>
       </div>
 
