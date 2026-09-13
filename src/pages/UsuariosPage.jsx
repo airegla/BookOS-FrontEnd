@@ -77,6 +77,7 @@ export default function UsuariosPage({ esAdmin }) {
   };
 
   const eliminar = async (usuario) => {
+    if (!window.confirm(`¿Eliminar el usuario ${usuario.email}?`)) return;
     try {
       await usuariosApi.eliminar(usuario.id);
       cargar();

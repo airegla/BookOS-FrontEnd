@@ -231,7 +231,8 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     if (ok) setPanelConvs(false);
   };
 
-  const borrarConversacion = async (id) => {
+  const borrarConversacion = async (id, titulo) => {
+    if (!window.confirm(`¿Eliminar la conversación "${String(titulo || id).slice(0, 60)}"?`)) return;
     try {
       await agenteApi.conversacionEliminar(id);
       setListaConvs((prev) => prev.filter((c) => c.conversacionId !== id));
@@ -385,7 +386,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
               <button type="button" className="btn btn-ghost text-xs flex-1" onClick={() => abrirConversacion(c.conversacionId)} title={c.titulo || ''}>
                 {(c.titulo || '(sin titulo)').slice(0, 42)} · {c.turnos} turnos
               </button>
-              <button type="button" className="btn btn-ghost text-xs" onClick={() => borrarConversacion(c.conversacionId)} title="Borrar conversación">🗑</button>
+              <button type="button" className="btn btn-ghost text-xs" onClick={() => borrarConversacion(c.conversacionId, c.titulo)} title="Borrar conversación">🗑</button>
             </div>
           ))}
         </div>

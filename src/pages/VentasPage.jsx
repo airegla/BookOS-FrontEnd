@@ -302,6 +302,7 @@ export default function VentasPage() {
   };
 
   const anular = async () => {
+    if (!window.confirm(`¿Anular la venta #${detalle.id}? Se restaura el stock.`)) return;
     try {
       await ventasApi.anular(detalle.id);
       setMensaje(`Venta #${detalle.id} anulada (stock restaurado) ✓`);

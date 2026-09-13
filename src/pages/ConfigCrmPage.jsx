@@ -62,6 +62,18 @@ export default function ConfigCrmPage() {
     }
   };
 
+  // Toggles numericos (MAX_INTENTOS_PEDIDO, CRM_UMBRAL_PEDIDO): mismo patron que Kernel > Agente
+  // (input number que guarda al salir del campo). Antes eran un Toggle y guardaban true/false.
+  const cambiarNumero = async (clave, valor) => {
+    try {
+      await configApi.setToggle(clave, valor);
+      setMensaje(`Toggle ${clave} → ${valor}`);
+      cargar();
+    } catch (err) {
+      setMensaje(`⚠️ ${err.message}`);
+    }
+  };
+
   const guardarMail = async () => {
     setCargando(true);
     setMensaje('');
@@ -245,8 +257,26 @@ export default function ConfigCrmPage() {
           {togglesCrm.map((t) => (
             <div key={t.clave}>
               <div className="flex items-center gap-3">
-                <Toggle activo={activoDe(t)} onChange={(v) => cambiarToggle(t.clave, v)} />
-                <span className="text-sm font-mono">{t.clave}</span>
+                {t.tipo === 'bool' ? (
+                  <>
+                    <Toggle activo={activoDe(t)} onChange={(v) => cambiarToggle(t.clave, v)} />
+                    <span className="text-sm font-mono">{t.clave}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm font-mono">{t.clave}</span>
+                    <input
+                      type="number"
+                      className="input-os"
+                      style={{ maxWidth: 120 }}
+                      defaultValue={t.valor}
+                      onBlur={(e) => {
+                        const v = e.target.value;
+                        if (String(v) !== String(t.valor)) cambiarNumero(t.clave, v);
+                      }}
+                    />
+                  </>
+                )}
               </div>
               <p className="text-xs text-muted mt-1">{t.descripcion}</p>
             </div>
