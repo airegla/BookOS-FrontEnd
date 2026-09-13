@@ -122,3 +122,8 @@ src/
   documentos AJUSTE/REVERSO (numero, fecha, articulo, deltas, estado), **Ver** con motivo y stock
   previo, y **Anular (revierte stock)**: aplica los deltas invertidos y deja un documento REVERSO
   con `referenciaId`; el original queda ANULADO (inmutable a partir de ahi).
+- **Formato de comprobantes (F4)**: la cabecera de compra tiene **nro de comprobante, fecha de
+  emision, vencimiento, descuento global % y observaciones** (los precargados son fecha de hoy y
+  FIRME); el detalle permite **descuento por linea %** con subtotal visible por renglon y un pie con
+  Subtotal / Descuento / Total en vivo. Ventas y Remitos ya tenian su formato completo
+  (cliente/tipo/descuento global y proveedor/nro/fecha/observaciones respectivamente).

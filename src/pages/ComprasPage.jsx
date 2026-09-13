@@ -28,10 +28,11 @@ export default function ComprasPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pedidos, setPedidos] = useState([]);
-  const [borrador, setBorrador] = usePersistentWork('compra', { proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', items: [] });
+  const [borrador, setBorrador] = usePersistentWork('compra', { proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
   const [ean, setEan] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [precio, setPrecio] = useState('');
+  const [descLinea, setDescLinea] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [observacion, setObservacion] = useState(null);
   const [detalle, setDetalle] = useState(null);
@@ -71,9 +72,15 @@ export default function ComprasPage() {
 
   const agregarItem = () => {
     if (!ean || !cantidad) return;
-    setBorrador({ ...borrador, items: [...borrador.items, { ean13: ean, cantidad: Number(cantidad), precioUnitario: precio ? Number(precio) : 0 }] });
-    setEan(''); setCantidad(''); setPrecio('');
+    setBorrador({ ...borrador, items: [...borrador.items, { ean13: ean, cantidad: Number(cantidad), precioUnitario: precio ? Number(precio) : 0, descuento: descLinea ? Number(descLinea) : 0 }] });
+    setEan(''); setCantidad(''); setPrecio(''); setDescLinea('');
   };
+
+  // Subtotal por renglon y totales del comprobante (con descuento global).
+  const subtotalLinea = (it) => (Number(it.cantidad) || 0) * (Number(it.precioUnitario) || 0) * (1 - (Number(it.descuento) || 0) / 100);
+  const subtotalCompra = borrador.items.reduce((a, it) => a + subtotalLinea(it), 0);
+  const dgCompra = Math.min(Math.max(Number(borrador.descuentoGlobal) || 0, 0), 100);
+  const totalCompra = dgCompra ? subtotalCompra - subtotalCompra * (dgCompra / 100) : subtotalCompra;
 
   const crear = async () => {
     try {
@@ -81,10 +88,15 @@ export default function ComprasPage() {
         proveedorId: borrador.proveedorId ? Number(borrador.proveedorId) : null,
         tipoComprobante: borrador.tipoComprobante,
         tipoStockAfectado: borrador.tipoStockAfectado,
+        nroComprobante: borrador.nroComprobante || null,
+        fechaEmision: borrador.fechaEmision || null,
+        fechaVencimiento: borrador.fechaVencimiento || null,
+        descuentoGlobal: dgCompra,
+        observaciones: borrador.observaciones || null,
         items: borrador.items,
       });
       setMensaje(`Compra #${res.data.compraId} por $${Number(res.data.importeTotal).toLocaleString('es-AR')} ✓ (stock ${borrador.tipoStockAfectado} actualizado)`);
-      setBorrador({ proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', items: [] });
+      setBorrador({ proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -239,7 +251,21 @@ export default function ComprasPage() {
             <option value="FIRME">FIRME</option>
             <option value="CONSIGNA">CONSIGNA</option>
           </select>
+          <input className="input-os" style={{ maxWidth: 150 }} placeholder="Nro comprobante" value={borrador.nroComprobante} onChange={(e) => setBorrador({ ...borrador, nroComprobante: e.target.value })} />
+          <label className="flex items-center gap-1 text-xs text-muted">
+            Fecha emision
+            <input className="input-os" type="date" style={{ maxWidth: 150 }} value={borrador.fechaEmision} onChange={(e) => setBorrador({ ...borrador, fechaEmision: e.target.value })} />
+          </label>
+          <label className="flex items-center gap-1 text-xs text-muted">
+            Vencimiento
+            <input className="input-os" type="date" style={{ maxWidth: 150 }} value={borrador.fechaVencimiento} onChange={(e) => setBorrador({ ...borrador, fechaVencimiento: e.target.value })} />
+          </label>
+          <label className="flex items-center gap-1 text-xs text-muted">
+            Desc. global %
+            <input className="input-os" type="number" min="0" max="100" style={{ maxWidth: 90 }} value={borrador.descuentoGlobal} onChange={(e) => setBorrador({ ...borrador, descuentoGlobal: Number(e.target.value) || 0 })} />
+          </label>
         </div>
+        <input className="input-os mb-3" placeholder="Observaciones (opcional)" value={borrador.observaciones} onChange={(e) => setBorrador({ ...borrador, observaciones: e.target.value })} />
         <div className="mb-3">
           <BuscadorArticuloBlock
             etiqueta="Buscar libro para la compra"
@@ -266,6 +292,7 @@ export default function ComprasPage() {
           <input className="input-os" placeholder="EAN13" value={ean} onChange={(e) => setEan(e.target.value)} />
           <input className="input-os" placeholder="Cantidad" type="number" style={{ maxWidth: 100 }} value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
           <input className="input-os" placeholder="Precio unit." type="number" style={{ maxWidth: 120 }} value={precio} onChange={(e) => setPrecio(e.target.value)} />
+          <input className="input-os" placeholder="Desc. %" type="number" min="0" max="100" style={{ maxWidth: 90 }} value={descLinea} onChange={(e) => setDescLinea(e.target.value)} />
           <button type="button" className="btn" onClick={agregarItem}>Agregar</button>
         </div>
         {borrador.items.map((item, i) => (
@@ -289,9 +316,25 @@ export default function ComprasPage() {
               value={item.precioUnitario}
               onChange={(e) => setBorrador({ ...borrador, items: borrador.items.map((x, idx) => (idx === i ? { ...x, precioUnitario: Number(e.target.value) || 0 } : x)) })}
             />
+            <input
+              className="input-os"
+              style={{ maxWidth: 80 }}
+              type="number"
+              min="0"
+              max="100"
+              title="Descuento por linea %"
+              value={item.descuento || 0}
+              onChange={(e) => setBorrador({ ...borrador, items: borrador.items.map((x, idx) => (idx === i ? { ...x, descuento: Number(e.target.value) || 0 } : x)) })}
+            />
+            <span className="text-xs font-mono" style={{ minWidth: 90, textAlign: 'right' }}>${subtotalLinea(item).toLocaleString('es-AR')}</span>
             <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => setBorrador({ ...borrador, items: borrador.items.filter((_, idx) => idx !== i) })}>✕</button>
           </div>
         ))}
+        <div className="flex justify-end gap-4 text-sm mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+          <span>Subtotal: <strong>${subtotalCompra.toLocaleString('es-AR')}</strong></span>
+          <span>Descuento {dgCompra ? `(${dgCompra}%)` : ''}: <strong>-${(subtotalCompra - totalCompra).toLocaleString('es-AR')}</strong></span>
+          <span className="font-semibold">Total: <strong>${totalCompra.toLocaleString('es-AR')}</strong></span>
+        </div>
         <button type="button" className="btn btn-primary mt-3" disabled={borrador.items.length === 0} onClick={crear}>Guardar compra</button>
         <p className="text-xs text-muted mt-2">Candado FIFE: FACTURA firme no afecta CONSIGNA · FACTURA_CONSIGNA no suma FIRME.</p>
       </div>
