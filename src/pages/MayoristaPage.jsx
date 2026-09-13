@@ -37,7 +37,7 @@ const TABS = [
 const ETAPA_ESCRITURA = {};
 
 const CABECERA_VACIA = { cliente: null, depositoOrigenId: '', depositoDestinoId: '', tipoRemito: 'CONSIGNA', observaciones: '' };
-const FACTURA_VACIA = { cliente: null, tipoComprobante: 'FACTURA_MAYORISTA_FIRME', mueveStock: true, depositoOrigenId: '', descuentoGlobal: 0, monto: '', descuentoFijo: null, observaciones: '' };
+const FACTURA_VACIA = { cliente: null, tipoComprobante: 'FACTURA_MAYORISTA_FIRME', clase: 'X', mueveStock: true, depositoOrigenId: '', descuentoGlobal: 0, monto: '', descuentoFijo: null, observaciones: '' };
 const DEVOLUCION_VACIA = { cliente: null, tipoComprobante: 'DEVOLUCION_CONSIGNA', depositoId: '', totalValorizado: '', descuentoFijo: null, observaciones: '' };
 const PEDIDO_VACIO = { cliente: null, observaciones: '' };
 // Historiales con paginador server-side (los demas listados se paginan en su etapa).
@@ -274,6 +274,7 @@ export default function MayoristaPage() {
       const payload = {
         clienteId: fact.cliente.id,
         tipoComprobante: fact.tipoComprobante,
+        clase: fact.clase || 'X',
         observaciones: fact.observaciones || null,
         ...(esNC || esGenerica
           ? { monto: Number(fact.monto) }
@@ -818,6 +819,21 @@ export default function MayoristaPage() {
                   <option value="NOTA_CREDITO_MAYORISTA">Nota de crédito (libre)</option>
                 </select>
               </div>
+              <div>
+                <span className="field-label">Clase fiscal</span>
+                <select
+                  className="input-os"
+                  style={{ maxWidth: 230 }}
+                  value={fact.clase}
+                  onChange={(e) => setCampoFact('clase', e.target.value)}
+                  title="A/B/C se autorizan contra el MOCK de AFIP (CAE ficticio); si el mock falla o está apagado, el número cae al X correlativo interno."
+                >
+                  <option value="X">X · numeración interna</option>
+                  <option value="A">A · mock AFIP</option>
+                  <option value="B">B · mock AFIP</option>
+                  <option value="C">C · mock AFIP</option>
+                </select>
+              </div>
               {(fact.tipoComprobante === 'NOTA_CREDITO_MAYORISTA' || (fact.tipoComprobante === 'FACTURA_MAYORISTA_FIRME' && !fact.mueveStock)) && (
                 <label className="flex items-center gap-1 text-xs text-muted">
                   Monto $
@@ -1210,6 +1226,7 @@ export default function MayoristaPage() {
             <p className="text-xs text-muted mb-2">
               Emitido: {new Date(verVenta.fechaEmision).toLocaleDateString('es-AR')}
               {verVenta.fechaVencimiento ? ` · Vence: ${new Date(verVenta.fechaVencimiento).toLocaleDateString('es-AR')}` : ''}
+              {verVenta.cae ? ` · CAE ${verVenta.cae}${verVenta.caeVencimiento ? ` (vto. ${new Date(verVenta.caeVencimiento).toLocaleDateString('es-AR')})` : ''}` : ''}
             </p>
             {verVenta.items.length > 0 && (
               <TablaItemsPaginada

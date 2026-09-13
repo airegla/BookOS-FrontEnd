@@ -272,7 +272,8 @@ export default function VentasPage() {
       }
 
       const envio = res.data.envio;
-      setMensaje(`${res.data.tipo} #${ventaId} por ${fmt(res.data.total)} ✓${res.data.fichaCreada ? ' · ficha nueva por el mail' : ''}${
+      const comprobante = res.data.numeroComprobante || `${res.data.tipo} #${ventaId}`;
+      setMensaje(`${comprobante} por ${fmt(res.data.total)} ✓${res.data.fichaCreada ? ' · ficha nueva por el mail' : ''}${
         envio ? (envio.enviado ? ` · comprobante enviado${envio.redirigido ? ' (MODO PRUEBA)' : ''}` : ` · mail no enviado: ${envio.motivo || 'sin configurar'}`) : ''}`);
       setCobrarAbierto(false);
       setItems([]);
