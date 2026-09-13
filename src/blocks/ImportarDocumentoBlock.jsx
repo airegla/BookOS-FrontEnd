@@ -14,8 +14,9 @@ function normItems(items) {
   return (items || []).map((it) => ({
     ean13: String(it.ean13 || it.codigo || it.barras || ''),
     titulo: it.titulo || '',
-    cantidad: Number(it.cantidad) || 1,
-    precio: Number(it.precio ?? it.precioUnitario ?? it.precio_lista ?? 0) || 0,
+    // Las sabanas guardan la cantidad en stockConsigna; el resto en cantidad.
+    cantidad: Number(it.cantidad ?? it.stockConsigna) || 1,
+    precio: Number(it.precio ?? it.precioUnitario ?? it.precioLista ?? it.neto ?? 0) || 0,
     costo: it.costo != null ? Number(it.costo) : null,
   }));
 }
@@ -102,8 +103,29 @@ const TABS = [
     cargar: async () => {
       const r = await mayoristaApi.listarSabanas({ limit: 100 });
       return (r.data || []).map((d) => ({
-        id: d.id, numero: `#${d.id}`, fecha: d.createdAt,
+        id: d.id, numero: d.numero, fecha: d.fecha,
         entidad: (d.cliente && d.cliente.nombre) || `Cliente #${d.clienteId || '?'}`, tipo: 'SABANA', items: normItems(d.items),
+      }));
+    },
+  },
+  {
+    id: 'devoluciones_mayoristas', label: 'Devoluciones mayor.',
+    cargar: async () => {
+      const r = await mayoristaApi.listarDevoluciones({ limit: 100 });
+      return (r.data || []).map((d) => ({
+        id: d.id, numero: d.numero, fecha: d.fecha,
+        entidad: (d.cliente && d.cliente.nombre) || `Cliente #${d.clienteId || '?'}`, tipo: d.tipoComprobante, items: normItems(d.items),
+      }));
+    },
+  },
+  {
+    id: 'pedidos_devolucion', label: 'Pedidos devolución',
+    cargar: async () => {
+      const r = await mayoristaApi.listarPedidos({ limit: 100 });
+      const filas = r.data?.filas || r.data || [];
+      return filas.map((d) => ({
+        id: d.id, numero: d.numero, fecha: d.fecha,
+        entidad: (d.cliente && d.cliente.nombre) || `Cliente #${d.clienteId || '?'}`, tipo: d.estado, items: normItems(d.items),
       }));
     },
   },

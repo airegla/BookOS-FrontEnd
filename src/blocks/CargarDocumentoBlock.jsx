@@ -15,6 +15,11 @@ const TIPOS = [
   { valor: 'pedido', label: 'Pedidos a proveedor' },
   { valor: 'compra', label: 'Compras' },
   { valor: 'liquidacion', label: 'Liquidaciones de consigna' },
+  { valor: 'remito_mayorista', label: 'Remitos mayoristas' },
+  { valor: 'venta_mayorista', label: 'Ventas mayoristas' },
+  { valor: 'devolucion_mayorista', label: 'Devoluciones mayoristas' },
+  { valor: 'pedido_devolucion', label: 'Pedidos de devolución' },
+  { valor: 'sabana', label: 'Sábanas' },
 ];
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 const fecha = (f) => (f ? new Date(f).toLocaleDateString('es-AR') : '—');
@@ -123,7 +128,7 @@ export default function CargarDocumentoBlock({ onCargar, proveedorId = null, eti
                         <span className="agente-badge mr-2">{d.tipo}</span>
                         #{d.id} {d.numero ? `· ${d.numero}` : ''} {d.estado ? `· ${d.estado}` : ''}
                       </div>
-                      <div className="text-xs text-muted">{(d.proveedor || 'sin proveedor')} · {fecha(d.fecha)}</div>
+                      <div className="text-xs text-muted">{(d.cliente || d.proveedor || 'sin entidad')} · {fecha(d.fecha)}</div>
                     </div>
                     <div className="text-right text-xs">
                       <div>{d.items} renglones · {d.unidades} u</div>
@@ -140,7 +145,7 @@ export default function CargarDocumentoBlock({ onCargar, proveedorId = null, eti
           <>
             <p className="text-sm mb-2">
               <span className="agente-badge mr-2">{elegido.tipo}</span>
-              #{elegido.id} · {elegido.proveedor || 'sin proveedor'} · {fecha(elegido.fecha)} · estado {elegido.estado}
+              #{elegido.id} · {elegido.cliente || elegido.proveedor || 'sin entidad'} · {fecha(elegido.fecha)} · estado {elegido.estado}
             </p>
             <div style={{ maxHeight: 320, overflowY: 'auto' }}>
               {(elegido.items || []).map((i, idx) => (
