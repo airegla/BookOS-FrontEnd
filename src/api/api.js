@@ -247,7 +247,18 @@ export const mayoristaApi = {
   pdfPedido: (id) => axiosClient.get(`/mayorista/pedidos/${id}/pdf`),
   mailPedido: (id, payload = {}) => axiosClient.post(`/mayorista/pedidos/${id}/mail`, payload),
   crearSabana: (payload) => axiosClient.post('/mayorista/sabanas', payload),
+  previsualizarSabana: (clienteId) => axiosClient.get('/mayorista/sabanas/preview', { params: { clienteId } }),
+  obtenerSabana: (id) => axiosClient.get(`/mayorista/sabanas/${id}`),
+  borrarSabana: (id) => axiosClient.delete(`/mayorista/sabanas/${id}`),
+  csvSabana: (id) => axiosClient.get(`/mayorista/sabanas/${id}/csv`),
+  pdfSabana: (id) => axiosClient.get(`/mayorista/sabanas/${id}/pdf`),
+  mailSabana: (id, payload = {}) => axiosClient.post(`/mayorista/sabanas/${id}/mail`, payload),
   crearAjuste: (payload) => axiosClient.post('/mayorista/ajustes', payload),
+  obtenerAjuste: (id) => axiosClient.get(`/mayorista/ajustes/${id}`),
+  anularAjuste: (id) => axiosClient.post(`/mayorista/ajustes/${id}/anular`),
+  csvAjuste: (id) => axiosClient.get(`/mayorista/ajustes/${id}/csv`),
+  pdfAjuste: (id) => axiosClient.get(`/mayorista/ajustes/${id}/pdf`),
+  mailAjuste: (id, payload = {}) => axiosClient.post(`/mayorista/ajustes/${id}/mail`, payload),
 };
 
 export const consignaApi = {

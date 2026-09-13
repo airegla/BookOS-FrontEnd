@@ -1,15 +1,12 @@
 // BookOS - MayoristaPage.jsx
 // ruta: bookos/frontend/src/pages/MayoristaPage.jsx
 // descripcion: modulo mayorista (F-12). Patron de 3 bloques (cabecera / tabla / chat del
-//   Secretario). Estado: E7 — remitos completos (consigna/firme/traslado con sábana del cliente y
-//   anulación); E8 — facturación completa: factura firme (mueve stock, o genérica solo-CC si ya se
-//   movió con remito en firme), baja de consigna (con el disponible de la sábana a la vista y la
-//   REGLA DURA) y NC libre; E9 — devoluciones (vuelve de consigna con el tope de la sábana o de
-//   firme con NC por el valorizado; el acuse PDF+CSV se genera al registrar); E10 — pedidos de
-//   devolución: alta individual (con la sábana a la vista), lote por CSV de códigos o importando
-//   documento, aprobación, envío por mail y conciliación contra la devolución recibida (acuse con
-//   solicitado vs recibido). Todos los historiales con Ver/CSV/PDF/Mail/Anular/🧠, paginador
-//   server-side y buscador con debounce. Sábanas y ajustes llegan en E11.
+//   Secretario). Estado: E7 — remitos; E8 — facturación (firme / genérica / baja de consigna / NC);
+//   E9 — devoluciones (consigna con tope de sábana / firme con NC) + acuse; E10 — pedidos de
+//   devolución (individual, lote por CSV, aprobar/enviar/conciliar/acuse); E11 — sábanas
+//   (previsualización valorizada + emisión numerada + envío/reenvío + borrado) y ajustes de
+//   consignación (INCREMENTO/DECREMENTO con ledger, motivo obligatorio y anulación). Todos los
+//   historiales con Ver/CSV/PDF/Mail/Anular/🧠, paginador server-side y buscador con debounce.
 
 import { useEffect, useRef, useState } from 'react';
 import Table from '../ui/Table';
@@ -37,17 +34,14 @@ const TABS = [
 ];
 
 // Cada solapa dice en qué etapa llega su escritura (lo que ya funciona es el historial).
-const ETAPA_ESCRITURA = {
-  sabanas: 'E11 — emisión y envío de sábanas',
-  ajustes: 'E11 — ajustes a la sábana del cliente',
-};
+const ETAPA_ESCRITURA = {};
 
 const CABECERA_VACIA = { cliente: null, depositoOrigenId: '', depositoDestinoId: '', tipoRemito: 'CONSIGNA', observaciones: '' };
 const FACTURA_VACIA = { cliente: null, tipoComprobante: 'FACTURA_MAYORISTA_FIRME', mueveStock: true, depositoOrigenId: '', descuentoGlobal: 0, monto: '', descuentoFijo: null, observaciones: '' };
 const DEVOLUCION_VACIA = { cliente: null, tipoComprobante: 'DEVOLUCION_CONSIGNA', depositoId: '', totalValorizado: '', descuentoFijo: null, observaciones: '' };
 const PEDIDO_VACIO = { cliente: null, observaciones: '' };
 // Historiales con paginador server-side (los demas listados se paginan en su etapa).
-const PAGINADOS = ['remitos', 'ventas', 'devoluciones', 'pedidos'];
+const PAGINADOS = ['remitos', 'ventas', 'devoluciones', 'pedidos', 'sabanas', 'ajustes'];
 const LIMITE = 20;
 // Estados del pedido de devolucion con su etiqueta de pantalla.
 const ESTADO_PEDIDO = {
@@ -66,9 +60,9 @@ export default function MayoristaPage() {
   const [depositos, setDepositos] = useState([]);
   const [mensaje, setMensaje] = useState('');
   const [observacion, setObservacion] = useState(null);
-  const [pags, setPags] = useState({ remitos: 1, ventas: 1, devoluciones: 1, pedidos: 1 });
-  const [busq, setBusq] = useState({ remitos: '', ventas: '', devoluciones: '', pedidos: '' });
-  const [totales, setTotales] = useState({ remitos: 0, ventas: 0, devoluciones: 0, pedidos: 0 });
+  const [pags, setPags] = useState({ remitos: 1, ventas: 1, devoluciones: 1, pedidos: 1, sabanas: 1, ajustes: 1 });
+  const [busq, setBusq] = useState({ remitos: '', ventas: '', devoluciones: '', pedidos: '', sabanas: '', ajustes: '' });
+  const [totales, setTotales] = useState({ remitos: 0, ventas: 0, devoluciones: 0, pedidos: 0, sabanas: 0, ajustes: 0 });
   const timers = useRef({});
   const [verRemito, setVerRemito] = useState(null);
   const [cab, setCab] = useState(CABECERA_VACIA);
@@ -89,6 +83,13 @@ export default function MayoristaPage() {
   const [lote, setLote] = useState(null);
   const [verPedido, setVerPedido] = useState(null);
   const [conciliando, setConciliando] = useState(null);
+  const [sab, setSab] = useState({ cliente: null, observaciones: '' });
+  const [previewSab, setPreviewSab] = useState(null);
+  const [verSabana, setVerSabana] = useState(null);
+  const [aj, setAj] = useState({ cliente: null, tipoAjuste: 'DECREMENTO', depositoOrigenId: '', observaciones: '' });
+  const [itemsAj, setItemsAj] = useState([]);
+  const [sabanaAj, setSabanaAj] = useState(null);
+  const [verAjuste, setVerAjuste] = useState(null);
   const { setContextoActual, pedirConsulta } = useAppContext();
 
   const cargarLista = async (t, { page = null, buscar = null } = {}) => {
@@ -143,13 +144,17 @@ export default function MayoristaPage() {
       borradorFactura: tab === 'ventas' ? { cliente: fact.cliente ? fact.cliente.nombre : null, tipo: fact.tipoComprobante, mueveStock: fact.mueveStock, items: itemsFact.length } : undefined,
       borradorDevolucion: tab === 'devoluciones' ? { cliente: dev.cliente ? dev.cliente.nombre : null, tipo: dev.tipoComprobante, items: itemsDev.length } : undefined,
       borradorPedido: tab === 'pedidos' ? { cliente: ped.cliente ? ped.cliente.nombre : null, modo: modoPed, items: itemsPed.length } : undefined,
+      borradorSabana: tab === 'sabanas' ? { cliente: sab.cliente ? sab.cliente.nombre : null, ejemplares: previewSab ? previewSab.totalEjemplares : 0 } : undefined,
+      borradorAjuste: tab === 'ajustes' ? { cliente: aj.cliente ? aj.cliente.nombre : null, tipo: aj.tipoAjuste, items: itemsAj.length } : undefined,
     });
-  }, [tab, cab, items, fact, itemsFact, dev, itemsDev, ped, itemsPed, modoPed]); // eslint-disable-line
+  }, [tab, cab, items, fact, itemsFact, dev, itemsDev, ped, itemsPed, modoPed, sab, previewSab, aj, itemsAj]); // eslint-disable-line
 
   const setCampo = (campo, valor) => setCab((prev) => ({ ...prev, [campo]: valor }));
   const setCampoFact = (campo, valor) => setFact((prev) => ({ ...prev, [campo]: valor }));
   const setCampoDev = (campo, valor) => setDev((prev) => ({ ...prev, [campo]: valor }));
   const setCampoPed = (campo, valor) => setPed((prev) => ({ ...prev, [campo]: valor }));
+  const setCampoSab = (campo, valor) => setSab((prev) => ({ ...prev, [campo]: valor }));
+  const setCampoAj = (campo, valor) => setAj((prev) => ({ ...prev, [campo]: valor }));
 
   // ---- Documento por documento (CSV / PDF / Mail / Anular): el mismo flujo para todos los documentos ----
   const docApi = (tipoDoc) => (tipoDoc === 'remito'
@@ -158,7 +163,11 @@ export default function MayoristaPage() {
       ? { csv: mayoristaApi.csvVenta, pdf: mayoristaApi.pdfVenta, mail: mayoristaApi.mailVenta, anular: mayoristaApi.anularVenta }
       : tipoDoc === 'pedido'
         ? { csv: mayoristaApi.csvPedido, pdf: mayoristaApi.pdfPedido, mail: mayoristaApi.mailPedido, anular: mayoristaApi.anularPedido }
-        : { csv: mayoristaApi.csvDevolucion, pdf: mayoristaApi.pdfDevolucion, mail: mayoristaApi.mailDevolucion, anular: mayoristaApi.anularDevolucion });
+        : tipoDoc === 'sabana'
+          ? { csv: mayoristaApi.csvSabana, pdf: mayoristaApi.pdfSabana, mail: mayoristaApi.mailSabana, anular: null }
+          : tipoDoc === 'ajuste'
+            ? { csv: mayoristaApi.csvAjuste, pdf: mayoristaApi.pdfAjuste, mail: mayoristaApi.mailAjuste, anular: mayoristaApi.anularAjuste }
+            : { csv: mayoristaApi.csvDevolucion, pdf: mayoristaApi.pdfDevolucion, mail: mayoristaApi.mailDevolucion, anular: mayoristaApi.anularDevolucion });
 
   const reimprimir = async (r, formato, tipoDoc = 'remito') => {
     try {
@@ -460,6 +469,110 @@ export default function MayoristaPage() {
     } catch (e) { setMensaje(`⚠️ ${e.message}`); }
   };
 
+  // ---- Sabanas (E11) ----
+  // La vista previa muestra EXACTAMENTE lo que se va a emitir (valorizado con el descuento del
+  // cliente): el snapshot sale de la misma logica del backend, la pantalla solo la refleja.
+  const elegirClienteSab = async (c) => {
+    setSab((prev) => ({ ...prev, cliente: c || null }));
+    setPreviewSab(null);
+    if (!c) return;
+    try {
+      const res = await mayoristaApi.previsualizarSabana(c.id);
+      setPreviewSab(res.data || null);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const emitirSabanaDoc = async () => {
+    if (!sab.cliente) { setMensaje('⚠️ Elegí el cliente mayorista'); return; }
+    try {
+      const res = await mayoristaApi.crearSabana({ clienteId: sab.cliente.id, observaciones: sab.observaciones || null });
+      const d = res.data || {};
+      setMensaje(`Sábana ${d.numero} emitida ✓ (${d.totalEjemplares} ejemplares · $${Number(d.totalValorizado).toLocaleString('es-AR')})`);
+      setSab({ cliente: null, observaciones: '' });
+      setPreviewSab(null);
+      cargarLista('sabanas');
+      mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const verDetalleSabana = async (s) => {
+    try {
+      const res = await mayoristaApi.obtenerSabana(s.id);
+      setVerSabana(res.data);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const borrarSabanaDoc = async (s) => {
+    if (!window.confirm(`¿Borrar la sábana ${s.numero}? Es la foto valorizada: no toca stock ni cuenta corriente y el registro del envío se pierde.`)) return;
+    try {
+      const res = await mayoristaApi.borrarSabana(s.id);
+      setMensaje(`Sábana ${res.data.numero} borrada ✓`);
+      setVerSabana(null);
+      cargarLista('sabanas');
+      mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  // ---- Ajustes de consignacion (E11) ----
+  // La sabana del cliente a la vista: para DECREMENTO es el tope duro; para INCREMENTO es contexto.
+  const cargarSabanaAj = async (cliente) => {
+    if (!cliente || !cliente.deposito) { setSabanaAj(null); return; }
+    try {
+      const res = await depositosApi.stock(cliente.deposito.id);
+      const mapa = {};
+      (res.data || []).forEach((f) => { mapa[f.articuloId] = Number(f.consignaActual || 0); });
+      setSabanaAj(mapa);
+    } catch (e) { setSabanaAj(null); }
+  };
+
+  const elegirClienteAj = (c) => {
+    setAj((prev) => ({ ...prev, cliente: c || null }));
+    cargarSabanaAj(c);
+  };
+
+  const crearAjusteDoc = async () => {
+    if (!aj.cliente) { setMensaje('⚠️ Elegí el cliente mayorista'); return; }
+    if (!aj.depositoOrigenId) { setMensaje('⚠️ Elegí el depósito de origen (central o sucursal)'); return; }
+    if (!String(aj.observaciones || '').trim()) { setMensaje('⚠️ El ajuste necesita el motivo (observación obligatoria)'); return; }
+    if (!itemsAj.length) { setMensaje('⚠️ Agregá renglones'); return; }
+    try {
+      const res = await mayoristaApi.crearAjuste({
+        clienteId: aj.cliente.id,
+        tipoAjuste: aj.tipoAjuste,
+        depositoOrigenId: Number(aj.depositoOrigenId),
+        items: itemsAj.map((i) => ({ ean13: i.ean13, cantidad: Number(i.cantidad) })),
+        observaciones: aj.observaciones,
+      });
+      const d = res.data || {};
+      const avisos = (d.avisos || []).length ? ` — avisos: ${d.avisos.join(' · ')}` : '';
+      setMensaje(`Ajuste ${d.numero} registrado ✓ (${aj.tipoAjuste === 'INCREMENTO' ? 'sumó a la sábana' : 'restó de la sábana'})${avisos}`);
+      setAj({ cliente: null, tipoAjuste: 'DECREMENTO', depositoOrigenId: '', observaciones: '' });
+      setItemsAj([]);
+      setSabanaAj(null);
+      cargarLista('ajustes');
+      mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const verDetalleAjuste = async (a) => {
+    try {
+      const res = await mayoristaApi.obtenerAjuste(a.id);
+      setVerAjuste(res.data);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const anularAjusteDoc = async (a) => {
+    if (!window.confirm(`¿Anular el ajuste ${a.numero}? Se revierte la sábana del cliente y el stock del depósito de origen (por el ledger).`)) return;
+    try {
+      const res = await mayoristaApi.anularAjuste(a.id);
+      const avisos = (res.data.avisos || []).length ? ` — avisos: ${res.data.avisos.join(' · ')}` : '';
+      setMensaje(`Ajuste ${res.data.numero} anulado ✓${avisos}`);
+      setVerAjuste(null);
+      cargarLista('ajustes');
+      mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
   const observar = async (tipo, id) => {
     try {
       const res = await observacionesApi.documento({ tipo, id });
@@ -518,8 +631,6 @@ export default function MayoristaPage() {
     },
   ];
 
-  const tipoObs = (t) => (t === 'pedidos' ? 'pedido_devolucion' : t === 'sabanas' ? 'sabana' : 'ajuste_consignacion');
-
   // Devoluciones (E9): vuelven de la sabana (consigna) o de lo comprado (firme, con NC).
   const colDevoluciones = [
     { clave: 'numero', titulo: 'Nro', render: (d) => <span className="font-mono text-xs">{d.numero}</span> },
@@ -571,15 +682,53 @@ export default function MayoristaPage() {
     },
   ];
 
-  const colSimple = (t) => [
-    { clave: 'id', titulo: 'ID' },
-    { clave: 'numero', titulo: 'Nro', render: (d) => <span className="font-mono text-xs">{d.numero || d.numeroComprobante || `#${d.id}`}</span> },
-    { clave: 'cliente', titulo: 'Cliente', render: (d) => (d.cliente ? d.cliente.nombre : '—') },
-    { clave: 'estado', titulo: 'Estado', render: (d) => <span className="agente-badge">{d.estado}</span> },
+  // Sabanas (E11): emision + envio/reenvio + borrado. El valorizado sale del snapshot (descuento
+  // del cliente al emitir).
+  const colSabanas = [
+    { clave: 'numero', titulo: 'Nro', render: (s) => <span className="font-mono text-xs">{s.numero}</span> },
+    { clave: 'cliente', titulo: 'Cliente', render: (s) => (s.cliente ? s.cliente.nombre : '—') },
+    { clave: 'fecha', titulo: 'Fecha', render: (s) => new Date(s.fecha).toLocaleDateString('es-AR') },
+    { clave: 'totalEjemplares', titulo: 'Ejemplares' },
+    { clave: 'totalValorizado', titulo: 'Valorizado', render: (s) => `$${Number(s.totalValorizado).toLocaleString('es-AR')}` },
+    { clave: 'enviadoA', titulo: 'Enviada', render: (s) => (s.enviadoA ? <span className="agente-badge">{s.enviadoA}</span> : '—') },
     {
       clave: 'acciones',
       titulo: '',
-      render: (d) => <button type="button" className="btn btn-ghost text-xs" onClick={() => observar(tipoObs(t), d.id)}>🧠</button>,
+      render: (s) => (
+        <div className="flex gap-2">
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => verDetalleSabana(s)}>Ver</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(s, 'csv', 'sabana')}>CSV</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(s, 'pdf', 'sabana')}>PDF</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarMail(s, 'sabana')}>{s.enviadoA ? 'Reenviar' : 'Mail'}</button>
+          <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => borrarSabanaDoc(s)}>Borrar</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('sabana', s.id)}>🧠</button>
+        </div>
+      ),
+    },
+  ];
+
+  // Ajustes de consignacion (E11): INCREMENTO suma a la sabana (baja nuestro firme del origen),
+  // DECREMENTO resta (con el tope de la sabana) y devuelve a nuestro stock; reversible.
+  const colAjustes = [
+    { clave: 'numero', titulo: 'Nro', render: (a) => <span className="font-mono text-xs">{a.numero}</span> },
+    { clave: 'tipoAjuste', titulo: 'Tipo', render: (a) => (a.tipoAjuste === 'INCREMENTO' ? 'Incremento (+ sábana)' : 'Decremento (− sábana)') },
+    { clave: 'cliente', titulo: 'Cliente', render: (a) => (a.cliente ? a.cliente.nombre : '—') },
+    { clave: 'deposito', titulo: 'Origen', render: (a) => (a.deposito ? a.deposito.nombre : '—') },
+    { clave: 'unidades', titulo: 'Unidades' },
+    { clave: 'estado', titulo: 'Estado', render: (a) => <span className="agente-badge">{a.estado}</span> },
+    {
+      clave: 'acciones',
+      titulo: '',
+      render: (a) => (
+        <div className="flex gap-2">
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => verDetalleAjuste(a)}>Ver</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(a, 'csv', 'ajuste')}>CSV</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(a, 'pdf', 'ajuste')}>PDF</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarMail(a, 'ajuste')}>Mail</button>
+          {a.estado !== 'ANULADO' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularAjusteDoc(a)}>Anular</button>}
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('ajuste_consignacion', a.id)}>🧠</button>
+        </div>
+      ),
     },
   ];
 
@@ -907,12 +1056,121 @@ export default function MayoristaPage() {
         </>
       )}
 
-      {['sabanas', 'ajustes'].includes(tab) && (
+      {tab === 'sabanas' && (
         <>
-          <p className="text-xs text-muted mb-2">
-            La escritura de esta solapa llega en {ETAPA_ESCRITURA[tab]}. Mientras tanto se ve el historial real.
-          </p>
-          <Table columnas={colSimple(tab)} filas={listas[tab]} vacio="Sin documentos todavía" exportable exportarNombre={`mayorista_${tab}`} />
+          <div className="card p-3 mb-4">
+            <h3 className="text-sm uppercase tracking-widest text-muted mb-2">Emitir sábana</h3>
+            <div className="flex gap-3 flex-wrap mb-3 items-end">
+              <div style={{ minWidth: 240 }}>
+                <span className="field-label">Cliente mayorista</span>
+                <SelectBuscador
+                  valor={sab.cliente ? sab.cliente.id : null}
+                  etiquetaValor={sab.cliente ? sab.cliente.nombre : ''}
+                  placeholder="Buscar cliente mayorista..."
+                  buscar={buscarMayoristas}
+                  onSeleccionar={elegirClienteSab}
+                />
+              </div>
+              <div className="flex-1" style={{ minWidth: 240 }}>
+                <span className="field-label">Observaciones (opcional)</span>
+                <input className="input-os" value={sab.observaciones} onChange={(e) => setCampoSab('observaciones', e.target.value)} />
+              </div>
+            </div>
+            {previewSab && (
+              <>
+                <p className="text-xs text-muted mb-1">
+                  Vista previa: lo consignado por el cliente, valorizado con su descuento del {previewSab.descuento}%
+                </p>
+                <TablaItemsPaginada
+                  items={previewSab.items}
+                  headers={[<th key="ean">EAN</th>, <th key="tit">Título</th>, <th key="cant">Consigna</th>, <th key="pl">Precio lista</th>, <th key="net">Neto</th>, <th key="sub">Subtotal</th>]}
+                  fila={(i, idx) => (
+                    <tr key={idx}>
+                      <td className="font-mono text-xs">{i.codigoBarras || '—'}</td>
+                      <td>{i.titulo}</td>
+                      <td>{i.stockConsigna}</td>
+                      <td>${i.precioLista.toLocaleString('es-AR')}</td>
+                      <td>${i.neto.toLocaleString('es-AR')}</td>
+                      <td>${i.subtotal.toLocaleString('es-AR')}</td>
+                    </tr>
+                  )}
+                />
+              </>
+            )}
+            <div className="flex justify-between items-center mt-3 flex-wrap gap-2">
+              <p className="text-xs text-muted">
+                La sábana es la <strong>foto valorizada</strong> de la consigna del cliente: no mueve stock ni cuenta corriente.
+                Se numera SAB- y se envía por mail con PDF + CSV; se puede reenviar y borrar del historial.
+                {previewSab ? ` · ${previewSab.totalEjemplares} ejemplares · $${Number(previewSab.totalValorizado).toLocaleString('es-AR')}` : ''}
+              </p>
+              <button type="button" className="btn btn-primary" onClick={emitirSabanaDoc} disabled={!sab.cliente || !previewSab || !previewSab.items.length}>
+                Emitir sábana
+              </button>
+            </div>
+          </div>
+          <Table columnas={colSabanas} filas={listas.sabanas} vacio="Sin sábanas emitidas" exportable exportarNombre="sabanas_mayorista" />
+          <div className="flex items-center gap-2 mt-2">
+            <input className="input-os" style={{ maxWidth: 260 }} placeholder="Buscar por número o cliente..." value={busq.sabanas} onChange={(e) => buscarEn('sabanas', e.target.value)} />
+          </div>
+          <Paginador page={pags.sabanas} total={totales.sabanas} limite={LIMITE} onCambiar={(p) => cargarLista('sabanas', { page: p })} etiqueta="sábanas" />
+        </>
+      )}
+
+      {tab === 'ajustes' && (
+        <>
+          <div className="card p-3 mb-4">
+            <h3 className="text-sm uppercase tracking-widest text-muted mb-2">Nuevo ajuste de consignación</h3>
+            <div className="flex gap-3 flex-wrap mb-3 items-end">
+              <div style={{ minWidth: 240 }}>
+                <span className="field-label">Cliente mayorista</span>
+                <SelectBuscador
+                  valor={aj.cliente ? aj.cliente.id : null}
+                  etiquetaValor={aj.cliente ? aj.cliente.nombre : ''}
+                  placeholder="Buscar cliente mayorista..."
+                  buscar={buscarMayoristas}
+                  onSeleccionar={elegirClienteAj}
+                />
+              </div>
+              <div>
+                <span className="field-label">Ajuste</span>
+                <select className="input-os" style={{ maxWidth: 320 }} value={aj.tipoAjuste} onChange={(e) => setCampoAj('tipoAjuste', e.target.value)}>
+                  <option value="DECREMENTO">Decremento: resta de la sábana y vuelve a nuestro stock</option>
+                  <option value="INCREMENTO">Incremento: suma a la sábana y baja de nuestro stock</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-1 text-xs text-muted">
+                Nuestro depósito de origen
+                <select className="input-os" style={{ maxWidth: 190 }} value={aj.depositoOrigenId} onChange={(e) => setCampoAj('depositoOrigenId', e.target.value)}>
+                  <option value="">— Elegir —</option>
+                  {depositos.filter((d) => !d.clienteId && d.activo).map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                </select>
+              </label>
+            </div>
+            <input className="input-os mb-3" placeholder="Motivo del ajuste (obligatorio: es la única vía manual de corrección de la sábana)" value={aj.observaciones} onChange={(e) => setCampoAj('observaciones', e.target.value)} />
+            <MayoristaTablaBlock
+              items={itemsAj}
+              onItems={setItemsAj}
+              conTipoStock={false}
+              sabana={aj.tipoAjuste === 'DECREMENTO' ? sabanaAj : null}
+              etiquetaVacio="Agregá renglones (buscador o CSV código;cantidad)"
+            />
+            <div className="flex justify-between items-center mt-3 flex-wrap gap-2">
+              <p className="text-xs text-muted">
+                {aj.tipoAjuste === 'DECREMENTO'
+                  ? 'Resta de la sábana del cliente (la columna Sábana es el tope) y devuelve los libros a nuestro depósito de origen.'
+                  : 'Suma a la sábana del cliente y descuenta de nuestro depósito de origen (si queda negativo se avisa: no frena).'}
+                {' '}Anular revierte todo por el ledger.
+              </p>
+              <button type="button" className="btn btn-primary" onClick={crearAjusteDoc} disabled={!aj.cliente || !aj.depositoOrigenId || !String(aj.observaciones || '').trim() || !itemsAj.length}>
+                Registrar ajuste
+              </button>
+            </div>
+          </div>
+          <Table columnas={colAjustes} filas={listas.ajustes} vacio="Sin ajustes de consignación" exportable exportarNombre="ajustes_consignacion" />
+          <div className="flex items-center gap-2 mt-2">
+            <input className="input-os" style={{ maxWidth: 260 }} placeholder="Buscar por número, motivo o cliente..." value={busq.ajustes} onChange={(e) => buscarEn('ajustes', e.target.value)} />
+          </div>
+          <Paginador page={pags.ajustes} total={totales.ajustes} limite={LIMITE} onCambiar={(p) => cargarLista('ajustes', { page: p })} etiqueta="ajustes" />
         </>
       )}
 
@@ -1082,6 +1340,77 @@ export default function MayoristaPage() {
                 <p className="text-xs text-muted">El cruce se hace por título: lo recibido se acumula contra lo solicitado. El acuse (CSV/PDF/Mail) muestra solicitado vs recibido con las diferencias.</p>
               </>
             )}
+          </>
+        )}
+      </Modal>
+
+      {/* Ver sábana (foto valorizada de la consigna) */}
+      <Modal abierto={!!verSabana} onClose={() => setVerSabana(null)} titulo={verSabana ? `Sábana de consignación ${verSabana.numero}` : ''} ancho="780px">
+        {verSabana && (
+          <>
+            <p className="text-sm mb-2">
+              {verSabana.cliente ? verSabana.cliente.nombre : '—'}
+              {verSabana.enviadoA ? ` · enviada a ${verSabana.enviadoA}${verSabana.enviadoEn ? ` (${new Date(verSabana.enviadoEn).toLocaleDateString('es-AR')})` : ''}` : ' · sin enviar todavía'}
+            </p>
+            <p className="text-xs text-muted mb-2">
+              Fecha: {new Date(verSabana.fecha).toLocaleDateString('es-AR')} · {verSabana.totalEjemplares} ejemplares · valorizado ${Number(verSabana.totalValorizado).toLocaleString('es-AR')}
+            </p>
+            <TablaItemsPaginada
+              items={verSabana.items}
+              headers={[<th key="ean">EAN</th>, <th key="tit">Título</th>, <th key="cant">Consigna</th>, <th key="pl">Lista</th>, <th key="ds">Desc.</th>, <th key="net">Neto</th>, <th key="sub">Subtotal</th>]}
+              fila={(i, idx) => (
+                <tr key={idx}>
+                  <td className="font-mono text-xs">{i.codigoBarras || i.barras || '—'}</td>
+                  <td>{i.titulo}</td>
+                  <td>{i.stockConsigna}</td>
+                  <td>${i.precioLista.toLocaleString('es-AR')}</td>
+                  <td>{i.descuento}%</td>
+                  <td>${i.neto.toLocaleString('es-AR')}</td>
+                  <td>${i.subtotal.toLocaleString('es-AR')}</td>
+                </tr>
+              )}
+            />
+            {verSabana.observaciones && <p className="text-xs text-muted mt-2">{verSabana.observaciones}</p>}
+            <div className="flex gap-2 flex-wrap mt-3">
+              <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(verSabana, 'csv', 'sabana')}>CSV</button>
+              <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(verSabana, 'pdf', 'sabana')}>PDF</button>
+              <button type="button" className="btn btn-secondary text-xs" onClick={() => enviarMail(verSabana, 'sabana')}>{verSabana.enviadoA ? 'Reenviar por mail' : 'Enviar por mail'}</button>
+              <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => borrarSabanaDoc(verSabana)}>Borrar</button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      {/* Ver ajuste (efecto + motivo) */}
+      <Modal abierto={!!verAjuste} onClose={() => setVerAjuste(null)} titulo={verAjuste ? `Ajuste de consignación ${verAjuste.numero}` : ''} ancho="720px">
+        {verAjuste && (
+          <>
+            <p className="text-sm mb-2">
+              {verAjuste.tipoAjuste === 'INCREMENTO' ? 'Incremento: sumó a la sábana (bajó de nuestro stock)' : 'Decremento: restó de la sábana (volvió a nuestro stock)'}
+              {' · '}{verAjuste.cliente ? verAjuste.cliente.nombre : '—'} · <span className="agente-badge">{verAjuste.estado}</span>
+              {verAjuste.deposito ? ` · origen ${verAjuste.deposito.nombre}` : ''}
+            </p>
+            <p className="text-xs text-muted mb-2">
+              Fecha: {new Date(verAjuste.createdAt).toLocaleDateString('es-AR')} · {verAjuste.unidades} unidades
+            </p>
+            <TablaItemsPaginada
+              items={verAjuste.items}
+              headers={[<th key="ean">EAN</th>, <th key="tit">Título</th>, <th key="cant">Cantidad</th>]}
+              fila={(i, idx) => (
+                <tr key={idx}>
+                  <td className="font-mono text-xs">{i.barras || i.codigo || '—'}</td>
+                  <td>{i.titulo || i.descripcion}</td>
+                  <td>{i.cantidad}</td>
+                </tr>
+              )}
+            />
+            {verAjuste.observaciones && <p className="text-xs text-muted mt-2">Motivo: {verAjuste.observaciones}</p>}
+            <div className="flex gap-2 flex-wrap mt-3">
+              <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(verAjuste, 'csv', 'ajuste')}>CSV</button>
+              <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(verAjuste, 'pdf', 'ajuste')}>PDF</button>
+              <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarMail(verAjuste, 'ajuste')}>Mail</button>
+              {verAjuste.estado !== 'ANULADO' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularAjusteDoc(verAjuste)}>Anular</button>}
+            </div>
           </>
         )}
       </Modal>
