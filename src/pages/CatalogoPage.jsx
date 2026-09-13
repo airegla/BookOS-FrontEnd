@@ -3,13 +3,14 @@
 // descripcion: catalogo enriquecido. Listado paginado + busqueda hibrida semantica
 //   + modal de alta/edicion (todo en modal, nada borra trabajo).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
 import Paginador from '../ui/Paginador';
 import { catalogoApi, proveedoresApi, autoresApi, materiasApi, editorialesApi } from '../api/api';
+import { useAppContext } from '../AppContext';
 
 // El stock vive en el ledger (movimientos_stock): no viaja en el payload de alta/edicion.
 const CAMPOS_STOCK = ['stock', 'stockDeposito', 'stockConsigna', 'stockConsignaOriginal', 'esConsignacion', 'stockTotal'];
@@ -48,6 +49,8 @@ export default function CatalogoPage() {
   const [maestros, setMaestros] = useState({ autores: [], materias: [], editoriales: [] });
   const [stockActual, setStockActual] = useState(null);
   const [kardex, setKardex] = useState(null);
+  const { instruccionVista, emitirInstruccion } = useAppContext();
+  const ultimaInstruccion = useRef(null);
 
   const cargar = async () => {
     try {
@@ -78,6 +81,17 @@ export default function CatalogoPage() {
       setSemantico(res.data);
     } catch (err) { setError(err.message); }
   };
+
+  // El buscador F6 (que vive en el shell, desde cualquier vista) puede pedir abrir la ficha de un
+  // articulo. La instruccion se consume UNA vez y se limpia, para no reabrirla al volver aca.
+  useEffect(() => {
+    if (!instruccionVista || instruccionVista.dominio !== 'catalogo' || instruccionVista.accion !== 'abrir_ficha') return;
+    if (instruccionVista.ts === ultimaInstruccion.current) return;
+    ultimaInstruccion.current = instruccionVista.ts;
+    const articuloId = instruccionVista.data && instruccionVista.data.articuloId;
+    if (articuloId) verKardex({ id: articuloId });
+    emitirInstruccion(null);
+  }, [instruccionVista]); // eslint-disable-line
 
   const abrirNuevo = () => { setEditando(null); setForm({}); setStockActual(null); setError(''); setModal(true); };
   const abrirEditar = (fila) => {

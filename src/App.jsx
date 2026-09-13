@@ -188,7 +188,12 @@ export default function App() {
         </main>
         <AgenteChatBlock abierto={panelAbierto} onAlternar={() => setPanelAbierto((v) => !v)} />
       </div>
-      <BuscadorTecnicoBlock abierto={buscadorTecnico} onCerrar={() => setBuscadorTecnico(false)} enFacturar={vista === 'Facturar'} />
+      <BuscadorTecnicoBlock
+        abierto={buscadorTecnico}
+        onCerrar={() => setBuscadorTecnico(false)}
+        enFacturar={vista === 'Facturar'}
+        onIrACatalogo={() => cambiarVista('Catalogo')}
+      />
       <BuscadorSemanticoBlock
         abierto={buscadorSemantico}
         onCerrar={() => setBuscadorSemantico(false)}

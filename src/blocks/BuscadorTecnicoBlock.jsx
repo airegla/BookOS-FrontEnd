@@ -13,7 +13,7 @@ import { useAppContext } from '../AppContext';
 const money = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 const stockDe = (a) => Number(a.stock || 0) + Number(a.stockDeposito || 0);
 
-export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = false }) {
+export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = false, onIrACatalogo = null }) {
   const { emitirInstruccion, pedirConsulta } = useAppContext();
   const [q, setQ] = useState('');
   const [filas, setFilas] = useState([]);
@@ -66,6 +66,14 @@ export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = f
   const agregar = (a) => {
     if (!enFacturar) return;
     emitirInstruccion({ dominio: 'ventas', accion: 'agregar_item', item: { ean13: eanDe(a), titulo: a.titulo, precio: a.precioLista || a.precio } });
+    onCerrar();
+  };
+
+  // Ver ficha: abre el catalogo con ese articulo (la vista escucha la instruccion y muestra la
+  // ficha con su kardex; la instruccion se consume una sola vez).
+  const verFicha = (a) => {
+    emitirInstruccion({ dominio: 'catalogo', accion: 'abrir_ficha', data: { articuloId: a.id, ean13: eanDe(a) } });
+    if (onIrACatalogo) onIrACatalogo();
     onCerrar();
   };
 
@@ -149,6 +157,7 @@ export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = f
                   <td className="text-right font-mono" style={{ color: stockDe(a) > 0 ? '#15803d' : 'var(--danger)' }}>{stockDe(a)}</td>
                   <td className="text-right whitespace-nowrap">
                     {enFacturar && <button type="button" className="btn btn-primary text-xs" onClick={() => agregar(a)}>Agregar</button>}
+                    <button type="button" className="btn btn-ghost text-xs ml-1" onClick={() => verFicha(a)}>Ficha</button>
                     <button
                       type="button"
                       className="btn btn-ghost text-xs ml-1"
