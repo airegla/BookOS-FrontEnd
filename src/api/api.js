@@ -140,6 +140,7 @@ export const crmApi = {  resumen: () => axiosClient.get('/crm/resumen'),
   armarPropuesta: (datos) => axiosClient.post('/crm/propuestas', datos),
   enviarPropuesta: (id) => axiosClient.post(`/crm/propuestas/${id}/enviar`),
   descartarPropuesta: (id) => axiosClient.delete(`/crm/propuestas/${id}`),
+  outcomePropuesta: (dias = 30) => axiosClient.post('/crm/propuestas/outcome', { dias }),
 };
 
 export const propuestasApi = {  listar: (soloPendientes = false) => axiosClient.get('/propuestas', { params: { soloPendientes } }),

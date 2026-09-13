@@ -3,6 +3,8 @@
 // descripcion: propuestas de lectura del CRM (doc 06 P5/D6): el operario elige cliente,
 //   cantidad y una aclaracion, el asistente arma la propuesta (tematicas + afinidad + stock,
 //   seleccion y motivos por LLM) y queda en BORRADOR para revisarla antes de mandarla por mail.
+//   P7: si la propuesta ya se envio, se puede medir el outcome (que titulos compro el cliente) y
+//   queda a la vista en la columna Resultado.
 
 import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
@@ -88,12 +90,29 @@ export default function PropuestasVentaPage() {
     }
   };
 
+  // P7: resultado real de las propuestas enviadas (ventas COMPLETADAS del cliente en la ventana).
+  const medir = async () => {
+    try {
+      const r = await crmApi.outcomePropuesta(30);
+      const d = r.data || {};
+      setMensaje(
+        `Outcome (${d.ventanaDias} días): ${d.propuestas} propuestas medidas · ${d.conCompra} con compra · $${Number(d.importe || 0).toLocaleString('es-AR')}.`
+      );
+      cargar();
+    } catch (err) {
+      setMensaje(`⚠️ ${err.message}`);
+    }
+  };
+
   return (
     <div>
       <DebugTag nombre="PropuestasVentaPage" />
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Propuestas de lectura</h2>
-        <button type="button" className="btn btn-primary" onClick={abrirNueva}>Armar propuesta</button>
+        <div className="flex gap-2">
+          <button type="button" className="btn btn-ghost" onClick={medir}>Medir resultado</button>
+          <button type="button" className="btn btn-primary" onClick={abrirNueva}>Armar propuesta</button>
+        </div>
       </div>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
@@ -110,17 +129,28 @@ export default function PropuestasVentaPage() {
       <div className="card p-3">
         <table className="table-os">
           <thead>
-            <tr><th>#</th><th>Cliente</th><th>Estado</th><th>Títulos</th><th>Asunto</th><th></th></tr>
+            <tr><th>#</th><th>Cliente</th><th>Estado</th><th>Títulos</th><th>Resultado</th><th>Asunto</th><th></th></tr>
           </thead>
           <tbody>
             {filas.length === 0 ? (
-              <tr><td colSpan={6} className="text-muted text-center py-8">Sin propuestas todavía</td></tr>
+              <tr><td colSpan={7} className="text-muted text-center py-8">Sin propuestas todavía</td></tr>
             ) : filas.map((p) => (
               <tr key={p.propuestaId}>
                 <td>{p.propuestaId}</td>
                 <td>{p.cliente}{p.email ? '' : ' (sin email)'}</td>
                 <td><span className="agente-badge">{p.estado}</span></td>
                 <td>{Array.isArray(p.libros) ? p.libros.length : 0}</td>
+                <td className="text-xs">
+                  {p.outcome ? (
+                    <span title={`medido ${new Date(p.outcome.medidoEn).toLocaleDateString('es-AR')} · ventana ${p.outcome.dias} días`}>
+                      compró {p.outcome.comprados}/{p.outcome.ofrecidos} · ${Number(p.outcome.importe || 0).toLocaleString('es-AR')}
+                    </span>
+                  ) : p.estado === 'ENVIADA' ? (
+                    <span className="text-muted">sin medir</span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
                 <td className="text-xs">{p.asunto}</td>
                 <td>
                   <div className="flex gap-2">
