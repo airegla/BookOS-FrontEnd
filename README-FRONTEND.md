@@ -100,3 +100,17 @@ src/
   para cambiar el medio (EFECTIVO/TARJETA/TRANSFERENCIA/CHEQUE). La regla es la elegida por el
   vectorHumano: **solo movimientos del turno abierto**; un movimiento de un cierre Z ya cerrado
   devuelve error y no se puede tocar.
+- **Usuarios (F6.7)**: **Editar** (nombre, rol, activo) y **Reset pass** (nueva contrasena +
+  confirmacion, se guarda hasheada). Probado end-to-end con un usuario de prueba: el login con la
+  clave nueva dio 200 y el usuario se elimino despues.
+- **Ventas (F6.8)**: el badge del historial y el detalle usan `tipoComprobante` (antes mostraba
+  `undefined` y el detalle crasheaba por leer `articulos`); el detalle ahora pide `GET /ventas/:id`
+  y muestra renglones, cliente y **formas de pago registradas**; los **pendientes** se reconstruyen
+  con los items + codigo del articulo; el cobro tiene **Monto recibido** y **Vuelto** calculado.
+- **Empresa (F6.10)**: ficha completa — IIBB, inicio de actividades, direccion, localidad,
+  provincia, telefono, email de contacto y sitio web (van en `datosFiscales`, sin migracion).
+  Logo pendiente de una subida de archivos dedicada.
+- **Inventario FIFE (F6.10)**: el modal de ajuste ofrece los **tipos** del bookerp (alta/baja firme,
+  alta/baja consigna con su original, firme↔consigna) con la cantidad positiva y el calculo visible
+  ("Aplica: firme +2 · consigna −2 · original +0"), mas el modo **personalizado** con deltas a mano.
+  El historial de ajustes y la anulacion quedan como tramo aparte (necesitan endpoints nuevos).

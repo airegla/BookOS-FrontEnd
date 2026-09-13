@@ -29,7 +29,7 @@ function BadgeEstado({ venta }) {
   const color = venta.estado === 'ANULADA' ? 'var(--danger)' : 'var(--success)';
   return (
     <span className="agente-badge" style={{ borderColor: color, color }}>
-      {venta.tipo} · {venta.estado}
+      {venta.tipoComprobante || venta.tipo} · {venta.estado}
     </span>
   );
 }
@@ -43,6 +43,7 @@ export default function VentasPage() {
   const [metodos, setMetodos] = useState(METODOS);
   const [descuentoGlobal, setDescuentoGlobal] = useState(0);
   const [cobrarAbierto, setCobrarAbierto] = useState(false);
+  const [recibido, setRecibido] = useState('');
   const [mensaje, setMensaje] = useState('');
 
   const [historial, setHistorial] = useState([]);
@@ -143,6 +144,8 @@ export default function VentasPage() {
   const subtotal = items.reduce((acc, i) => acc + (Number(i.precio) || 0) * (Number(i.cantidad) || 0) * (1 - (Number(i.descuento) || 0) / 100), 0);
   const total = Math.max(0, subtotal - (Number(descuentoGlobal) || 0));
   const sumaPagos = pagos.reduce((a, p) => a + (Number(p.monto) || 0), 0);
+  // Vuelto = lo que entrego el cliente menos el total (control visual del mostrador).
+  const vuelto = (Number(recibido) || 0) - total;
 
   const abrirCobro = () => {
     if ((tipo === 'PEDIDO' || tipo === 'PRESUPUESTO') && !clienteId) {
@@ -150,6 +153,7 @@ export default function VentasPage() {
       return;
     }
     setPagos([{ metodoPago, monto: total }]);
+    setRecibido('');
     setCobrarAbierto(true);
   };
 
@@ -215,16 +219,30 @@ export default function VentasPage() {
   };
 
   const recuperarPendiente = (p) => {
-    setItems((p.articulos || []).map((a) => ({ ean13: a.ean13, titulo: a.titulo, cantidad: a.cantidad, precio: Number(a.precio) || 0, descuento: 0 })));
+    // Los items del comprobante guardan descripcion y el articulo para reponer el codigo.
+    const reconstruidos = (p.items || []).map((it) => ({
+      ean13: (it.articulo && (it.articulo.barras || it.articulo.codigo)) || '',
+      titulo: it.descripcion || '',
+      cantidad: Number(it.cantidad) || 0,
+      precio: Number(it.precioUnitario) || 0,
+      descuento: Number(it.bonificacion) || 0,
+    }));
+    const utiles = reconstruidos.filter((it) => it.ean13);
+    setItems(utiles);
     if (p.clienteId) setClienteId(Number(p.clienteId));
     setTipo('FACTURA_B');
     setPendientesAbierto(false);
-    setMensaje(`Pedido #${p.id} cargado para facturar ✓`);
+    const perdidos = reconstruidos.length - utiles.length;
+    setMensaje(`Pedido #${p.id} cargado para facturar ✓${perdidos ? ` (${perdidos} item/s sin codigo, salteados)` : ''}`);
   };
 
-  const verDetalle = (venta) => {
-    setDetalle(venta);
-    setContextoActual({ ventaId: venta.id, tipo: venta.tipo, estado: venta.estado, items: venta.articulos, total: Number(venta.total) });
+  const verDetalle = async (venta) => {
+    try {
+      const res = await ventasApi.obtener(venta.id);
+      const completa = res.data || res;
+      setDetalle(completa);
+      setContextoActual({ ventaId: completa.id, tipo: completa.tipoComprobante, estado: completa.estado, items: completa.items, total: Number(completa.total) });
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
   const anular = async () => {
@@ -356,6 +374,18 @@ export default function VentasPage() {
         }
       >
         <p className="text-sm mb-3">Total: <strong>{fmt(total)}</strong> · Suma pagos: {fmt(sumaPagos)}</p>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Monto recibido</span>
+            <input className="input-os" type="number" min="0" placeholder="Opcional" value={recibido} onChange={(e) => setRecibido(e.target.value)} />
+          </label>
+          <div>
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Vuelto</span>
+            <div className="text-lg font-semibold" style={{ color: recibido === '' ? undefined : vuelto < 0 ? 'var(--danger)' : 'var(--success)' }}>
+              {recibido === '' ? '-' : fmt(vuelto)}
+            </div>
+          </div>
+        </div>
         {pagos.map((p, i) => (
           <div key={i} className="flex gap-2 mb-2 items-center">
             <select className="input-os" value={p.metodoPago} onChange={(e) => setPago(i, 'metodoPago', e.target.value)}>
@@ -382,7 +412,7 @@ export default function VentasPage() {
           <div key={p.id} className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
             <div>
               <span className="agente-badge mr-2">{p.tipo}</span>
-              <span className="text-sm">#{p.id} · {fmt(p.total)} · {(p.articulos || []).length} items</span>
+              <span className="text-sm">#{p.id} · {fmt(p.total)} · {(p.items || []).length} items</span>
             </div>
             <button type="button" className="btn btn-primary text-xs" onClick={() => recuperarPendiente(p)}>Cargar en venta</button>
           </div>
@@ -394,7 +424,7 @@ export default function VentasPage() {
         footer={
           detalle ? (
             <>
-              <button type="button" className="btn btn-ghost" onClick={() => { pedirConsulta(`Analiza la venta #${detalle.id}: ${(detalle.articulos || []).length} items por ${fmt(detalle.total)}. ¿Que ves?`); }}>Preguntar al Secretario</button>
+              <button type="button" className="btn btn-ghost" onClick={() => { pedirConsulta(`Analiza la venta #${detalle.id}: ${(detalle.items || []).length} items por ${fmt(detalle.total)}. ¿Que ves?`); }}>Preguntar al Secretario</button>
               {detalle.estado !== 'ANULADA' && (
                 <button type="button" className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={anular}>Anular</button>
               )}
@@ -405,21 +435,38 @@ export default function VentasPage() {
       >
         {detalle && (
           <div>
-            <div className="flex items-center gap-2 mb-3"><BadgeEstado venta={detalle} /> <span className="text-sm">{new Date(detalle.createdAt).toLocaleString('es-AR')}</span></div>
+            <div className="flex items-center gap-2 mb-3">
+              <BadgeEstado venta={detalle} />
+              <span className="text-sm">{new Date(detalle.fechaEmision || detalle.createdAt).toLocaleString('es-AR')}</span>
+              <span className="text-sm text-muted">{detalle.cliente ? detalle.cliente.nombre : 'Consumidor final'}</span>
+            </div>
             <table className="table-os">
-              <thead><tr><th>Titulo</th><th>EAN</th><th>Cant.</th><th>Precio</th></tr></thead>
+              <thead><tr><th>Titulo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>
               <tbody>
-                {detalle.articulos.map((item) => (
-                  <tr key={item.ean13}>
-                    <td>{item.titulo}</td>
-                    <td className="font-mono text-xs">{item.ean13}</td>
+                {(detalle.items || []).map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.descripcion}</td>
                     <td>{item.cantidad}</td>
-                    <td>{fmt(item.precio)}</td>
+                    <td>{fmt(item.precioUnitario)}</td>
+                    <td>{fmt(item.subtotalLinea)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <div className="flex justify-end font-semibold mt-3">Total: {fmt(detalle.total)}</div>
+            {(detalle.pagos || []).length > 0 && (
+              <div className="mt-4">
+                <h4 className="font-semibold text-sm mb-1">Formas de pago</h4>
+                <table className="table-os">
+                  <thead><tr><th>Metodo</th><th>Monto</th></tr></thead>
+                  <tbody>
+                    {detalle.pagos.map((p) => (
+                      <tr key={p.id}><td>{p.metodoPagoNombre}</td><td>{fmt(p.monto)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </Modal>

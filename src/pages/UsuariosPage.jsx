@@ -13,6 +13,10 @@ import { usuariosApi } from '../api/api';
 export default function UsuariosPage({ esAdmin }) {
   const [usuarios, setUsuarios] = useState([]);
   const [modal, setModal] = useState(false);
+  const [editando, setEditando] = useState(null);
+  const [resetUsuario, setResetUsuario] = useState(null);
+  const [passNueva, setPassNueva] = useState('');
+  const [passRepetir, setPassRepetir] = useState('');
   const [form, setForm] = useState({});
   const [mensaje, setMensaje] = useState('');
 
@@ -46,6 +50,32 @@ export default function UsuariosPage({ esAdmin }) {
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
+  const abrirEditar = (u) => {
+    setEditando(u);
+    setForm({ nombre: u.nombre || '', rol: u.rol || 'vendedor', activo: u.activo !== false });
+  };
+
+  const guardarEdicion = async () => {
+    try {
+      await usuariosApi.actualizar(editando.id, { nombre: form.nombre, rol: form.rol, activo: form.activo });
+      setMensaje(`Usuario ${editando.email} actualizado ✓`);
+      setEditando(null);
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const abrirReset = (u) => { setResetUsuario(u); setPassNueva(''); setPassRepetir(''); };
+
+  const guardarReset = async () => {
+    if (!passNueva) { setMensaje('⚠️ La contrasena nueva no puede estar vacia'); return; }
+    if (passNueva !== passRepetir) { setMensaje('⚠️ Las contrasenas no coinciden'); return; }
+    try {
+      await usuariosApi.actualizar(resetUsuario.id, { password: passNueva });
+      setMensaje(`Contrasena de ${resetUsuario.email} actualizada ✓`);
+      setResetUsuario(null);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
   const eliminar = async (usuario) => {
     try {
       await usuariosApi.eliminar(usuario.id);
@@ -57,8 +87,11 @@ export default function UsuariosPage({ esAdmin }) {
     { clave: 'email', titulo: 'Email' },
     { clave: 'nombre', titulo: 'Nombre' },
     { clave: 'rol', titulo: 'Rol' },
+    { clave: 'activo', titulo: 'Activo', render: (u) => (u.activo === false ? 'No' : 'Si') },
     { clave: 'acciones', titulo: '', render: (u) => (
       <div className="flex gap-2">
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirEditar(u)}>Editar</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => abrirReset(u)}>Reset pass</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => cambiarRol(u)}>
           {u.rol === 'admin' ? 'Degradar' : 'Hacer admin'}
         </button>
@@ -93,6 +126,41 @@ export default function UsuariosPage({ esAdmin }) {
           </select>
         </label>
         <Input label="Password" type="password" value={form.password || ''} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+      </Modal>
+
+      <Modal abierto={Boolean(editando)} onClose={() => setEditando(null)} titulo={editando ? `Editar usuario - ${editando.email}` : ''} ancho="420px"
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setEditando(null)}>Cancelar</button>
+            <button type="button" className="btn btn-primary" disabled={!form.nombre} onClick={guardarEdicion}>Guardar</button>
+          </>
+        )}
+      >
+        <Input label="Nombre" value={form.nombre || ''} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+        <label className="block mb-3">
+          <span className="block text-xs uppercase tracking-widest text-muted mb-1">Rol</span>
+          <select className="input-os" value={form.rol || 'vendedor'} onChange={(e) => setForm({ ...form, rol: e.target.value })}>
+            <option value="vendedor">vendedor</option>
+            <option value="admin">admin</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm mb-3">
+          <input type="checkbox" checked={form.activo !== false} onChange={(e) => setForm({ ...form, activo: e.target.checked })} /> Activo
+        </label>
+        <p className="text-xs text-muted">El email no se cambia (es la identidad del login). Para la clave esta "Reset pass".</p>
+      </Modal>
+
+      <Modal abierto={Boolean(resetUsuario)} onClose={() => setResetUsuario(null)} titulo={resetUsuario ? `Reset de contrasena - ${resetUsuario.email}` : ''} ancho="420px"
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setResetUsuario(null)}>Cancelar</button>
+            <button type="button" className="btn btn-primary" onClick={guardarReset}>Cambiar contrasena</button>
+          </>
+        )}
+      >
+        <Input label="Contrasena nueva" type="password" value={passNueva} onChange={(e) => setPassNueva(e.target.value)} />
+        <Input label="Repetir contrasena" type="password" value={passRepetir} onChange={(e) => setPassRepetir(e.target.value)} />
+        <p className="text-xs text-muted">La contrasena se guarda hasheada (bcrypt), igual que en el alta.</p>
       </Modal>
     </div>
   );
