@@ -14,7 +14,9 @@ import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
 import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
 import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
 import Paginador from '../ui/Paginador';
-import { remitosApi, proveedoresApi } from '../api/api';
+import SelectBuscador from '../ui/SelectBuscador';
+import { buscarProveedores } from '../utils/selectores';
+import { remitosApi } from '../api/api';
 import { mapearFilas } from '../utils/csv';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
@@ -23,7 +25,6 @@ export default function RemitosPage() {
   const [remitos, setRemitos] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [proveedores, setProveedores] = useState([]);
   const [borrador, setBorrador, limpiarBorrador] = usePersistentWork('remito', { proveedor: '', numero: '', fecha: '', observaciones: '', tipoStockAfectado: 'CONSIGNA', items: [] });
   const [itemEan, setItemEan] = useState('');
   const [itemCantidad, setItemCantidad] = useState('');
@@ -35,13 +36,9 @@ export default function RemitosPage() {
 
   const cargar = async (p = page) => {
     try {
-      const [res, prov] = await Promise.all([
-        remitosApi.listar({ page: p, limit: 50 }),
-        proveedoresApi.listar(),
-      ]);
+      const res = await remitosApi.listar({ page: p, limit: 50 });
       setRemitos(res.data || []);
       setTotal(res.pagination ? res.pagination.total : (res.data || []).length);
-      setProveedores(prov.data || []);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
@@ -187,16 +184,13 @@ export default function RemitosPage() {
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
-            <input
-              className="input-os"
-              list="proveedores-lista"
+            <SelectBuscador
+              textoInicial={borrador.proveedor || ''}
               placeholder="Buscar o escribir proveedor..."
-              value={borrador.proveedor}
-              onChange={(e) => setCampo('proveedor', e.target.value)}
+              buscar={buscarProveedores}
+              onTexto={(texto) => setCampo('proveedor', texto)}
+              onSeleccionar={(it) => setCampo('proveedor', it ? it.etiqueta : '')}
             />
-            <datalist id="proveedores-lista">
-              {proveedores.map((p) => <option key={p.id} value={p.nombre} />)}
-            </datalist>
           </label>
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Número de remito</span>

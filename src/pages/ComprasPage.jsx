@@ -13,7 +13,9 @@ import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
 import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
 import Paginador from '../ui/Paginador';
 import { descargarCsv } from '../utils/exportar';
-import { comprasApi, proveedoresApi, observacionesApi, pedidosProveedorApi } from '../api/api';
+import SelectBuscador from '../ui/SelectBuscador';
+import { buscarProveedores } from '../utils/selectores';
+import { comprasApi, observacionesApi, pedidosProveedorApi } from '../api/api';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
 
@@ -23,7 +25,8 @@ import { useAppContext } from '../AppContext';
 const TIPOS = ['FACTURA', 'FACTURA_CONSIGNA', 'NOTA_CREDITO'];
 
 export default function ComprasPage() {
-  const [proveedores, setProveedores] = useState([]);
+  const [provNombre, setProvNombre] = useState('');
+  const [provPedidoNombre, setProvPedidoNombre] = useState('');
   const [compras, setCompras] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -56,12 +59,10 @@ export default function ComprasPage() {
 
   const cargar = async (p = page) => {
     try {
-      const [prov, comp, ped] = await Promise.all([
-        proveedoresApi.listar(),
+      const [comp, ped] = await Promise.all([
         comprasApi.listar({ page: p, limit: 30 }),
         pedidosProveedorApi.listar({ page: 1, limit: 30 }),
       ]);
-      setProveedores(prov.data || []);
       setCompras(comp.data || []);
       setTotal(comp.pagination ? comp.pagination.total : (comp.data || []).length);
       setPedidos(ped.data || []);
@@ -240,10 +241,15 @@ export default function ComprasPage() {
       <div className="card p-4 mb-4">
         <h3 className="font-semibold mb-3">Nueva compra</h3>
         <div className="flex gap-2 flex-wrap mb-3">
-          <select className="input-os" style={{ maxWidth: 240 }} value={borrador.proveedorId} onChange={(e) => setBorrador({ ...borrador, proveedorId: e.target.value })}>
-            <option value="">Seleccionar proveedor...</option>
-            {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
+          <div style={{ minWidth: 240 }}>
+            <SelectBuscador
+              valor={borrador.proveedorId || null}
+              etiquetaValor={provNombre}
+              placeholder="Buscar proveedor..."
+              buscar={buscarProveedores}
+              onSeleccionar={(it) => { setBorrador({ ...borrador, proveedorId: it ? it.id : '' }); setProvNombre(it ? it.etiqueta : ''); }}
+            />
+          </div>
           <select className="input-os" style={{ maxWidth: 180 }} value={borrador.tipoComprobante} onChange={(e) => setBorrador({ ...borrador, tipoComprobante: e.target.value })}>
             {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -366,10 +372,15 @@ export default function ComprasPage() {
         }
       >
         <div className="flex gap-2 flex-wrap mb-3">
-          <select className="input-os" style={{ maxWidth: 260 }} value={pedido.proveedorId} onChange={(e) => setPedido({ ...pedido, proveedorId: e.target.value })}>
-            <option value="">Seleccionar proveedor...</option>
-            {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
+          <div style={{ minWidth: 260 }}>
+            <SelectBuscador
+              valor={pedido.proveedorId || null}
+              etiquetaValor={provPedidoNombre}
+              placeholder="Buscar proveedor..."
+              buscar={buscarProveedores}
+              onSeleccionar={(it) => { setPedido({ ...pedido, proveedorId: it ? it.id : '' }); setProvPedidoNombre(it ? it.etiqueta : ''); }}
+            />
+          </div>
           <select className="input-os" style={{ maxWidth: 140 }} value={pedido.tipoStockAfectado} onChange={(e) => setPedido({ ...pedido, tipoStockAfectado: e.target.value })}>
             <option value="FIRME">FIRME</option>
             <option value="CONSIGNA">CONSIGNA</option>

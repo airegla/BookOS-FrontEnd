@@ -10,7 +10,9 @@ import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
-import { crmApi, clientesApi } from '../api/api';
+import SelectBuscador from '../ui/SelectBuscador';
+import { buscarClientes } from '../utils/selectores';
+import { crmApi } from '../api/api';
 import { descargarCsv } from '../utils/exportar';
 
 const ESTADOS = ['Pendiente', 'Solicitado', 'Ingresado', 'Notificado', 'Agotado', 'Cancelado'];
@@ -26,7 +28,7 @@ export default function PedidosPage() {
   const [modal, setModal] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [form, setForm] = useState({ clienteId: '', codigo: '', descripcionTexto: '', cantidad: 1, observaciones: '' });
-  const [clientes, setClientes] = useState([]);
+  const [clienteNombre, setClienteNombre] = useState('');
 
   const cargar = async () => {
     try {
@@ -43,13 +45,8 @@ export default function PedidosPage() {
 
   const abrirNuevo = async () => {
     setForm({ clienteId: '', codigo: '', descripcionTexto: '', cantidad: 1, observaciones: '' });
+    setClienteNombre('');
     setModal(true);
-    try {
-      const r = await clientesApi.listar({ search: '', page: 1, limit: 200 });
-      setClientes(r.data.filas || r.data || []);
-    } catch (_) {
-      setClientes([]);
-    }
   };
 
   const guardar = async () => {
@@ -156,10 +153,13 @@ export default function PedidosPage() {
           <div className="form-grid">
             <div>
               <label className="field-label">Cliente</label>
-              <select className="input-os" value={form.clienteId} onChange={(e) => setForm({ ...form, clienteId: e.target.value })}>
-                <option value="">Elegí un cliente...</option>
-                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
+              <SelectBuscador
+                valor={form.clienteId || null}
+                etiquetaValor={clienteNombre}
+                placeholder="Buscar cliente..."
+                buscar={buscarClientes}
+                onSeleccionar={(it) => { setForm({ ...form, clienteId: it ? it.id : '' }); setClienteNombre(it ? it.etiqueta : ''); }}
+              />
             </div>
             <Input label="Codigo del catalogo (EAN/ISBN)" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} />
             <Input label="O titulo libre (si no esta en el catalogo)" value={form.descripcionTexto} onChange={(e) => setForm({ ...form, descripcionTexto: e.target.value })} />

@@ -9,7 +9,9 @@ import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
 import Paginador from '../ui/Paginador';
-import { catalogoApi, proveedoresApi, autoresApi, materiasApi, editorialesApi } from '../api/api';
+import SelectBuscador from '../ui/SelectBuscador';
+import { buscarProveedores, buscarAutores, buscarEditoriales, buscarMaterias } from '../utils/selectores';
+import { catalogoApi, editorialesApi } from '../api/api';
 import { useAppContext } from '../AppContext';
 
 // El stock vive en el ledger (movimientos_stock): no viaja en el payload de alta/edicion.
@@ -20,16 +22,18 @@ const sinStock = (fila) => {
   return copia;
 };
 
-// Campo de texto libre con sugerencias del maestro (el backend resuelve por nombre y crea si falta).
-function CampoTexto({ label, campo, form, setForm, listaId }) {
+// Campo de texto libre con sugerencias asincronicas del maestro (el backend resuelve por
+// nombre y crea si falta): lo tipeado vale tal cual, la sugerencia completa con el nombre oficial.
+function CampoTexto({ label, campo, form, setForm, buscar, placeholder }) {
   return (
     <label className="block mb-3">
       <span className="field-label">{label}</span>
-      <input
-        className="input-os"
-        list={listaId}
-        value={form[campo] || ''}
-        onChange={(e) => setForm({ ...form, [campo]: e.target.value })}
+      <SelectBuscador
+        textoInicial={form[campo] || ''}
+        placeholder={placeholder || `Buscar ${label.toLowerCase()}...`}
+        buscar={buscar}
+        onTexto={(texto) => setForm({ ...form, [campo]: texto })}
+        onSeleccionar={(it) => setForm({ ...form, [campo]: it ? it.etiqueta : '' })}
       />
     </label>
   );
@@ -37,7 +41,7 @@ function CampoTexto({ label, campo, form, setForm, listaId }) {
 
 export default function CatalogoPage() {
   const [filas, setFilas] = useState([]);
-  const [proveedores, setProveedores] = useState([]);
+  const [provNombre, setProvNombre] = useState('');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -46,7 +50,6 @@ export default function CatalogoPage() {
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({});
   const [error, setError] = useState('');
-  const [maestros, setMaestros] = useState({ autores: [], materias: [], editoriales: [] });
   const [stockActual, setStockActual] = useState(null);
   const [kardex, setKardex] = useState(null);
   const { instruccionVista, emitirInstruccion } = useAppContext();
@@ -65,14 +68,6 @@ export default function CatalogoPage() {
     const t = setTimeout(() => { cargar(); }, 400);
     return () => clearTimeout(t);
   }, [page, search]); // eslint-disable-line
-
-  useEffect(() => {
-    proveedoresApi.listar().then((res) => setProveedores(res.data || [])).catch(() => {});
-    // Sugerencias de maestros para los campos de texto (no bloquean si fallan).
-    autoresApi.listar({ limit: 500 }).then((res) => setMaestros((m) => ({ ...m, autores: res.data || [] }))).catch(() => {});
-    materiasApi.listar({ limit: 500 }).then((res) => setMaestros((m) => ({ ...m, materias: res.data || [] }))).catch(() => {});
-    editorialesApi.listar({ limit: 500 }).then((res) => setMaestros((m) => ({ ...m, editoriales: res.data || [] }))).catch(() => {});
-  }, []);
 
   const buscarSemantico = async () => {
     setSemantico(null);
@@ -93,11 +88,12 @@ export default function CatalogoPage() {
     emitirInstruccion(null);
   }, [instruccionVista]); // eslint-disable-line
 
-  const abrirNuevo = () => { setEditando(null); setForm({}); setStockActual(null); setError(''); setModal(true); };
+  const abrirNuevo = () => { setEditando(null); setForm({}); setStockActual(null); setError(''); setProvNombre(''); setModal(true); };
   const abrirEditar = (fila) => {
     setEditando(fila);
     setForm(sinStock(fila));
     setStockActual(fila.stockTotal ?? ((fila.stock || 0) + (fila.stockDeposito || 0)));
+    setProvNombre(fila.proveedor || '');
     setError('');
     setModal(true);
   };
@@ -231,21 +227,24 @@ export default function CatalogoPage() {
           Si el ISBN tiene editorial conocida, se completa al salir de ese campo.
         </p>
         <div className="form-grid">
-          <CampoTexto label="Autor" campo="autor" form={form} setForm={setForm} listaId="dl-autores" />
-          <CampoTexto label="Editorial" campo="editorial" form={form} setForm={setForm} listaId="dl-editoriales" />
-          <CampoTexto label="Autor 2" campo="autor2" form={form} setForm={setForm} listaId="dl-autores" />
-          <CampoTexto label="Autor 3" campo="autor3" form={form} setForm={setForm} listaId="dl-autores" />
-          <CampoTexto label="Materia" campo="tema" form={form} setForm={setForm} listaId="dl-materias" />
-          <CampoTexto label="Materia 2" campo="tema2" form={form} setForm={setForm} listaId="dl-materias" />
+          <CampoTexto label="Autor" campo="autor" form={form} setForm={setForm} buscar={buscarAutores} />
+          <CampoTexto label="Editorial" campo="editorial" form={form} setForm={setForm} buscar={buscarEditoriales} />
+          <CampoTexto label="Autor 2" campo="autor2" form={form} setForm={setForm} buscar={buscarAutores} />
+          <CampoTexto label="Autor 3" campo="autor3" form={form} setForm={setForm} buscar={buscarAutores} />
+          <CampoTexto label="Materia" campo="tema" form={form} setForm={setForm} buscar={buscarMaterias} />
+          <CampoTexto label="Materia 2" campo="tema2" form={form} setForm={setForm} buscar={buscarMaterias} />
           <Input label="Costo" type="number" value={form.costo ?? ''} onChange={(e) => setForm({ ...form, costo: e.target.value === '' ? null : Number(e.target.value) })} />
           <Input label="Precio de lista" type="number" value={form.precio ?? ''} onChange={(e) => setForm({ ...form, precio: e.target.value === '' ? null : Number(e.target.value) })} />
         </div>
         <label className="block mb-3">
           <span className="field-label">Proveedor</span>
-          <select className="input-os" value={form.proveedorId || ''} onChange={(e) => setForm({ ...form, proveedorId: e.target.value ? Number(e.target.value) : null })}>
-            <option value="">Sin proveedor</option>
-            {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
+          <SelectBuscador
+            valor={form.proveedorId || null}
+            etiquetaValor={provNombre}
+            placeholder="Buscar proveedor..."
+            buscar={buscarProveedores}
+            onSeleccionar={(it) => { setForm({ ...form, proveedorId: it ? it.id : null }); setProvNombre(it ? it.etiqueta : ''); }}
+          />
         </label>
         {editando ? (
           <p className="text-xs text-muted">
@@ -256,9 +255,6 @@ export default function CatalogoPage() {
             El stock no se carga en el alta: ingresa por compra, inventario o transferencia.
           </p>
         )}
-        <datalist id="dl-autores">{maestros.autores.slice(0, 400).map((a) => <option key={a.id} value={a.nombre} />)}</datalist>
-        <datalist id="dl-editoriales">{maestros.editoriales.slice(0, 400).map((e) => <option key={e.id} value={e.nombre} />)}</datalist>
-        <datalist id="dl-materias">{maestros.materias.slice(0, 400).map((m) => <option key={m.id} value={m.descripcion} />)}</datalist>
       </Modal>
 
       <Modal

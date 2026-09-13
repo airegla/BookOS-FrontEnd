@@ -10,22 +10,12 @@ import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import SelectBuscador from '../ui/SelectBuscador';
-import { ctaCteApi, clientesApi, proveedoresApi } from '../api/api';
+import { buscarClientes, buscarProveedores } from '../utils/selectores';
+import { ctaCteApi } from '../api/api';
 import { useAppContext } from '../AppContext';
 
 const METODOS = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CHEQUE'];
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
-
-// Busqueda en el servidor: la tabla de maestros nunca se precarga entera.
-async function buscarClientes(q) {
-  const res = await clientesApi.listar({ search: q, limit: 20 });
-  return (res.data || []).filter((c) => c.id !== 1).map((c) => ({ id: c.id, etiqueta: c.nombre, detalle: c.telefono || c.documento || '' }));
-}
-
-async function buscarProveedores(q) {
-  const res = await proveedoresApi.listar({ search: q, limit: 20 });
-  return (res.data || []).map((p) => ({ id: p.id, etiqueta: p.nombre }));
-}
 
 export default function CtaCtePage({ lado = 'cliente' }) {
   const [tipo, setTipo] = useState(lado);
@@ -163,7 +153,7 @@ export default function CtaCtePage({ lado = 'cliente' }) {
                 valor={clienteId || null}
                 etiquetaValor={clienteNombre}
                 placeholder="Buscar cliente..."
-                buscar={buscarClientes}
+                buscar={(q) => buscarClientes(q, [1])}
                 onSeleccionar={(it) => { setClienteId(it ? it.id : ''); setClienteNombre(it ? it.etiqueta : ''); setComportamiento(null); }}
               />
             ) : (

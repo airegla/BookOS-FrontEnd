@@ -7,7 +7,9 @@
 
 import { useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
-import { campaniasApi, crmApi, materiasApi } from '../api/api';
+import SelectBuscador from '../ui/SelectBuscador';
+import { buscarMaterias } from '../utils/selectores';
+import { campaniasApi, crmApi } from '../api/api';
 
 const ESTADO_COLOR = {
   BORRADOR: 'var(--muted, #6b7280)',
@@ -23,7 +25,7 @@ export default function CampaniasPage() {
   const [seleccionada, setSeleccionada] = useState(null);
   const [detalle, setDetalle] = useState(null);
   const [perfiles, setPerfiles] = useState([]);
-  const [materias, setMaterias] = useState([]);
+  const [materiaNombre, setMateriaNombre] = useState('');
   const [abiertaPropuesta, setAbiertaPropuesta] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [ocupado, setOcupado] = useState('');
@@ -67,7 +69,6 @@ export default function CampaniasPage() {
       setPerfiles(lista);
       setForm((f) => ({ ...f, perfil: f.perfil || (lista[0] ? lista[0].clave : '') }));
     }).catch(() => {});
-    materiasApi.listar({ limit: 500 }).then((res) => setMaterias(res.data || [])).catch(() => {});
   }, []); // eslint-disable-line
 
   const valoresSegmento = () => {
@@ -239,10 +240,13 @@ export default function CampaniasPage() {
             {form.segmentoTipo === 'tematica' && (
               <label className="block mb-2">
                 <span className="field-label">Materia</span>
-                <select className="input-os" value={form.materia} onChange={(e) => setForm({ ...form, materia: e.target.value })}>
-                  <option value="">Elegir...</option>
-                  {materias.map((m) => <option key={m.id} value={m.id}>{m.descripcion}</option>)}
-                </select>
+                <SelectBuscador
+                  valor={form.materia || null}
+                  etiquetaValor={materiaNombre}
+                  placeholder="Buscar materia..."
+                  buscar={buscarMaterias}
+                  onSeleccionar={(it) => { setForm({ ...form, materia: it ? it.id : '' }); setMateriaNombre(it ? it.etiqueta : ''); }}
+                />
               </label>
             )}
             {form.segmentoTipo === 'clientes' && (

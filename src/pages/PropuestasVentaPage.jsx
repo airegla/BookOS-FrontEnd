@@ -11,7 +11,9 @@ import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
-import { crmApi, clientesApi } from '../api/api';
+import SelectBuscador from '../ui/SelectBuscador';
+import { buscarClientes } from '../utils/selectores';
+import { crmApi } from '../api/api';
 
 export default function PropuestasVentaPage() {
   const [filas, setFilas] = useState([]);
@@ -23,7 +25,7 @@ export default function PropuestasVentaPage() {
   const [modal, setModal] = useState(false);
   const [armando, setArmando] = useState(false);
   const [form, setForm] = useState({ clienteId: '', cantidad: 5, aclaracion: '' });
-  const [clientes, setClientes] = useState([]);
+  const [clienteNombre, setClienteNombre] = useState('');
 
   const cargar = async () => {
     try {
@@ -39,13 +41,8 @@ export default function PropuestasVentaPage() {
 
   const abrirNueva = async () => {
     setForm({ clienteId: '', cantidad: 5, aclaracion: '' });
+    setClienteNombre('');
     setModal(true);
-    try {
-      const r = await clientesApi.listar({ search: '', page: 1, limit: 200 });
-      setClientes((r.data.filas || r.data || []).filter((c) => !/CONSUMIDOR/i.test(c.nombre)));
-    } catch (_) {
-      setClientes([]);
-    }
   };
 
   const armar = async () => {
@@ -225,10 +222,13 @@ export default function PropuestasVentaPage() {
           <div className="form-grid">
             <div>
               <label className="field-label">Cliente</label>
-              <select className="input-os" value={form.clienteId} onChange={(e) => setForm({ ...form, clienteId: e.target.value })}>
-                <option value="">Elegí un cliente...</option>
-                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}{c.email ? '' : ' (sin email)'}</option>)}
-              </select>
+              <SelectBuscador
+                valor={form.clienteId || null}
+                etiquetaValor={clienteNombre}
+                placeholder="Buscar cliente..."
+                buscar={(q) => buscarClientes(q, [1])}
+                onSeleccionar={(it) => { setForm({ ...form, clienteId: it ? it.id : '' }); setClienteNombre(it ? it.etiqueta : ''); }}
+              />
             </div>
             <Input label="Cantidad de títulos" type="number" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })} />
             <Input label="Aclaración (opcional)" value={form.aclaracion} onChange={(e) => setForm({ ...form, aclaracion: e.target.value })} placeholder="que sean novedades / para regalar..." />

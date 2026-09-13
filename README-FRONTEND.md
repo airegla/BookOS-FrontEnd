@@ -135,6 +135,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `csv.js` — parseo de CSV del lado del cliente + mapeo de columnas por alias. Se usa para importar un listado en el documento actual o adjuntarlo al Secretario.
 - `desarrolloPreguntas.js` — preguntas del instalador PoC. Agregar una pregunta = agregar un objeto aca; el formulario se arma solo y las respuestas se guardan en empresa.config. No se toca codigo core.
 - `exportar.js` — exportacion del lado del cliente. Dos caminos: - descargarCsv: CSV inmediato desde los datos que YA estan en pantalla (listado, carrito, detalle) sin tocar el backend. - descargarDesdeServidor: baja un archivo generado por el backend (una tool del Secretario o el endpoint /exportacion) usando el JWT.
+- `selectores.js` — busquedas asincronicas para SelectBuscador (maestros grandes). Una sola fuente para todas las pantallas: cada funcion devuelve [{ id, etiqueta, detalle? }] consultando el endpoint con search+limit (nunca se precarga la tabla entera).
 
 <!-- ARBOL:FIN -->
 

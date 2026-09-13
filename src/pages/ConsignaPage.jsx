@@ -13,18 +13,13 @@ import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
 import SelectBuscador from '../ui/SelectBuscador';
-import { consignaApi, proveedoresApi, preparadosApi, observacionesApi } from '../api/api';
+import { buscarProveedores } from '../utils/selectores';
+import { consignaApi, preparadosApi, observacionesApi } from '../api/api';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
 import { useAppContext } from '../AppContext';
 
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
-
-// Busqueda de proveedores en el servidor (nunca se precarga la tabla entera).
-async function buscarProveedores(q) {
-  const res = await proveedoresApi.listar({ search: q, limit: 20 });
-  return (res.data || []).map((p) => ({ id: p.id, etiqueta: p.nombre }));
-}
 
 export default function ConsignaPage() {
   const [tab, setTab] = useState('liquidaciones');
