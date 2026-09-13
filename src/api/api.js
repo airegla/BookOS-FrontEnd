@@ -339,8 +339,15 @@ export const parametrosApi = {
 };
 
 export const importadorApi = {
-  importarCatalogo: (payload) => axiosClient.post('/importador/catalogo', payload),
-  historial: () => axiosClient.get('/importador'),
+  // Catalogo y referencias (admin): preview sin efectos, aplicacion por lotes y cierre.
+  preview: (payload) => axiosClient.post('/importador/preview', payload),
+  aplicar: (payload) => axiosClient.post('/importador/aplicar', payload),
+  finalizar: (payload) => axiosClient.post('/importador/finalizar', payload),
+  // Precios (todo el equipo): modo solo_precios, con bloqueo opcional de bajas.
+  previsualizarPrecios: (payload) => axiosClient.post('/importador/precios/preview', payload),
+  aplicarPrecios: (payload) => axiosClient.post('/importador/precios', payload),
+  historial: (params) => axiosClient.get('/importador', { params }),
+  detalle: (id, params) => axiosClient.get(`/importador/${id}/items`, { params }),
 };
 
 export const manualApi = {

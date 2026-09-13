@@ -18,7 +18,7 @@ const GRUPOS = [
   { nombre: 'Catalogo', items: ['Catalogo', 'Referencias'] },
   { nombre: 'CRM', items: ['Asistente', 'Pedidos', 'Radar', 'Propuestas', 'Campañas', 'Config CRM', 'Plantillas mail'] },
   { nombre: 'Kernel', items: ['Salud', 'Agente', 'Propuestas Kernel', 'Pesos', 'Logs', 'Cola', 'Memoria'] },
-  { nombre: 'Sistema', items: ['Config', 'Empresa', 'Usuarios', 'Parametros', 'Desarrollo'] },
+  { nombre: 'Sistema', items: ['Config', 'Empresa', 'Usuarios', 'Parametros', 'Importador', 'Desarrollo'] },
 ];
 
 export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {

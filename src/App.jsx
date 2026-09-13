@@ -43,6 +43,7 @@ import CampaniasPage from './pages/CampaniasPage';
 import AsistenteVentasPage from './pages/AsistenteVentasPage';
 import ConfigCrmPage from './pages/ConfigCrmPage';
 import PlantillasMailPage from './pages/PlantillasMailPage';
+import ImportadorPage from './pages/ImportadorPage';
 import { authApi } from './api/api';
 import { useAppContext } from './AppContext';
 
@@ -166,6 +167,7 @@ export default function App() {
           {vista === 'Inventario' && <InventarioPage />}
           {vista === 'Newsletter' && <NewsletterPage />}
           {vista === 'Parametros' && <ParametrosPage />}
+          {vista === 'Importador' && <ImportadorPage esAdmin={esAdmin} />}
           {vista === 'Referencias' && <ReferenciasPage />}
           {vista === 'Config' && <ConfigPage esAdmin={esAdmin} />}
           {vista === 'Empresa' && <EmpresaPage />}
