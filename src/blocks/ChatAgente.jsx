@@ -272,12 +272,16 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     const consulta = texto;
     const adj = adjunto || adjuntoDesdeContexto();
     if (!consulta.trim() && !adj) return;
-    setTexto('');
-    setAdjunto(null);
-    await enviar(consulta.trim() || 'Analizá el archivo adjunto y contame qué tenés.', contextoActual, adj);
-    setCsvAdjunto(null);
-    if (candidatos.length > 0) {
-      setUltimosRecomendados(candidatos.map((c) => c.ean13));
+    // Si el turno anterior sigue en curso el mensaje NO se descarta: se avisa en el chat y el
+    // texto queda en el cuadro para reenviarlo cuando termine.
+    const enviado = await enviar(consulta.trim() || 'Analizá el archivo adjunto y contame qué tenés.', contextoActual, adj);
+    if (enviado) {
+      setTexto('');
+      setAdjunto(null);
+      setCsvAdjunto(null);
+      if (candidatos.length > 0) {
+        setUltimosRecomendados(candidatos.map((c) => c.ean13));
+      }
     }
   };
 

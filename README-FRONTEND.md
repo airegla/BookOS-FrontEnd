@@ -172,3 +172,7 @@ src/
   manual completo, pasos del loop, techo de contexto y presupuesto diario, mas el **inventario de
   herramientas** (mas usadas por uso real, sin uso — candidatas a poda — y boton Recalibrar ahora).
   El agente es uno solo: la pagina lo dice y unifica Secretario + Asistente de ventas.
+- **Chat sin descartes silenciosos (2026-09-13)**: si el turno anterior sigue en curso, el mensaje
+  NO se pierde: el chat avisa ("todavia estoy resolviendo el pedido anterior") y el texto queda en
+  el cuadro para reenviarlo; si el backend termina un turno sin texto, se muestra un aviso util en
+  lugar de quedar mudo (antes caia en el generico "no obtuve resultados").

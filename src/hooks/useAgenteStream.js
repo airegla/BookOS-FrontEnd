@@ -79,7 +79,13 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
   }, []);
 
   const enviar = useCallback(async (texto, contexto = null, adjunto = null) => {
-    if (!texto.trim() || cargando) return;
+    // Un turno a la vez: si el anterior sigue en curso NO se descarta el mensaje en silencio
+    // (antes desaparecia sin explicacion y parecia que el agente se habia colgado).
+    if (!texto.trim()) return false;
+    if (cargando) {
+      setMensajes((prev) => [...prev, { rol: 'agente', texto: '⏳ Todavia estoy resolviendo el pedido anterior: cuando termine, mandame este (lo dejo anotado).' }]);
+      return false;
+    }
     setCargando(true);
     setEstado('Analizando...');
     setCandidatos([]);
@@ -155,9 +161,16 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
           rol: 'agente',
           texto: 'No obtuve resultados para ese pedido. Puedo intentarlo de nuevo si me das otro dato o lo reformulás.',
         }]);
+      } else {
+        setMensajes((prev) => [...prev, {
+          rol: 'agente',
+          texto: 'El turno terminó sin un texto de respuesta (mirá las herramientas de arriba). Decime si querés que lo retome o lo reformulamos.',
+        }]);
       }
+      return true;
     } catch (err) {
       setMensajes((prev) => [...prev, { rol: 'agente', texto: `⚠️ ${err.message}` }]);
+      return false;
     } finally {
       setEstado('');
       setCargando(false);
