@@ -1,27 +1,41 @@
 // BookOS - AgenteChatBlock.jsx
 // ruta: bookos/frontend/src/blocks/AgenteChatBlock.jsx
-// descripcion: El Secretario. Panel lateral persistente del layout: envuelve a ChatAgente
-//   (perfil secretario) en el aside del grid, con el boton flotante que lo abre a pantalla
-//   completa en pantallas chicas. El chat en si (estado, SSE, render del envelope) vive en
-//   blocks/ChatAgente.jsx y es compartido con el Asistente de ventas (perfil 'ventas').
+// descripcion: El Secretario. Panel lateral del layout, plegable: en la mayoria de las vistas
+//   arranca abierto y se puede cerrar (queda el boton flotante para volver); la pagina del
+//   Asistente de ventas lo arranca CERRADO porque ahi el protagonista es el asistente. En
+//   pantallas chicas el panel se abre a pantalla completa desde el boton flotante. El chat en si
+//   (estado, SSE, render del envelope) vive en blocks/ChatAgente.jsx y es compartido con el
+//   Asistente de ventas (perfil 'ventas').
 
 import { useState } from 'react';
 import ChatAgente from './ChatAgente';
 import DebugTag from '../ui/DebugTag';
 
-export default function AgenteChatBlock() {
-  // En pantallas chicas el panel se abre a pantalla completa desde un boton flotante.
-  const [abierto, setAbierto] = useState(false);
+export default function AgenteChatBlock({ abierto = true, onAlternar = null }) {
+  const [abiertoMobile, setAbiertoMobile] = useState(false);
+  const plegable = typeof onAlternar === 'function';
+
+  const cerrar = () => {
+    setAbiertoMobile(false);
+    if (plegable && abierto) onAlternar();
+  };
 
   return (
     <>
-      <button type="button" className="btn btn-primary agente-toggle" onClick={() => setAbierto(true)} title="Abrir el Secretario">
+      <button type="button" className="btn btn-primary agente-toggle" onClick={() => setAbiertoMobile(true)} title="Abrir el Secretario">
         💬 Secretario
       </button>
-      <aside className={`agente-panel ${abierto ? 'agente-abierto' : ''}`}>
-        <DebugTag nombre="AgenteChatBlock" />
-        <ChatAgente perfil="secretario" titulo="El Secretario" onCerrarMobile={() => setAbierto(false)} />
-      </aside>
+      {!abierto && plegable && (
+        <button type="button" className="btn agente-reabrir" onClick={onAlternar} title="Abrir el Secretario">
+          💬 Secretario
+        </button>
+      )}
+      {abierto && (
+        <aside className={`agente-panel ${plegable ? 'plegable' : ''} ${abiertoMobile ? 'agente-abierto' : ''}`}>
+          <DebugTag nombre="AgenteChatBlock" />
+          <ChatAgente perfil="secretario" titulo="El Secretario" onCerrarMobile={cerrar} />
+        </aside>
+      )}
     </>
   );
 }

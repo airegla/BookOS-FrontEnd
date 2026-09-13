@@ -208,6 +208,27 @@ body {
 .agente-panel.descarga-aviso {
   border-left: 1px solid var(--border);
 }
+/* Panel plegable: cerrado, la vista ocupa todo el ancho y queda el boton para reabrirlo. */
+.bookos-layout.agente-cerrado {
+  grid-template-columns: 1fr;
+}
+.agente-reabrir {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 70;
+  box-shadow: var(--shadow-card);
+}
+@media (min-width: 1025px) {
+  .agente-panel.plegable .agente-cerrar {
+    display: inline-flex;
+  }
+}
+@media (max-width: 1024px) {
+  .agente-reabrir {
+    display: none;
+  }
+}
 @media (max-width: 1024px) {
   .agente-toggle {
     display: inline-flex;

@@ -3,9 +3,12 @@
 // descripcion: shell del OS. Login JWT, navbar de 7 vistas y layout
 //   contenido + Secretario lateral (persistente). Cambiar de vista no borra nada.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Navbar from './ui/Navbar';
 import AgenteChatBlock from './blocks/AgenteChatBlock';
+import BuscadorTecnicoBlock from './blocks/BuscadorTecnicoBlock';
+import BuscadorSemanticoBlock from './blocks/BuscadorSemanticoBlock';
+import useAtajoGlobal from './hooks/useAtajoGlobal';
 import CatalogoPage from './pages/CatalogoPage';
 import VentasPage from './pages/VentasPage';
 import VentasPeriodoPage from './pages/VentasPeriodoPage';
@@ -111,6 +114,27 @@ export default function App() {
     setContextoActual(null);
   };
 
+  // Teclas del OS (doc 06 D9): F6 = busqueda tecnica del mostrador, F7 = busqueda semantica +
+  // asistente. El panel del Secretario arranca cerrado en la pagina del Asistente (ahi el
+  // protagonista es el asistente de ventas) y abierto en el resto.
+  const [panelAbierto, setPanelAbierto] = useState(true);
+  const [buscadorTecnico, setBuscadorTecnico] = useState(false);
+  const [buscadorSemantico, setBuscadorSemantico] = useState(false);
+
+  useEffect(() => { setPanelAbierto(vista !== 'Asistente'); }, [vista]);
+
+  const alternarTecnico = useCallback(() => {
+    setBuscadorTecnico((v) => !v);
+    setBuscadorSemantico(false);
+  }, []);
+  const alternarSemantico = useCallback(() => {
+    setBuscadorSemantico((v) => !v);
+    setBuscadorTecnico(false);
+  }, []);
+
+  useAtajoGlobal('F6', alternarTecnico);
+  useAtajoGlobal('F7', alternarSemantico);
+
   const salir = () => {
     localStorage.removeItem('bookos_token');
     setUsuario(null);
@@ -124,7 +148,7 @@ export default function App() {
   return (
     <div className={`bookos-app${debug ? ' debug-watermark' : ''}`}>
       <Navbar vista={vista} onCambiarVista={cambiarVista} usuario={usuario} onLogout={salir} />
-      <div className="bookos-layout">
+      <div className={`bookos-layout${panelAbierto ? '' : ' agente-cerrado'}`}>
         <main className="bookos-main p-6">
           {vista === 'Catalogo' && <CatalogoPage />}
           {vista === 'Facturar' && <VentasPage />}
@@ -162,8 +186,15 @@ export default function App() {
           {vista === 'Config CRM' && <ConfigCrmPage />}
           {vista === 'Plantillas mail' && <PlantillasMailPage />}
         </main>
-        <AgenteChatBlock />
+        <AgenteChatBlock abierto={panelAbierto} onAlternar={() => setPanelAbierto((v) => !v)} />
       </div>
+      <BuscadorTecnicoBlock abierto={buscadorTecnico} onCerrar={() => setBuscadorTecnico(false)} enFacturar={vista === 'Facturar'} />
+      <BuscadorSemanticoBlock
+        abierto={buscadorSemantico}
+        onCerrar={() => setBuscadorSemantico(false)}
+        enFacturar={vista === 'Facturar'}
+        onAbrirAsistente={() => cambiarVista('Asistente')}
+      />
     </div>
   );
 }

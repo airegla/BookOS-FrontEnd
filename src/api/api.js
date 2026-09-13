@@ -149,6 +149,8 @@ export const propuestasApi = {  listar: (soloPendientes = false) => axiosClient.
 // Kernel (E7): paneles de Salud, Propuestas, Pesos, Logs, Cola y Memoria.
 export const kernelApi = {
   estado: () => axiosClient.get('/kernel/estado'),
+  // Busqueda semantica del kernel (la que usa el buscador F7 y el asistente de ventas).
+  buscar: (payload) => axiosClient.post('/kernel/buscar', payload),
   salud: (limit = 30) => axiosClient.get('/kernel/salud', { params: { limit } }),
   saludCorrer: () => axiosClient.post('/kernel/salud/correr'),
   pesos: () => axiosClient.get('/kernel/pesos'),

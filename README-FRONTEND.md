@@ -55,8 +55,10 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 
 **src/blocks/**
 
-- `AgenteChatBlock.jsx` — El Secretario. Panel lateral persistente del layout: envuelve a ChatAgente (perfil secretario) en el aside del grid, con el boton flotante que lo abre a pantalla completa en pantallas chicas. El chat en si (estado, SSE, render del envelope) vive en blocks/ChatAgente.jsx y es compartido con el Asistente de ventas (perfil 'ventas').
+- `AgenteChatBlock.jsx` — El Secretario. Panel lateral del layout, plegable: en la mayoria de las vistas arranca abierto y se puede cerrar (queda el boton flotante para volver); la pagina del Asistente de ventas lo arranca CERRADO porque ahi el protagonista es el asistente. En pantallas chicas el panel se abre a pantalla completa desde el boton flotante. El chat en si (estado, SSE, render del envelope) vive en blocks/ChatAgente.jsx y es compartido con el Asistente de ventas (perfil 'ventas').
 - `BuscadorArticuloBlock.jsx` — buscador de articulos para agregar a un comprobante (EAN, titulo, autor o editorial) con debounce 300 ms y sugerencias (patron bookerp). Se usa en ventas, compras y remitos para no depender de tipear el EAN de memoria.
+- `BuscadorSemanticoBlock.jsx` — F7 — el buscador SEMANTICO del kernel como modal global, con las MISMAS tarjetas del asistente (titulo, score, autor/editorial, precio y stock) y sus acciones: agregar el renglon cuando se esta facturando y preguntarle al Secretario. Desde aca tambien se abre la pagina del Asistente de ventas.
+- `BuscadorTecnicoBlock.jsx` — F6 — el buscador TECNICO del mostrador (la busqueda F7 del bookerp): modal global con la sintaxis T titulo / A autor / * codigo / X contiene contra /api/catalogo/f7. Es rapido y practico: LISTADO (no tarjetas), navegacion con flechas, Enter agrega el renglon cuando se esta facturando, y el resultado tecnico (EAN, precio, stock) siempre a la vista.
 - `CargarDocumentoBlock.jsx` — carga el contenido de un comprobante de otro modulo dentro del que se esta armando (patron bookerp): elegis un remito/pedido/compra recuperable y sus renglones se copian al borrador actual. Muestra preview antes de cargar.
 - `ChatAgente.jsx` — chat del agente, reutilizable por perfil. El Secretario (panel lateral) y el Asistente de ventas (pagina del CRM) comparten este componente: mismo motor, misma conversacion persistente y mismo render del envelope; cambia la semilla/tools del backend (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada.
 - `ImportarCsvBlock.jsx` — importador CSV reutilizable. Dos destinos: 1) "Cargar en la vista": llama onCargar(filas) para meter las filas en el documento que se esta trabajando (items de venta, remito, liquidacion...). 2) "Procesar con el Secretario": adjunta el CSV al contexto y le pide al agente que lo procese con la herramienta que corresponda.
@@ -68,6 +70,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 **src/hooks/**
 
 - `useAgenteStream.js` — consumo del SSE del Secretario (POST + stream). Expone estados, candidatos, la pregunta del agente (confirmacion/clarificacion) y el texto que llega palabra por palabra. El adjunto viaja como { nombre, contenido }.
+- `useAtajoGlobal.js` — atajo de teclado GLOBAL (patron del bookerp, adaptado): escucha en window, evita la accion por defecto del navegador y llama al callback. `activo` permite apagarlo (por ejemplo mientras hay un modal abierto, para no re-dispararlo).
 - `useIsMobile.js` — Hook para detectar viewport móvil (matchMedia).
 - `usePagination.js` — Hook de paginación + búsqueda en memoria para tablas.
 - `usePersistentWork.js` — borradores que sobreviven al cambio de pagina (localStorage). Regla de oro del OS: cambiar de pagina NO borra trabajo.
@@ -75,7 +78,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 **src/pages/**
 
 - `AgentePage.jsx` — el agente en el Kernel (es uno solo: Secretario y Asistente de ventas comparten motor). Muestra su estado (LLM, modelo, pasos, presupuesto), sus toggles (prompt completo o hibrido, cuantas herramientas con manual completo, pasos del loop, techo de contexto) y el inventario de herramientas con el uso real (la automejora: lo calibra la reflexion).
-- `AsistenteVentasPage.jsx` — el Asistente de VENTAS: chat de mostrador embebido como pagina (perfil 'ventas' del agente). Comparte motor y kernel con el Secretario, con semilla y herramientas acotadas a la venta (catalogo, clientes, informes, pedidos y archivos).
+- `AsistenteVentasPage.jsx` — la pagina del ASISTENTE DE VENTAS (perfil 'ventas' del agente). No es un chat generico duplicado: es el mostrador. Encabezado propio, acciones rapidas de libreria, los marcadores a la vista y el cliente activo como contexto, con el chat de ventas adentro. El panel del Secretario viene cerrado en esta vista (se abre desde su boton).
 - `CajaPage.jsx` — arqueo de caja y cierre Z (reglas de bookerp). Estado del turno, movimientos manuales, cierre con diferencia y historial. Integrado al Secretario (contexto de caja).
 - `CampaniasPage.jsx` — campañas del CRM (doc 06 D7). Historial de campañas con su configuración y estado, alta (brief + cantidad de títulos + segmento + vigencia), generación de los borradores por lotes (el asistente arma un mail por cliente con títulos en stock), revisión práctica (aprobar / rechazar de a una o todas) y envío de lo aprobado, respetando el MODO PRUEBA.
 - `CatalogoPage.jsx` — catalogo enriquecido. Listado paginado + busqueda hibrida semantica + modal de alta/edicion (todo en modal, nada borra trabajo).
