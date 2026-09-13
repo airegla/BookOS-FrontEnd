@@ -305,6 +305,26 @@ export default function ConsignaPage() {
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
+  // E14: descarga por documento de liquidaciones y devoluciones (CSV/PDF/mail).
+  const descargarDoc = async (apiMetodo, doc, formato, etiqueta) => {
+    try {
+      const res = await consignaApi[apiMetodo](doc.id);
+      const d = res.data || {};
+      await descargarDesdeServidor(`/archivos/${d.archivoId}/descarga`, d.nombre);
+      setMensaje(`${d.nombre} descargado ✓`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const enviarDocMail = async (apiMetodo, doc, etiqueta) => {
+    try {
+      const res = await consignaApi[apiMetodo](doc.id);
+      const d = res.data || {};
+      setMensaje(d.enviado
+        ? `${etiqueta} enviada a ${d.a || 'el proveedor'}${d.redirigido ? ' (MODO PRUEBA)' : ''} ✓`
+        : `⚠️ No se pudo enviar: ${d.motivo || 'sin configurar'}`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
   // Valores del snapshot congelado de un renglón, por local.
   const valorPrep = (item, depositoId, campo) => {
     const fila = (item.snapshot || []).find((s) => s.depositoId === depositoId);
@@ -344,6 +364,9 @@ export default function ConsignaPage() {
     { clave: 'acciones', titulo: '', render: (l) => (
       <div className="flex gap-2">
         <button type="button" className="btn btn-ghost text-xs" onClick={() => setDetalle({ tipo: 'liquidacion', doc: l })}>Ver</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarDoc('csvLiquidacion', l, 'csv', 'Liquidación')}>CSV</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarDoc('pdfLiquidacion', l, 'pdf', 'Liquidación')}>PDF</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarDocMail('mailLiquidacion', l, 'Liquidación')}>Mail</button>
         {l.estado === 'PENDIENTE' && <button type="button" className="btn btn-ghost text-xs" onClick={() => setFacturar(l)}>Facturar</button>}
         {l.estado !== 'ANULADA' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularLiquidacion(l.id)}>Anular</button>}
         <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('liquidacion', l.id)}>🧠</button>
@@ -372,6 +395,9 @@ export default function ConsignaPage() {
     { clave: 'motivo', titulo: 'Motivo' },
     { clave: 'acciones', titulo: '', render: (d) => (
       <div className="flex gap-2">
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarDoc('csvDevolucion', d, 'csv', 'Devolución')}>CSV</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarDoc('pdfDevolucion', d, 'pdf', 'Devolución')}>PDF</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarDocMail('mailDevolucion', d, 'Devolución')}>Mail</button>
         {d.estado !== 'ANULADA' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularDevolucion(d.id)}>Anular</button>}
         <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('devolucion', d.id)}>🧠</button>
       </div>

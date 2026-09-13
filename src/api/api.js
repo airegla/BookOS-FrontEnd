@@ -285,6 +285,12 @@ export const consignaApi = {
   registrarDevolucion: (payload) => axiosClient.post('/devoluciones', payload),
   listarDevoluciones: (params = {}) => axiosClient.get('/devoluciones', { params }),
   anularDevolucion: (id) => axiosClient.post(`/devoluciones/${id}/anular`),
+  csvLiquidacion: (id) => axiosClient.get(`/liquidaciones/${id}/csv`),
+  pdfLiquidacion: (id) => axiosClient.get(`/liquidaciones/${id}/pdf`),
+  mailLiquidacion: (id, payload = {}) => axiosClient.post(`/liquidaciones/${id}/mail`, payload),
+  csvDevolucion: (id) => axiosClient.get(`/devoluciones/${id}/csv`),
+  pdfDevolucion: (id) => axiosClient.get(`/devoluciones/${id}/pdf`),
+  mailDevolucion: (id, payload = {}) => axiosClient.post(`/devoluciones/${id}/mail`, payload),
 };
 
 // Preparado de devolucion (Keops PD): lo que el proveedor solicita, cruzado con el stock de cada local.
