@@ -4,7 +4,7 @@
 //   para todas las pantallas: cada funcion devuelve [{ id, etiqueta, detalle? }] consultando el
 //   endpoint con search+limit (nunca se precarga la tabla entera).
 
-import { clientesApi, proveedoresApi, autoresApi, editorialesApi, materiasApi } from '../api/api';
+import { clientesApi, proveedoresApi, autoresApi, editorialesApi, materiasApi, catalogoApi, mayoristaApi } from '../api/api';
 
 const LIMITE = 20;
 
@@ -14,6 +14,18 @@ export async function buscarClientes(q, excluir = []) {
   return (res.data || [])
     .filter((c) => !excluir.includes(c.id))
     .map((c) => ({ id: c.id, etiqueta: c.nombre, detalle: c.telefono || c.documento || '' }));
+}
+
+// Articulos para los renglones del mayorista: muestra EAN y precio de lista.
+export async function buscarArticulos(q) {
+  const res = await catalogoApi.listar({ search: q, limit: LIMITE });
+  return (res.data || []).map((a) => ({
+    id: a.id,
+    etiqueta: a.titulo,
+    detalle: `${a.ean || a.barras || a.codigo || ''} · ${a.precioLista != null ? `$${Number(a.precioLista).toLocaleString('es-AR')}` : 'sin precio'}`,
+    ean13: a.ean || a.barras || a.codigo || '',
+    precioLista: a.precioLista != null ? Number(a.precioLista) : 0,
+  }));
 }
 
 export async function buscarProveedores(q) {
@@ -34,4 +46,22 @@ export async function buscarEditoriales(q) {
 export async function buscarMaterias(q) {
   const res = await materiasApi.listar({ search: q, limit: LIMITE });
   return (res.data || []).map((m) => ({ id: m.id, etiqueta: m.descripcion }));
+}
+
+// Clientes mayoristas con su deposito espejo (la sabana): el conjunto es chico y viene entero
+// con su descuento/plazo, asi el operario ve contra que sabila va a operar.
+export async function buscarMayoristas(q) {
+  const res = await mayoristaApi.clientes();
+  const t = String(q || '').toLowerCase();
+  return (res.data || [])
+    .filter((c) => !t || String(c.nombre || '').toLowerCase().includes(t) || String(c.cuit || '').includes(t))
+    .slice(0, LIMITE)
+    .map((c) => ({
+      id: c.id,
+      etiqueta: c.nombre,
+      detalle: c.deposito ? c.deposito.nombre : 'sin depósito espejo',
+      descuentoFijo: c.descuentoFijo,
+      diasPlazoPago: c.diasPlazoPago,
+      deposito: c.deposito,
+    }));
 }

@@ -1,47 +1,50 @@
 // BookOS - MayoristaPage.jsx
 // ruta: bookos/frontend/src/pages/MayoristaPage.jsx
-// descripcion: modulo mayorista (bookerp): remitos entre depositos, ventas
-//   mayoristas, devoluciones, sabanas y ajustes de consignacion de cliente.
-//   Interconectado con el Secretario: inyecta contexto, escucha instrucciones
-//   y permite observar cada documento (🧠).
+// descripcion: modulo mayorista (F-12). Patron de 3 bloques (cabecera / tabla / chat del
+//   Secretario). Estado: E7 — remitos completos (consigna/firme/traslado con sábana del cliente y
+//   anulación); facturación, devoluciones, pedidos, sábanas y ajustes llegan en sus etapas (E8-E11)
+//   y por ahora muestran su historial con el aviso de la etapa.
 
 import { useEffect, useState } from 'react';
-import DebugTag from '../ui/DebugTag';
 import Table from '../ui/Table';
-import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
-import { mayoristaApi, clientesApi, depositosApi, observacionesApi } from '../api/api';
+import Modal from '../ui/Modal';
+import MayoristaCabeceraBlock from '../blocks/MayoristaCabeceraBlock';
+import MayoristaTablaBlock from '../blocks/MayoristaTablaBlock';
+import { mayoristaApi, depositosApi, observacionesApi } from '../api/api';
+import { descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
-
-const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
 const TABS = [
   { id: 'resumen', label: 'Resumen' },
   { id: 'remitos', label: 'Remitos' },
-  { id: 'ventas', label: 'Ventas' },
+  { id: 'ventas', label: 'Facturación' },
   { id: 'devoluciones', label: 'Devoluciones' },
+  { id: 'pedidos', label: 'Pedidos de devolución' },
   { id: 'sabanas', label: 'Sábanas' },
   { id: 'ajustes', label: 'Ajustes' },
 ];
 
-const TIPO_REMITO = ['CONSIGNA', 'FIRME', 'TRASLADO_INTERNO'];
-const TIPO_VENTA = ['FACTURA_MAYORISTA_FIRME', 'FACTURA_BAJA_CONSIGNA', 'NOTA_CREDITO_MAYORISTA'];
-const TIPO_DEV = ['DEVOLUCION_CONSIGNA', 'DEVOLUCION_FIRME'];
-const TIPO_AJUSTE = ['INCREMENTO', 'DECREMENTO'];
+// Cada solapa dice en qué etapa llega su escritura (lo que ya funciona es el historial).
+const ETAPA_ESCRITURA = {
+  ventas: 'E8 — facturación mayorista (firme / baja de consigna / NC)',
+  devoluciones: 'E9 — acuses de devolución del cliente',
+  pedidos: 'E10 — pedidos de devolución + conciliación',
+  sabanas: 'E11 — emisión y envío de sábanas',
+  ajustes: 'E11 — ajustes a la sábana del cliente',
+};
 
-const TIPO_OBS = { remitos: 'remito_mayorista', ventas: 'venta_mayorista', devoluciones: 'devolucion_mayorista', sabanas: 'sabana', ajustes: 'ajuste_consignacion' };
+const CABECERA_VACIA = { cliente: null, depositoOrigenId: '', depositoDestinoId: '', tipoRemito: 'CONSIGNA', observaciones: '' };
 
 export default function MayoristaPage() {
   const [tab, setTab] = useState('resumen');
   const [resumen, setResumen] = useState(null);
-  const [listas, setListas] = useState({ remitos: [], ventas: [], devoluciones: [], sabanas: [], ajustes: [] });
-  const [clientes, setClientes] = useState([]);
+  const [listas, setListas] = useState({ remitos: [], ventas: [], devoluciones: [], pedidos: [], sabanas: [], ajustes: [] });
   const [depositos, setDepositos] = useState([]);
   const [mensaje, setMensaje] = useState('');
   const [observacion, setObservacion] = useState(null);
-  const [borrador, setBorrador] = useState({ items: [] });
-  const [itemEan, setItemEan] = useState('');
-  const [itemCant, setItemCant] = useState('');
-  const [itemPrecio, setItemPrecio] = useState('');
+  const [verRemito, setVerRemito] = useState(null);
+  const [cab, setCab] = useState(CABECERA_VACIA);
+  const [items, setItems] = useState([]);
   const { setContextoActual, pedirConsulta } = useAppContext();
 
   const cargarLista = async (t) => {
@@ -50,67 +53,81 @@ export default function MayoristaPage() {
         remitos: mayoristaApi.listarRemitos,
         ventas: mayoristaApi.listarVentas,
         devoluciones: mayoristaApi.listarDevoluciones,
+        pedidos: mayoristaApi.listarPedidos,
         sabanas: mayoristaApi.listarSabanas,
         ajustes: mayoristaApi.listarAjustes,
       }[t];
-      const res = await fn();
+      const res = await fn({ limite: 100 });
       setListas((prev) => ({ ...prev, [t]: res.data || [] }));
-    } catch (e) { /* sin datos */ }
+    } catch (e) { /* sin datos todavia */ }
   };
 
   const cargar = async () => {
-    try {
-      const [r, c, d] = await Promise.all([
-        mayoristaApi.resumen(),
-        clientesApi.listar(),
-        depositosApi.listar(),
-      ]);
-      setResumen(r.data?.items || r.data || null);
-      setClientes(c.data || []);
-      setDepositos(d.data || []);
-    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
-    cargarLista('remitos'); cargarLista('ventas'); cargarLista('devoluciones');
-    cargarLista('sabanas'); cargarLista('ajustes');
+    const [r, d] = await Promise.allSettled([mayoristaApi.resumen(), depositosApi.listar()]);
+    if (r.status === 'fulfilled') setResumen(r.value.data || null);
+    if (d.status === 'fulfilled') setDepositos(d.value.data || []);
+    if (r.status === 'rejected' || d.status === 'rejected') setMensaje('⚠️ El módulo mayorista respondió con errores: revisá el backend');
+    ['remitos', 'ventas', 'devoluciones', 'pedidos', 'sabanas', 'ajustes'].forEach(cargarLista);
   };
 
   useEffect(() => { cargar(); }, []); // eslint-disable-line
 
-  useEffect(() => { if (tab !== 'resumen') cargarLista(tab); }, [tab]); // eslint-disable-line
-
-  // Inyecta contexto al Secretario.
+  // Inyecta contexto al Secretario (lo que ve y lo que esta armando).
   useEffect(() => {
-    setContextoActual({ vista: 'mayorista', tab, borrador });
-  }, [tab, borrador]); // eslint-disable-line
+    setContextoActual({
+      vista: 'mayorista',
+      tab,
+      borrador: tab === 'remitos' ? { cliente: cab.cliente ? cab.cliente.nombre : null, tipoRemito: cab.tipoRemito, origen: cab.depositoOrigenId, items: items.length, unidades: items.reduce((a, i) => a + Number(i.cantidad || 0), 0) } : undefined,
+    });
+  }, [tab, cab, items]); // eslint-disable-line
 
-  const setCampo = (campo, valor) => setBorrador({ ...borrador, [campo]: valor });
+  const setCampo = (campo, valor) => setCab((prev) => ({ ...prev, [campo]: valor }));
 
-  const agregarItem = () => {
-    if (!itemEan || !itemCant) return;
-    const item = { ean13: itemEan, titulo: itemEan, cantidad: Number(itemCant) };
-    if (itemPrecio) item.precioUnitario = Number(itemPrecio);
-    setBorrador({ ...borrador, items: [...borrador.items, item] });
-    setItemEan(''); setItemCant(''); setItemPrecio('');
+  // ---- Remitos (E7) ----
+  const destinoDelRemito = () => {
+    if (cab.tipoRemito === 'TRASLADO_INTERNO') return cab.depositoDestinoId;
+    return cab.cliente && cab.cliente.deposito ? cab.cliente.deposito.id : '';
   };
 
-  const importarDocumento = (list) => {
-    const nuevos = list.filter((i) => i.ean13).map((i) => ({ ean13: i.ean13, titulo: i.titulo || i.ean13, cantidad: i.cantidad }));
-    setBorrador({ ...borrador, items: [...borrador.items, ...nuevos] });
-    if (nuevos.length) setMensaje(`Importados ${nuevos.length} libros ✓`);
-  };
-
-  const crear = async () => {
+  const crearRemito = async () => {
+    const destino = destinoDelRemito();
+    if (cab.tipoRemito !== 'TRASLADO_INTERNO' && !cab.cliente) { setMensaje('⚠️ Elegí el cliente mayorista'); return; }
+    if (cab.tipoRemito !== 'TRASLADO_INTERNO' && cab.cliente && !cab.cliente.deposito) { setMensaje('⚠️ Ese cliente no tiene depósito espejo: marcalo como mayorista en su ficha'); return; }
+    if (!cab.depositoOrigenId) { setMensaje('⚠️ Elegí el depósito de origen'); return; }
+    if (!destino) { setMensaje('⚠️ Falta el destino'); return; }
+    if (!items.length) { setMensaje('⚠️ Agregá renglones'); return; }
     try {
-      const fn = {
-        remitos: () => mayoristaApi.crearRemito(borrador),
-        ventas: () => mayoristaApi.crearVenta(borrador),
-        devoluciones: () => mayoristaApi.crearDevolucion(borrador),
-        sabanas: () => mayoristaApi.crearSabana(borrador),
-        ajustes: () => mayoristaApi.crearAjuste(borrador),
-      }[tab];
-      const res = await fn();
-      setMensaje(`${TABS.find((t) => t.id === tab).label} #${res.data.id} creado ✓`);
-      setBorrador({ items: [] });
-      cargarLista(tab);
+      const res = await mayoristaApi.crearRemito({
+        depositoOrigenId: Number(cab.depositoOrigenId),
+        depositoDestinoId: Number(destino),
+        tipoRemito: cab.tipoRemito,
+        observaciones: cab.observaciones || null,
+        items: items.map((i) => ({ ean13: i.ean13, cantidad: Number(i.cantidad), tipoStock: i.tipoStock || 'CONSIGNA' })),
+      });
+      const d = res.data || {};
+      const avisos = (d.avisos || []).length ? ` — avisos: ${d.avisos.join(' · ')}` : '';
+      setMensaje(`Remito ${d.numero} emitido ✓${avisos}`);
+      setCab(CABECERA_VACIA);
+      setItems([]);
+      cargarLista('remitos');
+      mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const verDetalleRemito = async (r) => {
+    try {
+      const res = await mayoristaApi.obtenerRemito(r.id);
+      setVerRemito(res.data);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const anularRemito = async (r) => {
+    if (!window.confirm(`¿Anular el remito ${r.numero}? Se revierte el stock por el ledger.`)) return;
+    try {
+      const res = await mayoristaApi.anularRemito(r.id);
+      const avisos = (res.data.avisos || []).length ? ` — avisos: ${res.data.avisos.join(' · ')}` : '';
+      setMensaje(`Remito ${r.numero} anulado ✓${avisos}`);
+      cargarLista('remitos');
     } catch (e) { setMensaje(`⚠️ ${e.message}`); }
   };
 
@@ -118,212 +135,156 @@ export default function MayoristaPage() {
     try {
       const res = await observacionesApi.documento({ tipo, id });
       setObservacion(res.data);
-      setMensaje('Observación del Secretario generada ✓');
     } catch (e) { setMensaje(`⚠️ ${e.message}`); }
   };
 
-  const resumenCards = resumen ? [
-    ['Ventas', resumen.ventas], ['Facturado', fmt(resumen.facturado)],
-    ['Remitos', resumen.remitos], ['Devoluciones', resumen.devoluciones],
-    ['Sábanas', resumen.sabanas], ['Ajustes', resumen.ajustes], ['Depósitos', resumen.depositos],
-  ] : [];
-
-  const columnasPorTab = {
-    remitos: [
-      { clave: 'id', titulo: 'ID' },
-      { clave: 'tipoRemito', titulo: 'Tipo' },
-      { clave: 'origen', titulo: 'Origen' },
-      { clave: 'destino', titulo: 'Destino' },
-      { clave: 'estado', titulo: 'Estado' },
-    ],
-    ventas: [
-      { clave: 'id', titulo: 'ID' },
-      { clave: 'tipoComprobante', titulo: 'Comprobante' },
-      { clave: 'clienteNombre', titulo: 'Cliente' },
-      { clave: 'total', titulo: 'Total', render: (v) => fmt(v.total) },
-      { clave: 'estado', titulo: 'Estado' },
-    ],
-    devoluciones: [
-      { clave: 'id', titulo: 'ID' },
-      { clave: 'tipoComprobante', titulo: 'Comprobante' },
-      { clave: 'clienteNombre', titulo: 'Cliente' },
-      { clave: 'totalUnidades', titulo: 'Unidades' },
-      { clave: 'estado', titulo: 'Estado' },
-    ],
-    sabanas: [
-      { clave: 'id', titulo: 'ID' },
-      { clave: 'clienteNombre', titulo: 'Cliente' },
-      { clave: 'totalEjemplares', titulo: 'Ejemplares' },
-    ],
-    ajustes: [
-      { clave: 'id', titulo: 'ID' },
-      { clave: 'tipoAjuste', titulo: 'Ajuste' },
-      { clave: 'clienteNombre', titulo: 'Cliente' },
-      { clave: 'estado', titulo: 'Estado' },
-    ],
+  // Reimprimir el documento (CSV/PDF del servidor) y mandarlo por mail al cliente del espejo.
+  const reimprimir = async (r, formato) => {
+    try {
+      const res = formato === 'csv' ? await mayoristaApi.csvRemito(r.id) : await mayoristaApi.pdfRemito(r.id);
+      const desc = res.data || {};
+      await descargarDesdeServidor(`/archivos/${desc.archivoId}/descarga`, desc.nombre);
+      setMensaje(`${formato.toUpperCase()} del remito ${r.numero} descargado ✓`);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
   };
 
-  const filasTab = listas[tab] || [];
+  const enviarMail = async (r) => {
+    if (!window.confirm(`¿Enviar el remito ${r.numero} por mail al cliente? (adjunta PDF + CSV)`)) return;
+    try {
+      const res = await mayoristaApi.mailRemito(r.id);
+      setMensaje(res.data && res.data.enviado ? `Remito ${r.numero} enviado a ${res.data.a}${res.data.redirigido ? ' (MODO PRUEBA)' : ''} ✓` : `El mail no salió: ${(res.data && res.data.motivo) || 'sin detalle'}`);
+    } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  const colRemitos = [
+    { clave: 'numero', titulo: 'Nro', render: (r) => <span className="font-mono text-xs">{r.numero}</span> },
+    { clave: 'tipoRemito', titulo: 'Tipo' },
+    { clave: 'origen', titulo: 'Origen', render: (r) => (r.origen ? r.origen.nombre : '—') },
+    { clave: 'destino', titulo: 'Destino', render: (r) => (r.destino ? r.destino.nombre : '—') },
+    { clave: 'unidades', titulo: 'Unidades' },
+    { clave: 'estado', titulo: 'Estado', render: (r) => <span className="agente-badge">{r.estado}</span> },
+    {
+      clave: 'acciones',
+      titulo: '',
+      render: (r) => (
+        <div className="flex gap-2">
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => verDetalleRemito(r)}>Ver</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(r, 'csv')}>CSV</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => reimprimir(r, 'pdf')}>PDF</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarMail(r)}>Mail</button>
+          {r.estado !== 'ANULADO' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularRemito(r)}>Anular</button>}
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('remito_mayorista', r.id)}>🧠</button>
+        </div>
+      ),
+    },
+  ];
+
+  const tipoObs = (t) => (t === 'ventas' ? 'venta_mayorista' : t === 'devoluciones' ? 'devolucion_mayorista' : t === 'pedidos' ? 'pedido_devolucion' : t === 'sabanas' ? 'sabana' : 'ajuste_consignacion');
+
+  const colSimple = (t) => [
+    { clave: 'id', titulo: 'ID' },
+    { clave: 'numero', titulo: 'Nro', render: (d) => <span className="font-mono text-xs">{d.numero || d.numeroComprobante || `#${d.id}`}</span> },
+    { clave: 'cliente', titulo: 'Cliente', render: (d) => (d.cliente ? d.cliente.nombre : '—') },
+    { clave: 'estado', titulo: 'Estado', render: (d) => <span className="agente-badge">{d.estado}</span> },
+    {
+      clave: 'acciones',
+      titulo: '',
+      render: (d) => <button type="button" className="btn btn-ghost text-xs" onClick={() => observar(tipoObs(t), d.id)}>🧠</button>,
+    },
+  ];
 
   return (
     <div>
-      <DebugTag nombre="MayoristaPage" />
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Mayorista</h2>
-        <button type="button" className="btn btn-ghost" onClick={() => pedirConsulta('Dame un resumen del módulo mayorista (ventas, remitos, depósitos, consigna).')}>Preguntar al Secretario</button>
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div>
+          <h2 className="text-xl">Mayorista</h2>
+          <p className="text-xs text-muted">depósito espejo por cliente (su sábana) · remitos · facturación · devoluciones</p>
+        </div>
+        <div className="flex-1" />
+        <div className="flex gap-1 flex-wrap">
+          {TABS.map((t) => (
+            <button key={t.id} type="button" className={`btn ${tab === t.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab(t.id)}>{t.label}</button>
+          ))}
+        </div>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy en el módulo mayorista (${tab}). ¿Que me sugeris?`)}>Preguntar al Secretario</button>
       </div>
+
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
-      <div className="flex gap-1 mb-4 flex-wrap">
-        {TABS.map((t) => (
-          <button key={t.id} type="button" className={`btn ${tab === t.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setTab(t.id); setObservacion(null); }}>{t.label}</button>
-        ))}
-      </div>
-
-      {tab === 'resumen' && (
-        <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-          {resumenCards.map(([label, valor]) => (
-            <div key={label} className="card p-4">
-              <div className="text-xs uppercase tracking-widest text-muted">{label}</div>
-              <div className="text-2xl font-bold">{valor}</div>
-            </div>
-          ))}
+      {observacion && (
+        <div className="card p-3 mb-4" style={{ borderLeft: '3px solid var(--accent)' }}>
+          <div className="text-xs uppercase tracking-widest text-muted mb-1">Observación del Secretario</div>
+          <p className="text-sm">{observacion.observacion}</p>
         </div>
       )}
 
-      {tab !== 'resumen' && (
+      {tab === 'resumen' && resumen && (
+        <div className="form-grid">
+          <div className="card p-3">
+            <div className="text-xs uppercase tracking-widest text-muted mb-1">Clientes mayoristas</div>
+            <p className="text-2xl">{resumen.clientesMayoristas}</p>
+            <p className="text-xs text-muted">
+              con sábana en {resumen.depositosEspejo.conConsigna} de {resumen.depositosEspejo.activos} espejos activos · {resumen.depositosEspejo.unidadesConsigna} unidades en consigna
+            </p>
+          </div>
+          <div className="card p-3">
+            <div className="text-xs uppercase tracking-widest text-muted mb-1">Documentos</div>
+            <p className="text-sm">Remitos: <strong>{resumen.documentos.remitos}</strong> · Facturas: <strong>{resumen.documentos.ventas}</strong> · Devoluciones: <strong>{resumen.documentos.devoluciones}</strong></p>
+            <p className="text-sm">Pedidos: <strong>{resumen.documentos.pedidosDevolucion}</strong> · Sábanas: <strong>{resumen.documentos.sabanas}</strong> · Ajustes: <strong>{resumen.documentos.ajustesConsignacion}</strong></p>
+          </div>
+        </div>
+      )}
+      {tab === 'resumen' && !resumen && <p className="text-sm text-muted">Sin datos del módulo todavía.</p>}
+
+      {tab === 'remitos' && (
         <>
-          <div className="card p-4 mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Nuevo {TABS.find((t) => t.id === tab).label.toLowerCase().replace(/s$/, '')}</h3>
-              <ImportarDocumentoBlock onCargar={importarDocumento} etiqueta="Importar documento" />
+          <div className="card p-3 mb-4">
+            <h3 className="text-sm uppercase tracking-widest text-muted mb-2">Nuevo remito</h3>
+            <MayoristaCabeceraBlock valor={cab} onCambio={setCampo} depositos={depositos} />
+            <div className="mt-3">
+              <MayoristaTablaBlock items={items} onItems={setItems} />
             </div>
-
-            <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-              {(tab === 'ventas' || tab === 'devoluciones' || tab === 'sabanas' || tab === 'ajustes') && (
-                <label className="block">
-                  <span className="block text-xs uppercase tracking-widest text-muted mb-1">Cliente</span>
-                  <select className="input-os" value={borrador.clienteId || ''} onChange={(e) => setCampo('clienteId', e.target.value ? Number(e.target.value) : '')}>
-                    <option value="">Seleccionar cliente...</option>
-                    {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
-                </label>
-              )}
-              {tab === 'remitos' && (
-                <>
-                  <label className="block">
-                    <span className="block text-xs uppercase tracking-widest text-muted mb-1">Depósito origen</span>
-                    <select className="input-os" value={borrador.depositoOrigenId || ''} onChange={(e) => setCampo('depositoOrigenId', e.target.value ? Number(e.target.value) : '')}>
-                      <option value="">Origen...</option>
-                      {depositos.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="block text-xs uppercase tracking-widest text-muted mb-1">Depósito destino</span>
-                    <select className="input-os" value={borrador.depositoDestinoId || ''} onChange={(e) => setCampo('depositoDestinoId', e.target.value ? Number(e.target.value) : '')}>
-                      <option value="">Destino...</option>
-                      {depositos.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="block text-xs uppercase tracking-widest text-muted mb-1">Tipo</span>
-                    <select className="input-os" value={borrador.tipoRemito || 'CONSIGNA'} onChange={(e) => setCampo('tipoRemito', e.target.value)}>
-                      {TIPO_REMITO.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </label>
-                </>
-              )}
-              {(tab === 'ventas' || tab === 'devoluciones') && (
-                <label className="block">
-                  <span className="block text-xs uppercase tracking-widest text-muted mb-1">Depósito</span>
-                  <select className="input-os" value={borrador.depositoId || ''} onChange={(e) => setCampo('depositoId', e.target.value ? Number(e.target.value) : '')}>
-                    <option value="">Depósito...</option>
-                    {depositos.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                  </select>
-                </label>
-              )}
-              {tab === 'sabanas' && (
-                <label className="block">
-                  <span className="block text-xs uppercase tracking-widest text-muted mb-1">Depósito</span>
-                  <select className="input-os" value={borrador.depositoId || ''} onChange={(e) => setCampo('depositoId', e.target.value ? Number(e.target.value) : '')}>
-                    <option value="">Depósito...</option>
-                    {depositos.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                  </select>
-                </label>
-              )}
-              {tab === 'ajustes' && (
-                <>
-                  <label className="block">
-                    <span className="block text-xs uppercase tracking-widest text-muted mb-1">Depósito</span>
-                    <select className="input-os" value={borrador.depositoId || ''} onChange={(e) => setCampo('depositoId', e.target.value ? Number(e.target.value) : '')}>
-                      <option value="">Depósito...</option>
-                      {depositos.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="block text-xs uppercase tracking-widest text-muted mb-1">Tipo de ajuste</span>
-                    <select className="input-os" value={borrador.tipoAjuste || 'INCREMENTO'} onChange={(e) => setCampo('tipoAjuste', e.target.value)}>
-                      {TIPO_AJUSTE.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </label>
-                </>
-              )}
-              {tab === 'ventas' && (
-                <label className="block">
-                  <span className="block text-xs uppercase tracking-widest text-muted mb-1">Comprobante</span>
-                  <select className="input-os" value={borrador.tipoComprobante || TIPO_VENTA[0]} onChange={(e) => setCampo('tipoComprobante', e.target.value)}>
-                    {TIPO_VENTA.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </label>
-              )}
-              {tab === 'devoluciones' && (
-                <label className="block">
-                  <span className="block text-xs uppercase tracking-widest text-muted mb-1">Comprobante</span>
-                  <select className="input-os" value={borrador.tipoComprobante || TIPO_DEV[0]} onChange={(e) => setCampo('tipoComprobante', e.target.value)}>
-                    {TIPO_DEV.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </label>
-              )}
-            </div>
-
-            <div className="flex gap-2 mb-3">
-              <input className="input-os" placeholder="EAN13" value={itemEan} onChange={(e) => setItemEan(e.target.value)} />
-              <input className="input-os" placeholder="Cantidad" type="number" style={{ maxWidth: 100 }} value={itemCant} onChange={(e) => setItemCant(e.target.value)} />
-              {(tab === 'ventas' || tab === 'devoluciones') && (
-                <input className="input-os" placeholder="Precio unit." type="number" style={{ maxWidth: 120 }} value={itemPrecio} onChange={(e) => setItemPrecio(e.target.value)} />
-              )}
-              <button type="button" className="btn" onClick={agregarItem}>Agregar</button>
-            </div>
-
-            {borrador.items.map((item, i) => (
-              <div key={i} className="text-sm py-1 flex justify-between">
-                <span className="font-mono">{item.ean13}</span>
-                <span>{item.cantidad} u{item.precioUnitario != null && <> × ${Number(item.precioUnitario).toLocaleString('es-AR')}</>}</span>
-                <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => setBorrador({ ...borrador, items: borrador.items.filter((_, idx) => idx !== i) })}>Quitar</button>
-              </div>
-            ))}
-
             <div className="flex justify-end mt-3">
-              <button type="button" className="btn btn-primary" disabled={borrador.items.length === 0} onClick={crear}>Guardar</button>
+              <button type="button" className="btn btn-primary" onClick={crearRemito} disabled={!items.length}>Emitir remito</button>
             </div>
           </div>
-
-          {observacion && (
-            <div className="card p-3 mb-4" style={{ borderLeft: '3px solid var(--accent)' }}>
-              <div className="text-xs uppercase tracking-widest text-muted mb-1">Observación del Secretario</div>
-              <p className="text-sm">{observacion.observacion}</p>
-            </div>
-          )}
-
-          <Table
-            columnas={[...columnasPorTab[tab], { clave: 'acciones', titulo: '', render: (d) => (
-              <button type="button" className="btn btn-ghost text-xs" onClick={() => observar(TIPO_OBS[tab], d.id)}>🧠</button>
-            ) }]}
-            filas={filasTab}
-            vacio={`Sin ${tab}`}
-          />
+          <Table columnas={colRemitos} filas={listas.remitos} vacio="Sin remitos mayoristas" exportable exportarNombre="remitos_mayorista" />
         </>
       )}
+
+      {['ventas', 'devoluciones', 'pedidos', 'sabanas', 'ajustes'].includes(tab) && (
+        <>
+          <p className="text-xs text-muted mb-2">
+            La escritura de esta solapa llega en {ETAPA_ESCRITURA[tab]}. Mientras tanto se ve el historial real.
+          </p>
+          <Table columnas={colSimple(tab)} filas={listas[tab]} vacio="Sin documentos todavía" exportable exportarNombre={`mayorista_${tab}`} />
+        </>
+      )}
+
+      {/* Ver remito */}
+      <Modal abierto={!!verRemito} onClose={() => setVerRemito(null)} titulo={verRemito ? `Remito ${verRemito.numero}` : ''} ancho="720px">
+        {verRemito && (
+          <>
+            <p className="text-sm mb-2">
+              {verRemito.tipoRemito} · {verRemito.origen ? verRemito.origen.nombre : '—'} → {verRemito.destino ? verRemito.destino.nombre : '—'} · {verRemito.estado}
+            </p>
+            <table className="table-os">
+              <thead><tr><th>EAN</th><th>Título</th><th>Cantidad</th><th>Sale de</th></tr></thead>
+              <tbody>
+                {verRemito.items.map((i, idx) => (
+                  <tr key={idx}>
+                    <td className="font-mono text-xs">{i.barras || '—'}</td>
+                    <td>{i.titulo || i.descripcion}</td>
+                    <td>{i.cantidad}</td>
+                    <td>{i.tipoStock === 'FIRME' ? 'Firme' : 'Consigna'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {verRemito.observaciones && <p className="text-xs text-muted mt-2">{verRemito.observaciones}</p>}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

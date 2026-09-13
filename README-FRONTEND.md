@@ -66,6 +66,8 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `InteresesClienteBlock.jsx` — intereses de un cliente (doc 06 P5): tematicas cargadas con su origen, alta y baja, siembra de un perfil default y la afinidad REAL medida de sus compras. Es el mismo bloque en la ficha ("Ver") y en la edicion del cliente: lo que se ve es lo que se edita.
 - `ItemsEditorBlock.jsx` — tabla editable generica para cargar items de un comprobante (venta, remito). Recibe columnas configurables y delega cambios al padre.
 - `ManualBlock.jsx` — el manual vivo de BookOS en un modal con 4 solapas (uso tecnico, el Secretario, el Kernel y los flujos). Renderiza el markdown simple del backend (secciones, listas, tablas, notas) y los diagramas Mermaid como graficos.
+- `MayoristaCabeceraBlock.jsx` — cabecera de una operacion del mayorista (F-12 §4.4): cliente (con su descuento y plazo), deposito de origen, tipo de operacion, fecha y observaciones. El deposito de destino es SIEMPRE el espejo del cliente elegido (su sabana): se muestra, no se elige.
+- `MayoristaTablaBlock.jsx` — renglones de una operacion del mayorista (F-12 §4.4): buscador asincronico de articulos + cantidad + tipo de stock por linea (consigna/firme) + importacion de CSV. Es el mismo bloque para remitos, facturas y devoluciones: cambia lo que la pagina hace con los items.
 
 **src/hooks/**
 
@@ -94,7 +96,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `EmpresaPage.jsx` — datos de la empresa (fiscales AR por defecto). Editable, nunca
 - `InventarioPage.jsx` — deposito e inventario: stock por articulo, transferencia local<->deposito y ajuste de inventario (firme/consigna).
 - `LogsPage.jsx` — panel de Logs. Dos vistas ordenadas (mas nuevo primero): actividad del LLM y del agente (llm_audit_log) y pipeline de enriquecimiento (enriquecimiento_intento). Filtros por modulo/ruta/proveedor/etapa y descarga CSV.
-- `MayoristaPage.jsx` — modulo mayorista (bookerp): remitos entre depositos, ventas mayoristas, devoluciones, sabanas y ajustes de consignacion de cliente. Interconectado con el Secretario: inyecta contexto, escucha instrucciones y permite observar cada documento (🧠).
+- `MayoristaPage.jsx` — modulo mayorista (F-12). Patron de 3 bloques (cabecera / tabla / chat del Secretario). Estado: E7 — remitos completos (consigna/firme/traslado con sábana del cliente y anulación); facturación, devoluciones, pedidos, sábanas y ajustes llegan en sus etapas (E8-E11) y por ahora muestran su historial con el aviso de la etapa.
 - `MemoriaPage.jsx` — panel de Memoria del Secretario. Muestra lo que quedo guardado por tipo (nota, buena_practica, decision, ultimo_trabajo), permite filtrar, descargar y (admin) eliminar entradas. La memoria entra al prompt del agente en cada turno.
 - `NewsletterPage.jsx` — suscriptores del newsletter (integrado al CRM). Altas/bajas manuales y listado exportable.
 - `ParametrosPage.jsx` — parametros del OS — metodos de pago (bookerp: tipos de pago) y categorias de caja (bookerp: categorias de los movimientos manuales).
