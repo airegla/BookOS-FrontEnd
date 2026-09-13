@@ -1,8 +1,9 @@
 // BookOS - ConsignaPage.jsx
 // ruta: bookos/frontend/src/pages/ConsignaPage.jsx
-// descripcion: flujo de consignacion: liquidaciones, conciliador de sabanas y
-//   devoluciones (motor FIFE). Interconectado con el Secretario (contexto + consulta
-//   + observaciones LLM de cada documento).
+// descripcion: flujo de consignacion: liquidaciones, conciliador de sabanas, devoluciones (motor
+//   FIFE) y preparado de devolucion (CSV del proveedor cruzado con el stock de cada local, con
+//   descarga general o por sucursal). Interconectado con el Secretario (contexto + consulta +
+//   observaciones LLM de cada documento).
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
@@ -11,18 +12,27 @@ import DebugTag from '../ui/DebugTag';
 import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
-import { consignaApi, proveedoresApi, observacionesApi } from '../api/api';
+import SelectBuscador from '../ui/SelectBuscador';
+import { consignaApi, proveedoresApi, preparadosApi, observacionesApi } from '../api/api';
+import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
 import { useAppContext } from '../AppContext';
 
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
+// Busqueda de proveedores en el servidor (nunca se precarga la tabla entera).
+async function buscarProveedores(q) {
+  const res = await proveedoresApi.listar({ search: q, limit: 20 });
+  return (res.data || []).map((p) => ({ id: p.id, etiqueta: p.nombre }));
+}
+
 export default function ConsignaPage() {
   const [tab, setTab] = useState('liquidaciones');
-  const [proveedores, setProveedores] = useState([]);
+  const [provNombres, setProvNombres] = useState({}); // id -> nombre (los que el operario elige)
   const [liquidaciones, setLiquidaciones] = useState([]);
   const [conciliaciones, setConciliaciones] = useState([]);
   const [devoluciones, setDevoluciones] = useState([]);
+  const [preparados, setPreparados] = useState([]);
   const [mensaje, setMensaje] = useState('');
 
   // liquidacion nueva
@@ -52,25 +62,46 @@ export default function ConsignaPage() {
   const [observacion, setObservacion] = useState(null);
   const [detalle, setDetalle] = useState(null);
 
+  // preparado de devolucion (Keops PD): CSV del proveedor cruzado con el stock de cada local
+  const [prepAbierto, setPrepAbierto] = useState(false);
+  const [prepProveedor, setPrepProveedor] = useState('');
+  const [prepFilas, setPrepFilas] = useState([]);
+  const [prepCruce, setPrepCruce] = useState(null);
+  const [prepObs, setPrepObs] = useState('');
+  const [prepDetalle, setPrepDetalle] = useState(null);
+
   const { setContextoActual, pedirConsulta } = useAppContext();
 
-  const nombreProv = (id) => proveedores.find((p) => p.id === Number(id))?.nombre || `#${id}`;
+  const elegirProveedor = (setter, it) => {
+    setter(it ? it.id : '');
+    if (it) setProvNombres((m) => ({ ...m, [it.id]: it.etiqueta }));
+  };
+
+  const nombreProv = (fila) => {
+    if (!fila) return '';
+    if (fila.proveedor && typeof fila.proveedor === 'object') return fila.proveedor.nombre || `#${fila.proveedorId}`;
+    if (typeof fila.proveedor === 'string' && fila.proveedor) return fila.proveedor;
+    return provNombres[fila.proveedorId] || `#${fila.proveedorId}`;
+  };
 
   const cargar = async () => {
-    try {
-      const [liq, conc, dev] = await Promise.all([
-        consignaApi.liquidaciones({ limit: 100 }),
-        consignaApi.listarConciliaciones(),
-        consignaApi.listarDevoluciones({ limit: 100 }),
-      ]);
-      setLiquidaciones(liq.data?.filas || liq.data || []);
-      setConciliaciones(conc.data || []);
-      setDevoluciones(dev.data?.filas || dev.data || []);
-    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+    // allSettled: que un endpoint pendiente (p. ej. conciliaciones) no deje ciega a toda la pagina.
+    const [liq, conc, dev, prep] = await Promise.allSettled([
+      consignaApi.liquidaciones({ limit: 100 }),
+      consignaApi.listarConciliaciones(),
+      consignaApi.listarDevoluciones({ limit: 100 }),
+      preparadosApi.listar({ limit: 50 }),
+    ]);
+    const datos = (r, clave) => (r.status === 'fulfilled' ? (clave ? (r.value.data?.[clave] || []) : (r.value.data || [])) : []);
+    setLiquidaciones(datos(liq, 'filas'));
+    setConciliaciones(datos(conc));
+    setDevoluciones(datos(dev, 'filas'));
+    setPreparados(datos(prep));
+    const caidos = [liq, conc, dev, prep].filter((r) => r.status === 'rejected');
+    setMensaje(caidos.length === 4 ? `⚠️ no se pudo cargar la vista: ${caidos[0].reason?.message || 'error'}` : '');
   };
 
   useEffect(() => {
-    proveedoresApi.listar().then((res) => setProveedores(res.data || [])).catch(() => {});
     cargar();
   }, []); // eslint-disable-line
 
@@ -81,8 +112,9 @@ export default function ConsignaPage() {
       liquidaciones: liquidaciones.length,
       conciliaciones: conciliaciones.length,
       devoluciones: devoluciones.length,
+      preparados: preparados.length,
     });
-  }, [tab, liquidaciones.length, conciliaciones.length, devoluciones.length]); // eslint-disable-line
+  }, [tab, liquidaciones.length, conciliaciones.length, devoluciones.length, preparados.length]); // eslint-disable-line
 
   const observar = async (tipo, id) => {
     try {
@@ -190,6 +222,62 @@ export default function ConsignaPage() {
   const anularConciliacion = async (id) => { try { await consignaApi.anularConciliacion(id); setMensaje('Conciliación anulada ✓'); cargar(); } catch (e) { setMensaje(`⚠️ ${e.message}`); } };
   const anularDevolucion = async (id) => { try { await consignaApi.anularDevolucion(id); setMensaje('Devolución anulada ✓'); cargar(); } catch (e) { setMensaje(`⚠️ ${e.message}`); } };
 
+  // ---- Preparado de devolución (CSV del proveedor × stock de los locales) ----
+  const importarPrep = (raw) => {
+    const filas = mapearFilas(raw, ['ean13', 'titulo', 'cantidad']);
+    const nuevos = filas.filter((f) => f.ean13).map((f) => ({ ean13: String(f.ean13), titulo: f.titulo || '', cantidad: Number(f.cantidad) || 1 }));
+    if (!nuevos.length) { setMensaje('⚠️ el CSV no tiene filas con código y cantidad'); return; }
+    setPrepFilas(nuevos);
+    setPrepCruce(null);
+    previsualizarPrep(nuevos);
+  };
+
+  const previsualizarPrep = async (filas = prepFilas) => {
+    if (!filas.length) { setMensaje('⚠️ importá primero el CSV del proveedor'); return; }
+    try {
+      const res = await preparadosApi.previsualizar({ filas });
+      setPrepCruce(res.data || null);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const emitirPrep = async () => {
+    if (!prepProveedor) { setMensaje('⚠️ elegí el proveedor que solicita la devolución'); return; }
+    try {
+      const res = await preparadosApi.crear({ proveedorId: Number(prepProveedor), filas: prepFilas, observaciones: prepObs || null });
+      setMensaje(`Preparado ${res.data.numero} emitido (${res.data.items} renglones${res.data.faltantes ? `, ${res.data.faltantes} sin encontrar` : ''}) ✓`);
+      setPrepAbierto(false); setPrepFilas([]); setPrepCruce(null); setPrepObs(''); setPrepProveedor('');
+      cargar();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const verPrep = async (p) => {
+    try {
+      const res = await preparadosApi.obtener(p.id);
+      setPrepDetalle(res.data || null);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const anularPrep = async (id) => {
+    if (!window.confirm(`¿Anular el preparado #${id}? No mueve stock: solo deja de estar vigente.`)) return;
+    try { await preparadosApi.anular(id); setMensaje('Preparado anulado ✓'); setPrepDetalle(null); cargar(); } catch (e) { setMensaje(`⚠️ ${e.message}`); }
+  };
+
+  // Descarga del CSV (general o el de un local, para repartir a cada sucursal).
+  const descargarPrep = async (id, { modo = 'general', localId = null } = {}) => {
+    try {
+      const res = await preparadosApi.exportar(id, modo === 'por-local' ? { modo, localId } : { modo });
+      const desc = res.data || {};
+      await descargarDesdeServidor(`/archivos/${desc.archivoId}/descarga`, desc.nombre);
+      setMensaje(`CSV ${desc.nombre} descargado ✓`);
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  // Valores del snapshot congelado de un renglón, por local.
+  const valorPrep = (item, depositoId, campo) => {
+    const fila = (item.snapshot || []).find((s) => s.depositoId === depositoId);
+    return fila ? Number(fila[campo] || 0) : 0;
+  };
+
   const colLiqItems = [
     { clave: 'ean13', titulo: 'EAN', editable: true, ancho: 130 },
     { clave: 'titulo', titulo: 'Titulo', editable: true, ancho: 240 },
@@ -217,7 +305,7 @@ export default function ConsignaPage() {
 
   const colLiquidaciones = [
     { clave: 'id', titulo: 'ID' },
-    { clave: 'proveedor', titulo: 'Proveedor', render: (l) => nombreProv(l.proveedorId) },
+    { clave: 'proveedor', titulo: 'Proveedor', render: (l) => nombreProv(l) },
     { clave: 'estado', titulo: 'Estado', render: (l) => <span className="agente-badge">{l.estado}</span> },
     { clave: 'totalEstimado', titulo: 'Total', render: (l) => fmt(l.totalEstimado), valorExport: (l) => Number(l.totalEstimado) },
     { clave: 'acciones', titulo: '', render: (l) => (
@@ -232,7 +320,7 @@ export default function ConsignaPage() {
 
   const colConciliaciones = [
     { clave: 'id', titulo: 'ID' },
-    { clave: 'proveedor', titulo: 'Proveedor', render: (c) => nombreProv(c.proveedorId) },
+    { clave: 'proveedor', titulo: 'Proveedor', render: (c) => nombreProv(c) },
     { clave: 'estado', titulo: 'Estado', render: (c) => <span className="agente-badge">{c.estado}</span> },
     { clave: 'acciones', titulo: '', render: (c) => (
       <div className="flex gap-2">
@@ -256,6 +344,52 @@ export default function ConsignaPage() {
     ) },
   ];
 
+  const colPreparados = [
+    { clave: 'numero', titulo: 'Nro', render: (p) => <span className="font-mono text-xs">{p.numero}</span> },
+    { clave: 'fecha', titulo: 'Fecha', render: (p) => new Date(p.fecha).toLocaleDateString('es-AR'), valorExport: (p) => new Date(p.fecha).toLocaleDateString('es-AR') },
+    { clave: 'proveedor', titulo: 'Proveedor', render: (p) => nombreProv(p) },
+    { clave: 'items', titulo: 'Títulos', render: (p) => p.items },
+    { clave: 'unidades', titulo: 'Solicitado', render: (p) => p.unidades },
+    { clave: 'faltantes', titulo: 'Sin encontrar', render: (p) => (p.faltantes ? <span style={{ color: 'var(--danger)' }}>{p.faltantes}</span> : '—') },
+    { clave: 'estado', titulo: 'Estado', render: (p) => <span className="agente-badge">{p.estado}</span> },
+    { clave: 'acciones', titulo: '', render: (p) => (
+      <div className="flex gap-2">
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => verPrep(p)}>Ver</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => descargarPrep(p.id)}>CSV</button>
+        {p.estado !== 'ANULADO' && <button type="button" className="btn btn-ghost text-xs" style={{ color: 'var(--danger)' }} onClick={() => anularPrep(p.id)}>Anular</button>}
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => observar('preparado', p.id)}>🧠</button>
+      </div>
+    ) },
+  ];
+
+  // Columnas del detalle: las sucursales llevan el físico; el central, original/actual/físico.
+  const colPrepItems = prepDetalle ? (() => {
+    const sucursales = prepDetalle.locales.filter((l) => l.tipo !== 'CENTRAL');
+    const central = prepDetalle.locales.find((l) => l.tipo === 'CENTRAL');
+    const columnas = [
+      { clave: 'cantidadSolicitada', titulo: 'Solicitado', ancho: 80 },
+      { clave: 'ean13', titulo: 'EAN', ancho: 130 },
+      { clave: 'titulo', titulo: 'Título', render: (it) => (it.articulo ? it.articulo.titulo : (it.tituloProveedor || 'NO ENCONTRADO')), ancho: 240 },
+      { clave: 'autor', titulo: 'Autor', render: (it) => (it.articulo && it.articulo.autorPrincipal ? it.articulo.autorPrincipal.nombre : '') },
+      { clave: 'editorial', titulo: 'Editorial', render: (it) => (it.articulo && it.articulo.editorial ? it.articulo.editorial.nombre : '') },
+    ];
+    for (const l of sucursales) {
+      columnas.push({ clave: `loc${l.id}`, titulo: l.nombre, ancho: 90, render: (it) => (it.faltante ? 'NO ENCONTRADO' : valorPrep(it, l.id, 'fisico')) });
+    }
+    if (central) {
+      columnas.push({ clave: `c${central.id}o`, titulo: `${central.nombre} orig.`, ancho: 90, render: (it) => (it.faltante ? '—' : valorPrep(it, central.id, 'original')) });
+      columnas.push({ clave: `c${central.id}a`, titulo: `${central.nombre} consigna`, ancho: 90, render: (it) => (it.faltante ? '—' : valorPrep(it, central.id, 'consigna')) });
+      columnas.push({ clave: `c${central.id}f`, titulo: `${central.nombre} físico`, ancho: 90, render: (it) => (it.faltante ? '—' : valorPrep(it, central.id, 'fisico')) });
+    }
+    columnas.push({
+      clave: 'total',
+      titulo: 'Total',
+      ancho: 80,
+      render: (it) => (it.faltante ? '—' : prepDetalle.locales.reduce((a, l) => a + valorPrep(it, l.id, 'fisico'), 0)),
+    });
+    return columnas;
+  })() : [];
+
   return (
     <div>
       <DebugTag nombre="ConsignaPage" />
@@ -271,6 +405,7 @@ export default function ConsignaPage() {
           <button type="button" className={`btn ${tab === 'liquidaciones' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('liquidaciones')}>Liquidaciones</button>
           <button type="button" className={`btn ${tab === 'conciliador' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('conciliador')}>Conciliador</button>
           <button type="button" className={`btn ${tab === 'devoluciones' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('devoluciones')}>Devoluciones</button>
+          <button type="button" className={`btn ${tab === 'preparados' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('preparados')}>Preparado devolución</button>
         </div>
         <div className="flex-1" />
         <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy en la vista de consignación (${tab}). ¿Que me sugeris?`)}>Preguntar al Secretario</button>
@@ -278,8 +413,9 @@ export default function ConsignaPage() {
           if (tab === 'liquidaciones') setLiqAbierto(true);
           if (tab === 'conciliador') setConcAbierto(true);
           if (tab === 'devoluciones') setDevAbierto(true);
+          if (tab === 'preparados') { setPrepFilas([]); setPrepCruce(null); setPrepObs(''); setPrepProveedor(''); setPrepAbierto(true); }
         }}>
-          + {tab === 'liquidaciones' ? 'Liquidación' : tab === 'conciliador' ? 'Conciliación' : 'Devolución'}
+          + {tab === 'liquidaciones' ? 'Liquidación' : tab === 'conciliador' ? 'Conciliación' : tab === 'devoluciones' ? 'Devolución' : 'Preparado'}
         </button>
       </div>
 
@@ -293,6 +429,15 @@ export default function ConsignaPage() {
       {tab === 'liquidaciones' && <Table columnas={colLiquidaciones} filas={liquidaciones} vacio="Sin liquidaciones" exportable exportarNombre="liquidaciones" />}
       {tab === 'conciliador' && <Table columnas={colConciliaciones} filas={conciliaciones} vacio="Sin conciliaciones" exportable exportarNombre="conciliaciones" />}
       {tab === 'devoluciones' && <Table columnas={colDevoluciones} filas={devoluciones} vacio="Sin devoluciones" exportable exportarNombre="devoluciones" />}
+      {tab === 'preparados' && (
+        <>
+          <p className="text-xs text-muted mb-2">
+            Lo que el proveedor solicita de vuelta, cruzado con el stock físico de cada local: no mueve stock ni genera deuda.
+            El CSV se descarga general o por local (para repartir a cada sucursal).
+          </p>
+          <Table columnas={colPreparados} filas={preparados} vacio="Sin preparados de devolución" exportable exportarNombre="preparados_devolucion" />
+        </>
+      )}
 
       {/* Nueva liquidacion */}
       <Modal abierto={liqAbierto} onClose={() => setLiqAbierto(false)} titulo="Nueva liquidación" ancho="720px"
@@ -306,10 +451,13 @@ export default function ConsignaPage() {
         <div className="grid grid-cols-3 gap-3 mb-3">
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
-            <select className="input-os" value={liqProveedor} onChange={(e) => setLiqProveedor(e.target.value)}>
-              <option value="">Seleccionar...</option>
-              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
+            <SelectBuscador
+              valor={liqProveedor || null}
+              etiquetaValor={provNombres[liqProveedor] || ''}
+              placeholder="Buscar proveedor..."
+              buscar={buscarProveedores}
+              onSeleccionar={(it) => elegirProveedor(setLiqProveedor, it)}
+            />
           </label>
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Desc. %</span>
@@ -342,10 +490,13 @@ export default function ConsignaPage() {
         <div className="flex gap-3 mb-3">
           <label className="block flex-1">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
-            <select className="input-os" value={concProveedor} onChange={(e) => setConcProveedor(e.target.value)}>
-              <option value="">Seleccionar...</option>
-              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
+            <SelectBuscador
+              valor={concProveedor || null}
+              etiquetaValor={provNombres[concProveedor] || ''}
+              placeholder="Buscar proveedor..."
+              buscar={buscarProveedores}
+              onSeleccionar={(it) => elegirProveedor(setConcProveedor, it)}
+            />
           </label>
         </div>
         <label className="block mb-3">
@@ -382,10 +533,13 @@ export default function ConsignaPage() {
         <div className="grid grid-cols-2 gap-3 mb-3">
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
-            <select className="input-os" value={devProveedor} onChange={(e) => setDevProveedor(e.target.value)}>
-              <option value="">Seleccionar...</option>
-              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
+            <SelectBuscador
+              valor={devProveedor || null}
+              etiquetaValor={provNombres[devProveedor] || ''}
+              placeholder="Buscar proveedor..."
+              buscar={buscarProveedores}
+              onSeleccionar={(it) => elegirProveedor(setDevProveedor, it)}
+            />
           </label>
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Motivo</span>
@@ -436,6 +590,110 @@ export default function ConsignaPage() {
               ))}
             </tbody>
           </table>
+        )}
+      </Modal>
+
+      {/* Nuevo preparado de devolución (CSV del proveedor × stock de los locales) */}
+      <Modal abierto={prepAbierto} onClose={() => setPrepAbierto(false)} titulo="Nuevo preparado de devolución" ancho="900px"
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setPrepAbierto(false)}>Cancelar</button>
+            <button type="button" className="btn btn-ghost" disabled={!prepFilas.length} onClick={() => previsualizarPrep()}>Ver cruce</button>
+            <button type="button" className="btn btn-primary" disabled={!prepProveedor || !prepFilas.length} onClick={emitirPrep}>Emitir preparado</button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor que solicita</span>
+            <SelectBuscador
+              valor={prepProveedor || null}
+              etiquetaValor={provNombres[prepProveedor] || ''}
+              placeholder="Buscar proveedor..."
+              buscar={buscarProveedores}
+              onSeleccionar={(it) => elegirProveedor(setPrepProveedor, it)}
+            />
+          </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Observaciones</span>
+            <input className="input-os" value={prepObs} onChange={(e) => setPrepObs(e.target.value)} />
+          </label>
+        </div>
+        <div className="flex items-center gap-2 mb-3">
+          <ImportarCsvBlock etiqueta="Importar CSV del proveedor" onCargar={importarPrep} />
+          <span className="text-xs text-muted">El CSV trae código (EAN13/ISBN), título y cantidad. Siempre es consigna: no mueve stock.</span>
+        </div>
+        {prepCruce ? (
+          <>
+            <table className="table-os">
+              <thead>
+                <tr>
+                  <th>Solicitado</th><th>EAN</th><th>Título</th>
+                  {prepCruce.locales.map((l) => <th key={l.id}>{l.nombre}{l.tipo === 'CENTRAL' ? ' físico' : ''}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {prepCruce.filas.map((f, i) => (
+                  <tr key={i}>
+                    <td>{f.cantidadSolicitada}</td>
+                    <td className="font-mono text-xs">{f.ean13}</td>
+                    <td>
+                      {f.encontrado
+                        ? f.titulo
+                        : <span style={{ color: 'var(--danger)' }}>NO ENCONTRADO{f.tituloProveedor ? ` · ${f.tituloProveedor}` : ''}</span>}
+                    </td>
+                    {prepCruce.locales.map((l) => {
+                      const s = (f.snapshot || []).find((x) => x.depositoId === l.id);
+                      return <td key={l.id}>{s ? Number(s.fisico || 0) : '—'}</td>;
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-muted mt-2">
+              {prepCruce.renglones} renglones · {prepCruce.unidades} unidades solicitadas · {prepCruce.faltantes} sin encontrar.
+              Al emitir se guarda esta foto del stock (el CSV después se descarga igual a como se ve acá).
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-muted">Importá el CSV del proveedor para ver el cruce contra el stock de cada local.</p>
+        )}
+      </Modal>
+
+      {/* Detalle del preparado (con la foto del stock por local) */}
+      <Modal abierto={Boolean(prepDetalle)} onClose={() => setPrepDetalle(null)} titulo={prepDetalle ? `Preparado ${prepDetalle.numero}` : ''} ancho="1020px"
+        footer={
+          prepDetalle ? (
+            <>
+              <button type="button" className="btn btn-ghost" onClick={() => descargarPrep(prepDetalle.id)}>CSV general</button>
+              {prepDetalle.locales.map((l) => (
+                <button key={l.id} type="button" className="btn btn-ghost" onClick={() => descargarPrep(prepDetalle.id, { modo: 'por-local', localId: l.id })}>
+                  CSV {l.nombre}
+                </button>
+              ))}
+              {prepDetalle.estado !== 'ANULADO' && (
+                <button type="button" className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => anularPrep(prepDetalle.id)}>Anular</button>
+              )}
+              <button type="button" className="btn btn-primary" onClick={() => setPrepDetalle(null)}>Cerrar</button>
+            </>
+          ) : null
+        }
+      >
+        {prepDetalle && (
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="agente-badge">{prepDetalle.estado}</span>
+              <span className="text-sm">{nombreProv(prepDetalle)}</span>
+              <span className="text-sm">{new Date(prepDetalle.fechaEmision).toLocaleDateString('es-AR')}</span>
+              <span className="text-xs text-muted">origen {prepDetalle.origen}</span>
+            </div>
+            {prepDetalle.observaciones && <p className="text-sm mb-3">{prepDetalle.observaciones}</p>}
+            <Table columnas={colPrepItems} filas={prepDetalle.items} vacio="Sin renglones" />
+            <p className="text-xs text-muted mt-2">
+              Foto del stock al momento de emitir: las sucursales muestran el físico; el central, la consigna original,
+              la consigna actual y el físico. Cada local puede recibir su propio CSV para separar sin cuentas.
+            </p>
+          </div>
         )}
       </Modal>
     </div>

@@ -9,16 +9,28 @@ import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
+import SelectBuscador from '../ui/SelectBuscador';
 import { ctaCteApi, clientesApi, proveedoresApi } from '../api/api';
 import { useAppContext } from '../AppContext';
 
 const METODOS = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CHEQUE'];
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
+// Busqueda en el servidor: la tabla de maestros nunca se precarga entera.
+async function buscarClientes(q) {
+  const res = await clientesApi.listar({ search: q, limit: 20 });
+  return (res.data || []).filter((c) => c.id !== 1).map((c) => ({ id: c.id, etiqueta: c.nombre, detalle: c.telefono || c.documento || '' }));
+}
+
+async function buscarProveedores(q) {
+  const res = await proveedoresApi.listar({ search: q, limit: 20 });
+  return (res.data || []).map((p) => ({ id: p.id, etiqueta: p.nombre }));
+}
+
 export default function CtaCtePage({ lado = 'cliente' }) {
   const [tipo, setTipo] = useState(lado);
-  const [clientes, setClientes] = useState([]);
-  const [proveedores, setProveedores] = useState([]);
+  const [clienteNombre, setClienteNombre] = useState('');
+  const [proveedorNombre, setProveedorNombre] = useState('');
   const [clienteId, setClienteId] = useState('');
   const [proveedorId, setProveedorId] = useState('');
   const [cuenta, setCuenta] = useState({ movimientos: [], saldoActual: 0 });
@@ -35,11 +47,6 @@ export default function CtaCtePage({ lado = 'cliente' }) {
   const [obs, setObs] = useState('');
 
   const { setContextoActual, pedirConsulta } = useAppContext();
-
-  useEffect(() => {
-    clientesApi.listar().then((res) => setClientes(res.data || [])).catch(() => {});
-    proveedoresApi.listar().then((res) => setProveedores(res.data || [])).catch(() => {});
-  }, []);
 
   const seleccionado = tipo === 'cliente' ? clienteId : proveedorId;
 
@@ -88,7 +95,7 @@ export default function CtaCtePage({ lado = 'cliente' }) {
       if (tipo === 'cliente') payload.clienteId = Number(clienteId);
       else payload.proveedorId = Number(proveedorId);
       const res = await ctaCteApi.registrarRecibo(payload);
-      setMensaje(`Recibo #${res.data.reciboId} registrado ✓`);
+      setMensaje(`Recibo ${res.data.numero || `#${res.data.reciboId}`} registrado ✓`);
       setReciboAbierto(false);
       setMonto(''); setObs('');
       cargar();
@@ -152,15 +159,21 @@ export default function CtaCtePage({ lado = 'cliente' }) {
           <label className="block" style={{ minWidth: 240 }}>
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">{tipo === 'cliente' ? 'Cliente' : 'Proveedor'}</span>
             {tipo === 'cliente' ? (
-              <select className="input-os" value={clienteId} onChange={(e) => { setClienteId(e.target.value); setComportamiento(null); }}>
-                <option value="">Seleccionar...</option>
-                {clientes.filter((c) => c.id !== 1).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
+              <SelectBuscador
+                valor={clienteId || null}
+                etiquetaValor={clienteNombre}
+                placeholder="Buscar cliente..."
+                buscar={buscarClientes}
+                onSeleccionar={(it) => { setClienteId(it ? it.id : ''); setClienteNombre(it ? it.etiqueta : ''); setComportamiento(null); }}
+              />
             ) : (
-              <select className="input-os" value={proveedorId} onChange={(e) => { setProveedorId(e.target.value); setComportamiento(null); }}>
-                <option value="">Seleccionar...</option>
-                {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
+              <SelectBuscador
+                valor={proveedorId || null}
+                etiquetaValor={proveedorNombre}
+                placeholder="Buscar proveedor..."
+                buscar={buscarProveedores}
+                onSeleccionar={(it) => { setProveedorId(it ? it.id : ''); setProveedorNombre(it ? it.etiqueta : ''); setComportamiento(null); }}
+              />
             )}
           </label>
           <div className="flex gap-2">

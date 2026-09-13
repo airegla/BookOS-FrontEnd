@@ -50,6 +50,8 @@ export const ventasApi = {
   listar: (params = {}) => axiosClient.get('/ventas', { params }),
   obtener: (id) => axiosClient.get(`/ventas/${id}`),
   anular: (id) => axiosClient.post(`/ventas/${id}/anular`),
+  notaCredito: (id, payload = {}) => axiosClient.post(`/ventas/${id}/nota-credito`, payload),
+  notaDebito: (id, payload = {}) => axiosClient.post(`/ventas/${id}/nota-debito`, payload),
   pendientes: () => axiosClient.get('/ventas/pendientes'),
 };
 
@@ -234,6 +236,17 @@ export const consignaApi = {
   registrarDevolucion: (payload) => axiosClient.post('/devoluciones', payload),
   listarDevoluciones: (params = {}) => axiosClient.get('/devoluciones', { params }),
   anularDevolucion: (id) => axiosClient.post(`/devoluciones/${id}/anular`),
+};
+
+// Preparado de devolucion (Keops PD): lo que el proveedor solicita, cruzado con el stock de cada local.
+export const preparadosApi = {
+  locales: () => axiosClient.get('/preparados/locales'),
+  previsualizar: (payload) => axiosClient.post('/preparados/previsualizar', payload),
+  crear: (payload) => axiosClient.post('/preparados', payload),
+  listar: (params = {}) => axiosClient.get('/preparados', { params }),
+  obtener: (id) => axiosClient.get(`/preparados/${id}`),
+  anular: (id) => axiosClient.post(`/preparados/${id}/anular`),
+  exportar: (id, params = {}) => axiosClient.get(`/preparados/${id}/export`, { params }),
 };
 
 export const inventarioApi = {

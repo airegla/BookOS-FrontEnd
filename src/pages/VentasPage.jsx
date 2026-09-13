@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
+import SelectBuscador from '../ui/SelectBuscador';
 import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
@@ -30,16 +31,23 @@ const sugerirPerfil = (genero) => (genero === 'M' ? 'lectura_masculina' : genero
 
 function BadgeEstado({ venta }) {
   const color = venta.estado === 'ANULADA' ? 'var(--danger)' : 'var(--success)';
+  const numero = venta.numeroComprobante ? ` ${venta.numeroComprobante}` : '';
   return (
     <span className="agente-badge" style={{ borderColor: color, color }}>
-      {venta.tipoComprobante || venta.tipo} · {venta.estado}
+      {venta.tipoComprobante || venta.tipo}{numero} · {venta.estado}
     </span>
   );
 }
 
+// Una nota (NC/ND) no se anula como si fuera una venta nueva: primero se anula la original.
+const esNota = (v) => {
+  const t = String((v && (v.tipoComprobante || v.tipo)) || '');
+  return t.startsWith('NC') || t.startsWith('ND');
+};
+
 export default function VentasPage() {
   const [items, setItems] = usePersistentWork('venta', []);
-  const [clientes, setClientes] = useState([]);
+  const [clienteElegido, setClienteElegido] = useState(null);
   const [clienteId, setClienteId] = useState(null);
   const [tipo, setTipo] = useState('FACTURA_B');
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
@@ -54,6 +62,14 @@ export default function VentasPage() {
   const [page, setPage] = useState(1);
   const [totalHistorial, setTotalHistorial] = useState(0);
 
+  // Notas de venta: credito (devolucion, repone stock FIFE) y debito (cargo en CC).
+  const [ncAbierto, setNcAbierto] = useState(false);
+  const [ncCantidades, setNcCantidades] = useState({});
+  const [ncMotivo, setNcMotivo] = useState('');
+  const [ndAbierto, setNdAbierto] = useState(false);
+  const [ndMonto, setNdMonto] = useState('');
+  const [ndMotivo, setNdMotivo] = useState('');
+
   // multi-pago, email del comprobante, ficha marcada, pendientes
   const [pagos, setPagos] = useState([]);
   const [emailComprobante, setEmailComprobante] = useState('');
@@ -66,11 +82,13 @@ export default function VentasPage() {
 
   const { ultimosRecomendados, setUltimosRecomendados, setContextoActual, pedirConsulta, instruccionVista } = useAppContext();
 
-  const clienteActual = clientes.find((c) => c.id === Number(clienteId));
+  const clienteActual = clienteElegido;
 
-  useEffect(() => {
-    clientesApi.listar().then((res) => setClientes(res.data || [])).catch(() => {});
-  }, []);
+  // Busqueda de clientes en el servidor (nunca se precarga la tabla entera).
+  const buscarClientes = async (q) => {
+    const res = await clientesApi.listar({ search: q, limit: 20 });
+    return (res.data || []).map((c) => ({ id: c.id, etiqueta: c.nombre, detalle: c.telefono || c.documento || '' }));
+  };
 
   useEffect(() => {
     parametrosApi.metodosPago()
@@ -188,6 +206,7 @@ export default function VentasPage() {
       if (!lista.length) return;
       const c = lista[0];
       setClienteId(c.id);
+      setClienteElegido({ id: c.id, nombre: c.nombre, email: c.email });
       if (c.datosPendientes) {
         setFichaForm({ nombre: c.nombre || '', telefono: c.telefono || '', genero: c.genero || '', perfil: c.perfil || '' });
         setFicha(c);
@@ -207,7 +226,7 @@ export default function VentasPage() {
       });
       setMensaje(fichaForm.perfil ? `Ficha completada · perfil "${fichaForm.perfil}" guardado ✓` : `Ficha de ${fichaForm.nombre} completada ✓`);
       setFicha(null);
-      clientesApi.listar().then((r) => setClientes(r.data || [])).catch(() => {});
+      setClienteElegido((c) => (c && c.id === ficha.id ? { ...c, nombre: fichaForm.nombre } : c));
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
@@ -285,7 +304,10 @@ export default function VentasPage() {
     }));
     const utiles = reconstruidos.filter((it) => it.ean13);
     setItems(utiles);
-    if (p.clienteId) setClienteId(Number(p.clienteId));
+    if (p.clienteId) {
+      setClienteId(Number(p.clienteId));
+      setClienteElegido(p.cliente ? { id: p.cliente.id, nombre: p.cliente.nombre } : { id: Number(p.clienteId), nombre: `Cliente #${p.clienteId}` });
+    }
     setTipo('FACTURA_B');
     setPendientesAbierto(false);
     const perdidos = reconstruidos.length - utiles.length;
@@ -306,6 +328,43 @@ export default function VentasPage() {
     try {
       await ventasApi.anular(detalle.id);
       setMensaje(`Venta #${detalle.id} anulada (stock restaurado) ✓`);
+      setDetalle(null);
+      cargarHistorial();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  // Nota de credito: abre el modal con las cantidades a devolver (renglon por renglon).
+  const abrirNc = () => {
+    const inicial = {};
+    (detalle.items || []).forEach((it) => { inicial[it.id] = Number(it.cantidad) || 0; });
+    setNcCantidades(inicial);
+    setNcMotivo('');
+    setNcAbierto(true);
+  };
+
+  const emitirNc = async () => {
+    const items = Object.entries(ncCantidades)
+      .map(([id, cant]) => ({ ventaItemId: Number(id), cantidad: Number(cant) || 0 }))
+      .filter((i) => i.cantidad > 0);
+    if (!items.length) { setMensaje('⚠️ indica al menos una cantidad a devolver'); return; }
+    try {
+      const res = await ventasApi.notaCredito(detalle.id, { items, motivo: ncMotivo || null });
+      const nc = res.data || {};
+      setMensaje(`Nota de credito ${nc.numero || ''} emitida (stock repuesto y saldo a favor) ✓`);
+      setNcAbierto(false);
+      setDetalle(null);
+      cargarHistorial();
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
+  const emitirNd = async () => {
+    const monto = Number(ndMonto) || 0;
+    if (monto <= 0) { setMensaje('⚠️ el monto del debito tiene que ser mayor a cero'); return; }
+    try {
+      const res = await ventasApi.notaDebito(detalle.id, { monto, motivo: ndMotivo || null });
+      const nd = res.data || {};
+      setMensaje(`Nota de debito ${nd.numero || ''} emitida (cargo en la cuenta corriente) ✓`);
+      setNdAbierto(false);
       setDetalle(null);
       cargarHistorial();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
@@ -354,10 +413,13 @@ export default function VentasPage() {
           </label>
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Cliente</span>
-            <select className="input-os" value={clienteId || ''} onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}>
-              <option value="">Consumidor final</option>
-              {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
+            <SelectBuscador
+              valor={clienteId}
+              etiquetaValor={clienteActual ? clienteActual.nombre : ''}
+              placeholder="Consumidor final — buscar cliente..."
+              buscar={buscarClientes}
+              onSeleccionar={(it) => { setClienteId(it ? it.id : null); setClienteElegido(it); }}
+            />
           </label>
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Metodo de pago</span>
@@ -534,11 +596,17 @@ export default function VentasPage() {
       </Modal>
 
       {/* DETALLE */}
-      <Modal abierto={Boolean(detalle)} onClose={() => setDetalle(null)} titulo={detalle ? `Venta #${detalle.id}` : ''} ancho="640px"
+      <Modal abierto={Boolean(detalle) && !ncAbierto && !ndAbierto} onClose={() => setDetalle(null)} titulo={detalle ? `Venta #${detalle.id}` : ''} ancho="640px"
         footer={
           detalle ? (
             <>
               <button type="button" className="btn btn-ghost" onClick={() => { pedirConsulta(`Analiza la venta #${detalle.id}: ${(detalle.items || []).length} items por ${fmt(detalle.total)}. ¿Que ves?`); }}>Preguntar al Secretario</button>
+              {detalle.estado === 'COMPLETADA' && !esNota(detalle) && (
+                <>
+                  <button type="button" className="btn btn-ghost" onClick={abrirNc}>Nota de credito</button>
+                  <button type="button" className="btn btn-ghost" onClick={() => { setNdMonto(''); setNdMotivo(''); setNdAbierto(true); }}>Nota de debito</button>
+                </>
+              )}
               {detalle.estado !== 'ANULADA' && (
                 <button type="button" className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={anular}>Anular</button>
               )}
@@ -580,6 +648,81 @@ export default function VentasPage() {
                   </tbody>
                 </table>
               </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* NOTA DE CREDITO (devolucion de cliente: repone stock FIFE y deja saldo a favor) */}
+      <Modal abierto={ncAbierto} onClose={() => setNcAbierto(false)} titulo={`Nota de credito de la venta #${detalle ? detalle.id : ''}`} ancho="560px"
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setNcAbierto(false)}>Volver</button>
+            <button type="button" className="btn btn-primary" onClick={emitirNc}>Emitir nota de credito</button>
+          </>
+        }
+      >
+        {detalle && (
+          <div>
+            <p className="text-sm mb-2">
+              Cantidades que vuelven: el stock se repone con la regla FIFE (consigna primero, firme despues) y
+              {detalle.clienteId ? ' queda saldo a favor en la cuenta corriente del cliente.' : ' sale del efectivo como egreso de caja.'}
+            </p>
+            <table className="table-os">
+              <thead><tr><th>Titulo</th><th>Vendido</th><th>Devolver</th></tr></thead>
+              <tbody>
+                {(detalle.items || []).map((it) => (
+                  <tr key={it.id}>
+                    <td>{it.descripcion}</td>
+                    <td>{it.cantidad}</td>
+                    <td>
+                      <input
+                        className="input-os"
+                        type="number"
+                        min="0"
+                        max={it.cantidad}
+                        style={{ maxWidth: 90 }}
+                        value={ncCantidades[it.id] ?? 0}
+                        onChange={(e) => setNcCantidades({ ...ncCantidades, [it.id]: Math.min(Number(it.cantidad), Math.max(0, Number(e.target.value) || 0)) })}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <label className="block mt-3">
+              <span className="block text-xs uppercase tracking-widest text-muted mb-1">Motivo</span>
+              <input className="input-os" value={ncMotivo} onChange={(e) => setNcMotivo(e.target.value)} placeholder="Devolucion, error de precio..." />
+            </label>
+          </div>
+        )}
+      </Modal>
+
+      {/* NOTA DE DEBITO (cargo a la cuenta corriente del cliente) */}
+      <Modal abierto={ndAbierto} onClose={() => setNdAbierto(false)} titulo={`Nota de debito de la venta #${detalle ? detalle.id : ''}`} ancho="440px"
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setNdAbierto(false)}>Volver</button>
+            <button type="button" className="btn btn-primary" onClick={emitirNd}>Emitir nota de debito</button>
+          </>
+        }
+      >
+        {detalle && (
+          <div>
+            {detalle.clienteId ? (
+              <>
+                <p className="text-sm mb-3">Carga un importe a la cuenta corriente de {detalle.cliente ? detalle.cliente.nombre : `cliente #${detalle.clienteId}`} (intereses, gastos, responsabilidad). No mueve stock.</p>
+                <label className="block mb-2">
+                  <span className="block text-xs uppercase tracking-widest text-muted mb-1">Monto</span>
+                  <input className="input-os" type="number" min="0" value={ndMonto} onChange={(e) => setNdMonto(e.target.value)} />
+                </label>
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-widest text-muted mb-1">Motivo</span>
+                  <input className="input-os" value={ndMotivo} onChange={(e) => setNdMotivo(e.target.value)} placeholder="Intereses por mora, gastos..." />
+                </label>
+              </>
+            ) : (
+              <p className="text-sm">La venta no tiene cliente con cuenta corriente: la nota de debito necesita una ficha para asentar el cargo.</p>
             )}
           </div>
         )}
