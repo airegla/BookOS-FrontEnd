@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
+import TablaItemsPaginada from '../ui/TablaItemsPaginada';
 import DebugTag from '../ui/DebugTag';
 import SelectBuscador from '../ui/SelectBuscador';
 import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
@@ -622,19 +623,18 @@ export default function VentasPage() {
               <span className="text-sm">{new Date(detalle.fechaEmision || detalle.createdAt).toLocaleString('es-AR')}</span>
               <span className="text-sm text-muted">{detalle.cliente ? detalle.cliente.nombre : 'Consumidor final'}</span>
             </div>
-            <table className="table-os">
-              <thead><tr><th>Titulo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>
-              <tbody>
-                {(detalle.items || []).map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.descripcion}</td>
-                    <td>{item.cantidad}</td>
-                    <td>{fmt(item.precioUnitario)}</td>
-                    <td>{fmt(item.subtotalLinea)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <TablaItemsPaginada
+              items={detalle.items || []}
+              headers={[<th key="tit">Titulo</th>, <th key="cant">Cant.</th>, <th key="pr">Precio</th>, <th key="sub">Subtotal</th>]}
+              fila={(item, idx) => (
+                <tr key={idx}>
+                  <td>{item.descripcion}</td>
+                  <td>{item.cantidad}</td>
+                  <td>{fmt(item.precioUnitario)}</td>
+                  <td>{fmt(item.subtotalLinea)}</td>
+                </tr>
+              )}
+            />
             <div className="flex justify-end font-semibold mt-3">Total: {fmt(detalle.total)}</div>
             {(detalle.pagos || []).length > 0 && (
               <div className="mt-4">

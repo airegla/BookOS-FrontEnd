@@ -8,6 +8,8 @@
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
+import Paginador from '../ui/Paginador';
+import TablaItemsPaginada from '../ui/TablaItemsPaginada';
 import DebugTag from '../ui/DebugTag';
 import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
@@ -82,20 +84,33 @@ export default function ConsignaPage() {
   };
 
   const cargar = async () => {
-    // allSettled: que un endpoint pendiente (p. ej. conciliaciones) no deje ciega a toda la pagina.
-    const [liq, conc, dev, prep] = await Promise.allSettled([
-      consignaApi.liquidaciones({ limit: 100 }),
-      consignaApi.listarConciliaciones(),
-      consignaApi.listarDevoluciones({ limit: 100 }),
-      preparadosApi.listar({ limit: 50 }),
-    ]);
-    const datos = (r, clave) => (r.status === 'fulfilled' ? (clave ? (r.value.data?.[clave] || []) : (r.value.data || [])) : []);
-    setLiquidaciones(datos(liq, 'filas'));
-    setConciliaciones(datos(conc));
-    setDevoluciones(datos(dev, 'filas'));
-    setPreparados(datos(prep));
-    const caidos = [liq, conc, dev, prep].filter((r) => r.status === 'rejected');
-    setMensaje(caidos.length === 4 ? `⚠️ no se pudo cargar la vista: ${caidos[0].reason?.message || 'error'}` : '');
+    // Cada listado con su paginador (allSettled: que un endpoint pendiente no deje ciega a toda la pagina).
+    ['liq', 'dev', 'conc', 'prep'].forEach((t) => cargarLista(t));
+  };
+
+  const LIMITE_PAG = 30;
+  const [paginacion, setPaginacion] = useState({ liq: { page: 1, total: 0 }, dev: { page: 1, total: 0 }, conc: { page: 1, total: 0 }, prep: { page: 1, total: 0 } });
+
+  const cargarLista = async (t, page = null) => {
+    try {
+      const p = page || paginacion[t].page;
+      let filas = [];
+      let total = 0;
+      if (t === 'liq') {
+        const r = await consignaApi.liquidaciones({ page: p, limit: LIMITE_PAG });
+        filas = (r.data && r.data.filas) || []; total = (r.data && r.data.total) || 0; setLiquidaciones(filas);
+      } else if (t === 'dev') {
+        const r = await consignaApi.listarDevoluciones({ page: p, limit: LIMITE_PAG });
+        filas = (r.data && r.data.filas) || []; total = (r.data && r.data.total) || 0; setDevoluciones(filas);
+      } else if (t === 'conc') {
+        const r = await consignaApi.listarConciliaciones({ page: p, limit: LIMITE_PAG });
+        filas = (r.data && r.data.filas) || []; total = (r.data && r.data.total) || 0; setConciliaciones(filas);
+      } else {
+        const r = await preparadosApi.listar({ page: p, limit: LIMITE_PAG });
+        filas = (r.data && r.data.filas) || []; total = (r.data && r.data.total) || 0; setPreparados(filas);
+      }
+      setPaginacion((prev) => ({ ...prev, [t]: { page: p, total } }));
+    } catch (e) { /* el listado queda vacio */ }
   };
 
   useEffect(() => {
@@ -445,9 +460,24 @@ export default function ConsignaPage() {
         </div>
       )}
 
-      {tab === 'liquidaciones' && <Table columnas={colLiquidaciones} filas={liquidaciones} vacio="Sin liquidaciones" exportable exportarNombre="liquidaciones" />}
-      {tab === 'conciliador' && <Table columnas={colConciliaciones} filas={conciliaciones} vacio="Sin conciliaciones" exportable exportarNombre="conciliaciones" />}
-      {tab === 'devoluciones' && <Table columnas={colDevoluciones} filas={devoluciones} vacio="Sin devoluciones" exportable exportarNombre="devoluciones" />}
+      {tab === 'liquidaciones' && (
+        <>
+          <Table columnas={colLiquidaciones} filas={liquidaciones} vacio="Sin liquidaciones" exportable exportarNombre="liquidaciones" />
+          <Paginador page={paginacion.liq.page} total={paginacion.liq.total} limite={LIMITE_PAG} onCambiar={(p) => cargarLista('liq', p)} etiqueta="liquidaciones" />
+        </>
+      )}
+      {tab === 'conciliador' && (
+        <>
+          <Table columnas={colConciliaciones} filas={conciliaciones} vacio="Sin conciliaciones" exportable exportarNombre="conciliaciones" />
+          <Paginador page={paginacion.conc.page} total={paginacion.conc.total} limite={LIMITE_PAG} onCambiar={(p) => cargarLista('conc', p)} etiqueta="conciliaciones" />
+        </>
+      )}
+      {tab === 'devoluciones' && (
+        <>
+          <Table columnas={colDevoluciones} filas={devoluciones} vacio="Sin devoluciones" exportable exportarNombre="devoluciones" />
+          <Paginador page={paginacion.dev.page} total={paginacion.dev.total} limite={LIMITE_PAG} onCambiar={(p) => cargarLista('dev', p)} etiqueta="devoluciones" />
+        </>
+      )}
       {tab === 'preparados' && (
         <>
           <p className="text-xs text-muted mb-2">
@@ -455,6 +485,7 @@ export default function ConsignaPage() {
             El CSV se descarga general o por local (para repartir a cada sucursal).
           </p>
           <Table columnas={colPreparados} filas={preparados} vacio="Sin preparados de devolución" exportable exportarNombre="preparados_devolucion" />
+          <Paginador page={paginacion.prep.page} total={paginacion.prep.total} limite={LIMITE_PAG} onCambiar={(p) => cargarLista('prep', p)} etiqueta="preparados" />
         </>
       )}
 
@@ -523,20 +554,19 @@ export default function ConsignaPage() {
           <textarea className="input-os resize-none" rows={6} placeholder={'9789500431859;5\n9789500204378;2'} value={concTexto} onChange={(e) => setConcTexto(e.target.value)} />
         </label>
         {concPrev && (
-          <table className="table-os">
-            <thead><tr><th>EAN</th><th>Titulo</th><th>Local</th><th>Proveedor</th><th>Acción</th></tr></thead>
-            <tbody>
-              {concPrev.map((r, i) => (
-                <tr key={i}>
-                  <td className="font-mono text-xs">{r.ean13 || '—'}</td>
-                  <td>{r.titulo}</td>
-                  <td>{r.stockLocal}</td>
-                  <td>{r.stockProveedor}</td>
-                  <td className="font-semibold" style={{ color: r.diferencia > 0 ? 'var(--danger)' : 'var(--success)' }}>{r.accion}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <TablaItemsPaginada
+            items={concPrev}
+            headers={[<th key="ean">EAN</th>, <th key="tit">Titulo</th>, <th key="loc">Local</th>, <th key="prov">Proveedor</th>, <th key="acc">Acción</th>]}
+            fila={(r, idx) => (
+              <tr key={idx}>
+                <td className="font-mono text-xs">{r.ean13 || '—'}</td>
+                <td>{r.titulo}</td>
+                <td>{r.stockLocal}</td>
+                <td>{r.stockProveedor}</td>
+                <td className="font-semibold" style={{ color: r.diferencia > 0 ? 'var(--danger)' : 'var(--success)' }}>{r.accion}</td>
+              </tr>
+            )}
+          />
         )}
       </Modal>
 
@@ -633,24 +663,22 @@ export default function ConsignaPage() {
       {/* Detalle */}
       <Modal abierto={Boolean(detalle)} onClose={() => setDetalle(null)} titulo={detalle ? `Detalle #${detalle.doc.id}` : ''} ancho="640px">
         {detalle && detalle.tipo === 'liquidacion' && (
-          <table className="table-os">
-            <thead><tr><th>Titulo</th><th>EAN</th><th>Cant.</th><th>Precio</th></tr></thead>
-            <tbody>
-              {(detalle.doc.detalle || []).map((r, i) => (
-                <tr key={i}><td>{r.titulo}</td><td className="font-mono text-xs">{r.ean13}</td><td>{r.cantidad}</td><td>{fmt(r.precioUnitario)}</td></tr>
-              ))}
-            </tbody>
-          </table>
+          <TablaItemsPaginada
+            items={detalle.doc.detalle || []}
+            headers={[<th key="tit">Titulo</th>, <th key="ean">EAN</th>, <th key="cant">Cant.</th>, <th key="pr">Precio</th>]}
+            fila={(r, i) => (
+              <tr key={i}><td>{r.titulo}</td><td className="font-mono text-xs">{r.ean13}</td><td>{r.cantidad}</td><td>{fmt(r.precioUnitario)}</td></tr>
+            )}
+          />
         )}
         {detalle && detalle.tipo === 'conciliacion' && (
-          <table className="table-os">
-            <thead><tr><th>Titulo</th><th>Local</th><th>Proveedor</th><th>Acción</th></tr></thead>
-            <tbody>
-              {(detalle.doc.detalle || []).map((r, i) => (
-                <tr key={i}><td>{r.titulo}</td><td>{r.stockLocal}</td><td>{r.stockProveedor}</td><td>{r.accion}</td></tr>
-              ))}
-            </tbody>
-          </table>
+          <TablaItemsPaginada
+            items={detalle.doc.detalle || []}
+            headers={[<th key="tit">Titulo</th>, <th key="loc">Local</th>, <th key="prov">Proveedor</th>, <th key="acc">Acción</th>]}
+            fila={(r, i) => (
+              <tr key={i}><td>{r.titulo}</td><td>{r.stockLocal}</td><td>{r.stockProveedor}</td><td>{r.accion}</td></tr>
+            )}
+          />
         )}
       </Modal>
 

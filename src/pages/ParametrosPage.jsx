@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import Paginador from '../ui/Paginador';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
 import { parametrosApi } from '../api/api';
@@ -18,6 +19,8 @@ const TABS = [
 export default function ParametrosPage() {
   const [tab, setTab] = useState('metodos');
   const [filas, setFilas] = useState([]);
+  const [paginaP, setPaginaP] = useState(1);
+  const LIMITE_PAG = 25;
   const [mensaje, setMensaje] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
   const [nombre, setNombre] = useState('');
@@ -100,7 +103,8 @@ export default function ParametrosPage() {
         <button type="button" className="btn btn-primary text-xs" onClick={() => setModalAbierto(true)}>{esMetodos ? '+ Método de pago' : '+ Categoría de caja'}</button>
       </div>
 
-      <Table columnas={columnas} filas={filas} vacio={esMetodos ? 'Sin metodos de pago' : 'Sin categorias de caja'} exportable exportarNombre={tab === 'metodos' ? 'metodos_pago' : 'categorias_caja'} />
+      <Table columnas={columnas} filas={filas.slice((paginaP - 1) * LIMITE_PAG, paginaP * LIMITE_PAG)} vacio={esMetodos ? 'Sin metodos de pago' : 'Sin categorias de caja'} exportable exportarNombre={tab === 'metodos' ? 'metodos_pago' : 'categorias_caja'} />
+      <Paginador page={paginaP} total={filas.length} limite={LIMITE_PAG} onCambiar={setPaginaP} etiqueta={esMetodos ? 'metodos de pago' : 'categorias de caja'} />
 
       <Modal abierto={modalAbierto} onClose={() => setModalAbierto(false)} titulo={esMetodos ? 'Nuevo método de pago' : 'Nueva categoría de caja'} ancho="420px"
         footer={

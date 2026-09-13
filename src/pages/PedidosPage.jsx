@@ -134,6 +134,7 @@ export default function PedidosPage() {
       <div className="card p-3">
         <Table columnas={columnas} filas={filas} vacio="Sin pedidos para el filtro" />
         <Paginador page={page} total={total} limite={25} onCambiar={setPage} etiqueta="pedidos" />
+        <Paginador page={page} total={total} limite={25} onCambiar={setPage} etiqueta="pedidos" />
       </div>
 
       {modal && (

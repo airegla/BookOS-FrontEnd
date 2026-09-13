@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import Paginador from '../ui/Paginador';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
@@ -12,6 +13,8 @@ import { usuariosApi } from '../api/api';
 
 export default function UsuariosPage({ esAdmin }) {
   const [usuarios, setUsuarios] = useState([]);
+  const [paginaU, setPaginaU] = useState(1);
+  const LIMITE_PAG = 25;
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState(null);
   const [resetUsuario, setResetUsuario] = useState(null);
@@ -112,7 +115,8 @@ export default function UsuariosPage({ esAdmin }) {
       </div>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
       <p className="text-xs text-muted mb-3">Regla indegradable: no se puede eliminar, desactivar ni degradar al ultimo admin.</p>
-      <Table columnas={columnas} filas={usuarios} />
+      <Table columnas={columnas} filas={usuarios.slice((paginaU - 1) * LIMITE_PAG, paginaU * LIMITE_PAG)} />
+      <Paginador page={paginaU} total={usuarios.length} limite={LIMITE_PAG} onCambiar={setPaginaU} etiqueta="usuarios" />
 
       <Modal abierto={modal} onClose={() => setModal(false)} titulo="Nuevo usuario" ancho="420px"
         footer={<button type="button" className="btn btn-primary" onClick={guardar}>Crear</button>}

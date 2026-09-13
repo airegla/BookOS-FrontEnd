@@ -248,7 +248,7 @@ export const consignaApi = {
   facturarLiquidacion: (id, compraId) => axiosClient.post(`/liquidaciones/${id}/facturar`, { compraId }),
   previsualizarConciliacion: (payload) => axiosClient.post('/conciliaciones/previsualizar', payload),
   guardarConciliacion: (payload) => axiosClient.post('/conciliaciones', payload),
-  listarConciliaciones: () => axiosClient.get('/conciliaciones'),
+  listarConciliaciones: (params = {}) => axiosClient.get('/conciliaciones', { params }),
   previsualizarAplicarConciliacion: (id) => axiosClient.post(`/conciliaciones/${id}/aplicar`, {}),
   aplicarConciliacion: (id) => axiosClient.post(`/conciliaciones/${id}/aplicar`, { confirmado: true }),
   anularConciliacion: (id) => axiosClient.post(`/conciliaciones/${id}/anular`),

@@ -106,6 +106,7 @@ export default function NewsletterPage() {
 
       <Table columnas={columnas} filas={suscriptores} vacio="Sin suscriptores" exportable exportarNombre="newsletter" />
       <Paginador page={page} total={total} limite={25} onCambiar={setPage} etiqueta="suscriptores" />
+      <Paginador page={page} total={total} limite={25} onCambiar={setPage} etiqueta="suscriptores" />
 
       <Modal abierto={modalAbierto} onClose={() => setModalAbierto(false)} titulo="Nuevo suscriptor" ancho="420px"
         footer={

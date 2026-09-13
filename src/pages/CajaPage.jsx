@@ -35,6 +35,7 @@ export default function CajaPage() {
   const [detalleCierre, setDetalleCierre] = useState(null);
   const [pageCierres, setPageCierres] = useState(1);
   const [totalCierres, setTotalCierres] = useState(0);
+  const [pagC, setPagC] = useState(1);
   const [pagoEditando, setPagoEditando] = useState(null);
   const [metodoNuevo, setMetodoNuevo] = useState('EFECTIVO');
   const [mensaje, setMensaje] = useState('');
@@ -189,7 +190,10 @@ export default function CajaPage() {
         </div>
         <div className="card p-4">
           <h3 className="font-semibold mb-3">Movimientos del turno</h3>
-          <Table columnas={columnas} filas={actual ? actual.movimientos.slice(0, 15) : []} vacio="Sin movimientos" />
+          <Table columnas={columnas} filas={actual ? actual.movimientos.slice((pagC - 1) * 15, pagC * 15) : []} vacio="Sin movimientos" />
+          {actual && actual.movimientos.length > 15 && (
+            <Paginador page={pagC} total={actual.movimientos.length} limite={15} onCambiar={setPagC} etiqueta="movimientos del turno" />
+          )}
         </div>
       </div>
 

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
+import TablaItemsPaginada from '../ui/TablaItemsPaginada';
 import DebugTag from '../ui/DebugTag';
 import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
@@ -284,18 +285,17 @@ export default function RemitosPage() {
               {' '}· {verRemito.fecha ? new Date(verRemito.fecha).toLocaleString('es-AR') : new Date(verRemito.createdAt).toLocaleString('es-AR')}
             </div>
             {verRemito.observaciones && <p className="text-sm text-muted mb-3">{verRemito.observaciones}</p>}
-            <table className="table-os">
-              <thead><tr><th>EAN13</th><th>Titulo</th><th>Cantidad</th></tr></thead>
-              <tbody>
-                {(verRemito.items || []).map((item) => (
-                  <tr key={item.ean13}>
-                    <td className="font-mono text-xs">{item.ean13}</td>
-                    <td>{item.titulo}</td>
-                    <td>{item.cantidad}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <TablaItemsPaginada
+              items={verRemito.items || []}
+              headers={[<th key="ean">EAN13</th>, <th key="tit">Titulo</th>, <th key="cant">Cantidad</th>]}
+              fila={(item, idx) => (
+                <tr key={idx}>
+                  <td className="font-mono text-xs">{item.ean13}</td>
+                  <td>{item.titulo}</td>
+                  <td>{item.cantidad}</td>
+                </tr>
+              )}
+            />
           </div>
         )}
       </Modal>

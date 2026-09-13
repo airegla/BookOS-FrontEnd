@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
+import TablaItemsPaginada from '../ui/TablaItemsPaginada';
 import SelectBuscador from '../ui/SelectBuscador';
 import MayoristaCabeceraBlock from '../blocks/MayoristaCabeceraBlock';
 import MayoristaTablaBlock from '../blocks/MayoristaTablaBlock';
@@ -669,19 +670,18 @@ export default function MayoristaPage() {
             <p className="text-sm mb-2">
               {verRemito.tipoRemito} · {verRemito.origen ? verRemito.origen.nombre : '—'} → {verRemito.destino ? verRemito.destino.nombre : '—'} · {verRemito.estado}
             </p>
-            <table className="table-os">
-              <thead><tr><th>EAN</th><th>Título</th><th>Cantidad</th><th>Sale de</th></tr></thead>
-              <tbody>
-                {verRemito.items.map((i, idx) => (
-                  <tr key={idx}>
-                    <td className="font-mono text-xs">{i.barras || '—'}</td>
-                    <td>{i.titulo || i.descripcion}</td>
-                    <td>{i.cantidad}</td>
-                    <td>{i.tipoStock === 'FIRME' ? 'Firme' : 'Consigna'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <TablaItemsPaginada
+              items={verRemito.items}
+              headers={[<th key="ean">EAN</th>, <th key="tit">Título</th>, <th key="cant">Cantidad</th>, <th key="sd">Sale de</th>]}
+              fila={(i, idx) => (
+                <tr key={idx}>
+                  <td className="font-mono text-xs">{i.barras || '—'}</td>
+                  <td>{i.titulo || i.descripcion}</td>
+                  <td>{i.cantidad}</td>
+                  <td>{i.tipoStock === 'FIRME' ? 'Firme' : 'Consigna'}</td>
+                </tr>
+              )}
+            />
             {verRemito.observaciones && <p className="text-xs text-muted mt-2">{verRemito.observaciones}</p>}
           </>
         )}
@@ -701,21 +701,20 @@ export default function MayoristaPage() {
               {verVenta.fechaVencimiento ? ` · Vence: ${new Date(verVenta.fechaVencimiento).toLocaleDateString('es-AR')}` : ''}
             </p>
             {verVenta.items.length > 0 && (
-              <table className="table-os">
-                <thead><tr><th>EAN</th><th>Título</th><th>Cant.</th><th>Precio</th><th>Desc.</th><th>Subtotal</th></tr></thead>
-                <tbody>
-                  {verVenta.items.map((i, idx) => (
-                    <tr key={idx}>
-                      <td className="font-mono text-xs">{i.barras || '—'}</td>
-                      <td>{i.titulo || i.descripcion}</td>
-                      <td>{i.cantidad}</td>
-                      <td>${i.precioUnitario.toLocaleString('es-AR')}</td>
-                      <td>{i.descuentoLinea == null ? '—' : `${i.descuentoLinea}%`}</td>
-                      <td>${i.subtotal.toLocaleString('es-AR')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <TablaItemsPaginada
+                items={verVenta.items}
+                headers={[<th key="ean">EAN</th>, <th key="tit">Título</th>, <th key="cant">Cant.</th>, <th key="pr">Precio</th>, <th key="ds">Desc.</th>, <th key="sub">Subtotal</th>]}
+                fila={(i, idx) => (
+                  <tr key={idx}>
+                    <td className="font-mono text-xs">{i.barras || '—'}</td>
+                    <td>{i.titulo || i.descripcion}</td>
+                    <td>{i.cantidad}</td>
+                    <td>${i.precioUnitario.toLocaleString('es-AR')}</td>
+                    <td>{i.descuentoLinea == null ? '—' : `${i.descuentoLinea}%`}</td>
+                    <td>${i.subtotal.toLocaleString('es-AR')}</td>
+                  </tr>
+                )}
+              />
             )}
             <div className="flex justify-end gap-4 text-sm mt-3">
               <span>Subtotal: <strong>${verVenta.subtotal.toLocaleString('es-AR')}</strong></span>
@@ -740,20 +739,19 @@ export default function MayoristaPage() {
               Fecha: {new Date(verDev.fecha).toLocaleDateString('es-AR')} · {verDev.totalUnidades} unidades
               {Number(verDev.totalValorizado) ? ` · valorizado $${Number(verDev.totalValorizado).toLocaleString('es-AR')} (NC en la CC)` : ''}
             </p>
-            <table className="table-os">
-              <thead><tr><th>EAN</th><th>Título</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>
-              <tbody>
-                {verDev.items.map((i, idx) => (
-                  <tr key={idx}>
-                    <td className="font-mono text-xs">{i.barras || '—'}</td>
-                    <td>{i.titulo || i.descripcion}</td>
-                    <td>{i.cantidad}</td>
-                    <td>${i.precioUnitario.toLocaleString('es-AR')}</td>
-                    <td>${i.subtotal.toLocaleString('es-AR')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <TablaItemsPaginada
+              items={verDev.items}
+              headers={[<th key="ean">EAN</th>, <th key="tit">Título</th>, <th key="cant">Cant.</th>, <th key="pr">Precio</th>, <th key="sub">Subtotal</th>]}
+              fila={(i, idx) => (
+                <tr key={idx}>
+                  <td className="font-mono text-xs">{i.barras || '—'}</td>
+                  <td>{i.titulo || i.descripcion}</td>
+                  <td>{i.cantidad}</td>
+                  <td>${i.precioUnitario.toLocaleString('es-AR')}</td>
+                  <td>${i.subtotal.toLocaleString('es-AR')}</td>
+                </tr>
+              )}
+            />
             <p className="text-xs text-muted mt-2">Se deja constancia de los libros recibidos. Si hay diferencias con lo devuelto, comunicarse para conciliarlas.</p>
             {verDev.observaciones && <p className="text-xs text-muted mt-1">{verDev.observaciones}</p>}
           </>

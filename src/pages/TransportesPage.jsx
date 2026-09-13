@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import Paginador from '../ui/Paginador';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
 import { transportesApi, depositosApi } from '../api/api';
@@ -16,6 +17,8 @@ export default function TransportesPage() {
   const [tab, setTab] = useState('transportes');
   const [transportes, setTransportes] = useState([]);
   const [depositos, setDepositos] = useState([]);
+  const [pagT, setPagT] = useState(1);
+  const LIMITE_PAG = 25;
   const [mensaje, setMensaje] = useState('');
 
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -148,8 +151,9 @@ export default function TransportesPage() {
       </div>
 
       {tab === 'transportes'
-        ? <Table columnas={columnasTransportes} filas={transportes} vacio="Sin transportes" exportable exportarNombre="transportes" />
-        : <Table columnas={columnasDepositos} filas={depositos} vacio="Sin depositos" exportable exportarNombre="depositos" />}
+        ? <Table columnas={columnasTransportes} filas={transportes.slice((pagT - 1) * LIMITE_PAG, pagT * LIMITE_PAG)} vacio="Sin transportes" exportable exportarNombre="transportes" />
+        : <Table columnas={columnasDepositos} filas={depositos.slice((pagT - 1) * LIMITE_PAG, pagT * LIMITE_PAG)} vacio="Sin depositos" exportable exportarNombre="depositos" />}
+      <Paginador page={pagT} total={tab === 'transportes' ? transportes.length : depositos.length} limite={LIMITE_PAG} onCambiar={setPagT} etiqueta={tab === 'transportes' ? 'transportes' : 'depositos'} />
 
       <Modal abierto={modalAbierto} onClose={() => setModalAbierto(false)} titulo={`${editando ? 'Editar' : 'Nuevo'} ${tab === 'transportes' ? 'transporte' : 'depósito'}`} ancho="420px"
         footer={

@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import TablaItemsPaginada from '../ui/TablaItemsPaginada';
 import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
@@ -476,7 +477,16 @@ export default function ComprasPage() {
               <div><span className="text-muted">Descuento global: </span>${Number(detalle.descuentoGlobal || 0).toLocaleString('es-AR')}</div>
               {detalle.observaciones && <div className="col-span-2"><span className="text-muted">Observaciones: </span>{detalle.observaciones}</div>}
             </div>
-            <Table columnas={columnasDetalle} filas={detalle.items || []} vacio="Sin renglones" />
+            <TablaItemsPaginada
+              items={detalle.items || []}
+              headers={columnasDetalle.map((c) => <th key={c.clave}>{c.titulo}</th>)}
+              fila={(it, idx) => (
+                <tr key={idx}>
+                  {columnasDetalle.map((c) => <td key={c.clave}>{c.render ? c.render(it) : it[c.clave]}</td>)}
+                </tr>
+              )}
+              vacio="Sin renglones"
+            />
             <div className="text-right mt-3 text-sm">
               Total: <strong>${Number(detalle.importeTotal).toLocaleString('es-AR')}</strong>
             </div>
