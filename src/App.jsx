@@ -8,6 +8,7 @@ import Navbar from './ui/Navbar';
 import AgenteChatBlock from './blocks/AgenteChatBlock';
 import BuscadorTecnicoBlock from './blocks/BuscadorTecnicoBlock';
 import BuscadorSemanticoBlock from './blocks/BuscadorSemanticoBlock';
+import AltaRapidaClienteBlock from './blocks/AltaRapidaClienteBlock';
 import useAtajoGlobal from './hooks/useAtajoGlobal';
 import CatalogoPage from './pages/CatalogoPage';
 import VentasPage from './pages/VentasPage';
@@ -95,7 +96,7 @@ export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [vista, setVista] = useState('Catalogo');
   const [cargando, setCargando] = useState(true);
-  const { setContextoActual } = useAppContext();
+  const { setContextoActual, emitirInstruccion } = useAppContext();
   const debug = import.meta.env.VITE_DEBUG_MODE === 'true';
 
   useEffect(() => {
@@ -115,12 +116,13 @@ export default function App() {
     setContextoActual(null);
   };
 
-  // Teclas del OS (doc 06 D9): F6 = busqueda tecnica del mostrador, F7 = busqueda semantica +
-  // asistente. El panel del Secretario arranca cerrado en la pagina del Asistente (ahi el
-  // protagonista es el asistente de ventas) y abierto en el resto.
+  // Teclas del OS (doc 06 D9): F2 = alta rapida de cliente, F6 = busqueda tecnica del mostrador,
+  // F7 = busqueda semantica + asistente. El panel del Secretario arranca cerrado en la pagina del
+  // Asistente (ahi el protagonista es el asistente de ventas) y abierto en el resto.
   const [panelAbierto, setPanelAbierto] = useState(true);
   const [buscadorTecnico, setBuscadorTecnico] = useState(false);
   const [buscadorSemantico, setBuscadorSemantico] = useState(false);
+  const [altaCliente, setAltaCliente] = useState(false);
 
   useEffect(() => { setPanelAbierto(vista !== 'Asistente'); }, [vista]);
 
@@ -135,6 +137,11 @@ export default function App() {
 
   useAtajoGlobal('F6', alternarTecnico);
   useAtajoGlobal('F7', alternarSemantico);
+
+  // F2 abre el alta rapida (no alterna): la tecla tiene que ser segura en el mostrador. Se apaga
+  // mientras el modal esta abierto y ESC lo cierra.
+  const abrirAltaCliente = useCallback(() => setAltaCliente(true), []);
+  useAtajoGlobal('F2', abrirAltaCliente, { activo: !altaCliente });
 
   const salir = () => {
     localStorage.removeItem('bookos_token');
@@ -201,6 +208,14 @@ export default function App() {
         onCerrar={() => setBuscadorSemantico(false)}
         enFacturar={vista === 'Facturar'}
         onAbrirAsistente={() => cambiarVista('Asistente')}
+      />
+      {/* F2 desde cualquier vista. El cliente creado se anuncia por el bus de instrucciones (una
+          sola vez): la vista que sepa tomarlo lo elige (la factura minorista y los pedidos). */}
+      <AltaRapidaClienteBlock
+        abierto={altaCliente}
+        onCerrar={() => setAltaCliente(false)}
+        contexto="Queda elegido en la factura o en el pedido"
+        onCreado={(cliente) => emitirInstruccion({ dominio: 'clientes', accion: 'cliente_creado', cliente })}
       />
     </div>
   );

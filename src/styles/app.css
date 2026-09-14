@@ -27,3 +27,7 @@ html, body {
     max-height: 92dvh;
   }
 }
+
+/* OJO: esta hoja (app.css) NO esta importada en main.jsx — solo se carga styles/globals.css.
+   Cualquier regla escrita aca NO se aplica. Los estilos del buscador semantico F7 viven en
+   globals.css (buscar "Buscador semantico F7"). */

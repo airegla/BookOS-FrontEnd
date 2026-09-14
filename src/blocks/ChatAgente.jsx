@@ -18,7 +18,12 @@ const CLAVES_LISTA = ['items', 'articulos', 'resultados', 'filas', 'movimientos'
   'clientes', 'proveedores', 'remitos', 'pedidos', 'devoluciones', 'liquidaciones', 'transferencias',
   'suscripciones', 'usuarios', 'marcadores', 'entradas', 'lotes', 'componentes',
   // marcadores y agrupados del catalogo: $ayuda y $editoriales
-  'ayuda', 'editoriales', 'materias'];
+  'ayuda', 'editoriales', 'materias',
+  // $llm (reflexion del entorno): listas de la devolucion sobre las herramientas
+  'propuestas', 'confusas', 'fricciones', 'utiles', 'grupos'];
+
+// Filas visibles antes de ofrecer "ver mas": se muestran de a tandas, sin cortar el dato.
+const TANDA = 25;
 
 function primeraLista(data) {
   if (!data || typeof data !== 'object') return null;
@@ -32,7 +37,7 @@ function etiquetaItem(item) {
   if (item == null) return '(sin dato)';
   if (typeof item !== 'object') return String(item);
   return item.comando || item.titulo || item.nombre || item.descripcion || item.label || item.clave
-    || item.email || item.codigo || `#${item.id != null ? item.id : '?'}`;
+    || item.herramienta || item.email || item.codigo || `#${item.id != null ? item.id : '?'}`;
 }
 
 function detalleItem(item) {
@@ -46,6 +51,15 @@ function detalleItem(item) {
   if (item.total != null && item.precio == null) partes.push(money(item.total));
   if (item.saldo != null) partes.push(`saldo ${money(item.saldo)}`);
   if (item.clasificacion) partes.push(item.clasificacion);
+  if (!partes.length) {
+    // Objetos sin campos conocidos (p. ej. la devolucion de $llm: {herramienta, problema, arreglo}):
+    // se muestran sus valores en linea en vez de un "#?" sin informacion.
+    return Object.entries(item)
+      .filter(([, v]) => v != null && typeof v !== 'object')
+      .map(([k, v]) => `${k}: ${String(v).slice(0, 90)}`)
+      .join(' · ')
+      .slice(0, 260);
+  }
   return partes.join(' · ');
 }
 
@@ -58,6 +72,30 @@ function BotonDescarga({ descarga }) {
     <button type="button" className="btn btn-primary text-xs mt-2" onClick={manejar}>
       ⬇ Descargar {descarga.nombre || 'CSV'}
     </button>
+  );
+}
+
+// Listado: se muestra de a tandas con un boton "ver mas" en lugar de cortar el resultado. El
+// corte duro (primeros 8) era una de las dos causas de que el operario viera todo truncado.
+function ListaEnvelope({ lista, total, descarga }) {
+  const [visibles, setVisibles] = useState(TANDA);
+  const quedan = lista.length - visibles;
+  return (
+    <div>
+      {total != null && <div className="text-xs text-muted mb-1">{Number(total).toLocaleString('es-AR')} resultado(s)</div>}
+      {lista.slice(0, visibles).map((item, i) => (
+        <div key={i} className="text-xs py-0.5 flex justify-between gap-2">
+          <span className="truncate">{etiquetaItem(item)}</span>
+          <span className="font-mono whitespace-nowrap">{detalleItem(item)}</span>
+        </div>
+      ))}
+      {quedan > 0 && (
+        <button type="button" className="btn text-xs mt-1" onClick={() => setVisibles((v) => v + TANDA)}>
+          Ver {Math.min(TANDA, quedan)} más ({quedan} restantes)
+        </button>
+      )}
+      <BotonDescarga descarga={descarga} />
+    </div>
   );
 }
 
@@ -76,21 +114,7 @@ function BloqueEnvelope({ envelope }) {
   // Modos de los marcadores del kernel (catalogo/filtrado) y listados genericos.
   const lista = primeraLista(data);
   if (lista && lista.lista.length > 0) {
-    // La ayuda muestra todos los comandos (hasta 30); los listados, los primeros 8.
-    const tope = lista.clave === 'ayuda' ? 30 : 8;
-    return (
-      <div>
-        {data.total != null && <div className="text-xs text-muted mb-1">{data.total} resultado(s)</div>}
-        {lista.lista.slice(0, tope).map((item, i) => (
-          <div key={i} className="text-xs py-0.5 flex justify-between gap-2">
-            <span className="truncate">{etiquetaItem(item)}</span>
-            <span className="font-mono whitespace-nowrap">{detalleItem(item)}</span>
-          </div>
-        ))}
-        {lista.lista.length > tope && <div className="text-xs text-muted">… y {lista.lista.length - tope} más</div>}
-        <BotonDescarga descarga={envelope.descarga} />
-      </div>
-    );
+    return <ListaEnvelope lista={lista.lista} total={data.total} descarga={envelope.descarga} />;
   }
 
   // Resumen comparativo (archivo_comparar) u objetos de conteo.
@@ -114,20 +138,30 @@ function BloqueEnvelope({ envelope }) {
   if (entradas.length > 0 && !lista) {
     return (
       <div className="text-xs space-y-0.5">
-        {entradas.slice(0, 12).map(([clave, valor]) => (
+        {entradas.slice(0, 40).map(([clave, valor]) => (
           <div key={clave} className="flex justify-between gap-2">
             <span className="text-muted">{clave}</span>
             <span className="font-mono">{typeof valor === 'number' ? valor.toLocaleString('es-AR') : String(valor == null ? '—' : valor)}</span>
           </div>
         ))}
+        {envelope.avisos && envelope.avisos.length > 0 && (
+          <div className="text-muted pt-1">{envelope.avisos.map((a, i) => <div key={i}>ℹ️ {a}</div>)}</div>
+        )}
         <BotonDescarga descarga={envelope.descarga} />
       </div>
     );
   }
 
+  // Ultimo recurso: el objeto completo, en un bloque con scroll. Antes se cortaba a 1200 chars,
+  // que era la otra causa de "todo truncado".
   return (
     <>
-      <pre className="text-xs overflow-x-auto">{JSON.stringify(data, null, 2).slice(0, 1200)}</pre>
+      <pre className="text-xs overflow-auto" style={{ maxHeight: 320 }}>
+        {JSON.stringify(data, null, 2)}
+      </pre>
+      {envelope.avisos && envelope.avisos.length > 0 && (
+        <div className="text-xs text-muted">{envelope.avisos.map((a, i) => <div key={i}>ℹ️ {a}</div>)}</div>
+      )}
       <BotonDescarga descarga={envelope.descarga} />
     </>
   );

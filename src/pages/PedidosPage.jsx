@@ -14,10 +14,12 @@ import SelectBuscador from '../ui/SelectBuscador';
 import { buscarClientes } from '../utils/selectores';
 import { crmApi } from '../api/api';
 import { descargarCsv } from '../utils/exportar';
+import { useAppContext } from '../AppContext';
 
 const ESTADOS = ['Pendiente', 'Solicitado', 'Ingresado', 'Notificado', 'Agotado', 'Cancelado'];
 
 export default function PedidosPage() {
+  const { instruccionVista, emitirInstruccion } = useAppContext();
   const [filas, setFilas] = useState([]);
   const [total, setTotal] = useState(0);
   const [porEstado, setPorEstado] = useState({});
@@ -42,6 +44,17 @@ export default function PedidosPage() {
   };
 
   useEffect(() => { cargar(); }, [page, estado]); // eslint-disable-line
+
+  // El cliente creado con F2 llega por el bus: si el alta de pedido esta abierta, queda elegido.
+  useEffect(() => {
+    if (!instruccionVista || instruccionVista.dominio !== 'clientes' || instruccionVista.accion !== 'cliente_creado') return;
+    const c = instruccionVista.cliente;
+    if (c && c.id && modal) {
+      setForm((f) => ({ ...f, clienteId: c.id }));
+      setClienteNombre(c.nombre);
+    }
+    emitirInstruccion(null);
+  }, [instruccionVista]); // eslint-disable-line
 
   const abrirNuevo = async () => {
     setForm({ clienteId: '', codigo: '', descripcionTexto: '', cantidad: 1, observaciones: '' });

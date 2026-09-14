@@ -1,7 +1,7 @@
 // BookOS - ManualBlock.jsx
 // ruta: bookos/frontend/src/blocks/ManualBlock.jsx
-// descripcion: el manual vivo de BookOS en un modal con 4 solapas (uso tecnico, el
-//   Secretario, el Kernel y los flujos). Renderiza el markdown simple del backend
+// descripcion: el manual vivo de BookOS en un modal con una solapa por tema (uso tecnico, CRM,
+//   el Secretario, el Kernel, los flujos y las herramientas). Renderiza el markdown simple del backend
 //   (secciones, listas, tablas, notas) y los diagramas Mermaid como graficos.
 
 import { useEffect, useState } from 'react';

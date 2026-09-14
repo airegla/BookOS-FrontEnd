@@ -383,3 +383,75 @@ body {
 .toggle-track.active .toggle-thumb {
   transform: translateX(16px);
 }
+
+/* ---------- Buscador semantico F7 ---------- */
+/* Tarjeta calcada de RecomendacionCard del bookrm: portada 56x84 a la izquierda, cuerpo a la
+   derecha con titulo + badge de disponibilidad, autor/editorial, digesto, tip de venta, EAN13 y
+   acciones. Estos estilos viven ACA a proposito: globals.css es la unica hoja que importa
+   main.jsx (app.css quedo huerfano y sus reglas no se cargan). */
+.f7-card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--card);
+}
+.f7-tarjeta { display: flex; align-items: flex-start; }
+.f7-tapa {
+  width: 56px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 12px;
+  flex-shrink: 0;
+  background: #f0f0f0;
+}
+.f7-tapa-vacia {
+  width: 56px;
+  height: 84px;
+  border-radius: 4px;
+  margin-right: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  color: var(--muted);
+  font-size: 20px;
+}
+.f7-cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.f7-titulo-fila { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.f7-titulo { margin: 0; font-size: 0.95rem; font-weight: 600; line-height: 1.25; }
+.f7-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.f7-badge.pedir { background: #ed6c02; }
+.f7-meta { margin: 0; font-size: 0.8rem; color: var(--muted); font-style: italic; }
+.f7-digesto { margin: 4px 0 0; font-size: 0.78rem; color: var(--text); line-height: 1.35; }
+.f7-tip {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: #0288d1;
+  border-left: 2px solid #0288d1;
+  padding-left: 6px;
+}
+.f7-ean {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  align-self: flex-start;
+}
+.f7-mono { font-family: monospace; letter-spacing: 0.5px; }
+.f7-precio { margin: 0; font-size: 0.78rem; font-family: monospace; }
+.f7-acciones { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }

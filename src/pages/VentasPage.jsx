@@ -81,7 +81,7 @@ export default function VentasPage() {
   const [pendientesAbierto, setPendientesAbierto] = useState(false);
   const [pendientes, setPendientes] = useState([]);
 
-  const { ultimosRecomendados, setUltimosRecomendados, setContextoActual, pedirConsulta, instruccionVista } = useAppContext();
+  const { ultimosRecomendados, setUltimosRecomendados, setContextoActual, pedirConsulta, instruccionVista, emitirInstruccion } = useAppContext();
 
   const clienteActual = clienteElegido;
 
@@ -151,6 +151,18 @@ export default function VentasPage() {
     setItems((prev) => [...prev, ...nuevos]);
     if (nuevos.length) setMensaje(`Importados ${nuevos.length} libros del documento ✓`);
   };
+
+  // El cliente creado con F2 (alta rapida del shell) se toma como cliente de la factura: es el
+  // dato que alimenta el seguimiento, asi que cargarlo tiene que caer directo en el borrador.
+  useEffect(() => {
+    if (!instruccionVista || instruccionVista.dominio !== 'clientes' || instruccionVista.accion !== 'cliente_creado') return;
+    const c = instruccionVista.cliente;
+    if (c && c.id) {
+      setClienteId(Number(c.id));
+      setClienteElegido({ id: Number(c.id), nombre: c.nombre, email: c.email });
+    }
+    emitirInstruccion(null);
+  }, [instruccionVista]); // eslint-disable-line
 
   // El Secretario opera la vista: refrescar historial o agregar item al borrador.
   useEffect(() => {
@@ -421,7 +433,7 @@ export default function VentasPage() {
       <DebugTag nombre="VentasPage" />
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Ventas</h2>
-        <span className="text-xs text-muted">factura descuenta stock · pedido/presupuesto exigen cliente · anular revierte stock, caja y CC · F10 cobrar</span>
+        <span className="text-xs text-muted">factura descuenta stock · pedido/presupuesto exigen cliente · anular revierte stock, caja y CC · F10 cobrar · F2 cliente rapido</span>
       </div>
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
@@ -441,7 +453,7 @@ export default function VentasPage() {
             <SelectBuscador
               valor={clienteId}
               etiquetaValor={clienteActual ? clienteActual.nombre : ''}
-              placeholder="Consumidor final — buscar cliente..."
+              placeholder="Consumidor final — buscar cliente (o F2 para el alta rapida)..."
               buscar={buscarClientes}
               onSeleccionar={(it) => { setClienteId(it ? it.id : null); setClienteElegido(it); }}
             />

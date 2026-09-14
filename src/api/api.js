@@ -169,6 +169,8 @@ export const kernelApi = {
   estado: () => axiosClient.get('/kernel/estado'),
   // Busqueda semantica del kernel (la que usa el buscador F7 y el asistente de ventas).
   buscar: (payload) => axiosClient.post('/kernel/buscar', payload),
+  // Ejecuta un $comando (marcador) o su alias: el buscador F7 los manda aca en vez de buscarlos.
+  comando: (texto) => axiosClient.post('/kernel/comando', { texto }),
   salud: (limit = 30) => axiosClient.get('/kernel/salud', { params: { limit } }),
   saludCorrer: () => axiosClient.post('/kernel/salud/correr'),
   pesos: () => axiosClient.get('/kernel/pesos'),
