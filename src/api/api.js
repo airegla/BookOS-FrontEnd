@@ -186,6 +186,12 @@ export const kernelApi = {
   observacionesCorrer: (payload = {}) => axiosClient.post('/kernel/observaciones/correr', payload),
   herramientas: () => axiosClient.get('/kernel/herramientas'),
   herramientasCalibrar: () => axiosClient.post('/kernel/herramientas/calibrar'),
+  workersEstado: () => axiosClient.get('/kernel/workers'),
+  workersControl: (tipo, accion) => axiosClient.post(`/kernel/workers/${tipo}/${accion}`),
+  // Comparativa de motores LLM (chico local vs pago) y estado del chico con herramientas.
+  llmComparativa: (dias = 7) => axiosClient.get('/kernel/llm/comparativa', { params: { dias } }),
+  chicoEstado: () => axiosClient.get('/kernel/chico'),
+  chicoGuardar: (payload) => axiosClient.put('/kernel/chico', payload),
 };
 
 export const auditoriaApi = {
@@ -413,6 +419,7 @@ export const telegramApi = {
   guardar: (datos) => axiosClient.put('/telegram', datos),
   probar: () => axiosClient.post('/telegram/probar', {}),
   bot: () => axiosClient.get('/telegram/bot'),
+  botActualizar: (datos) => axiosClient.put('/telegram/bot', datos),
   botReiniciar: () => axiosClient.post('/telegram/bot/reiniciar', {}),
 };
 

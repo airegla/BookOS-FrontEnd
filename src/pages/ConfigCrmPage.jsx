@@ -22,6 +22,8 @@ export default function ConfigCrmPage() {
   const [bot, setBot] = useState(null);
   const [botError, setBotError] = useState(null);
   const [botLeidoEn, setBotLeidoEn] = useState(null);
+  const [botChatIds, setBotChatIds] = useState('');
+  const [botOffset, setBotOffset] = useState('0');
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
 
@@ -62,6 +64,8 @@ export default function ConfigCrmPage() {
       setBot(b.data);
       setBotError(null);
       setBotLeidoEn(new Date());
+      setBotChatIds((prev) => prev || (Array.isArray(b.data.chatIds) ? b.data.chatIds.join(', ') : (b.data.chatId ? String(b.data.chatId) : '')));
+      setBotOffset((prev) => prev || String(Number(b.data.offset || 0)));
     } catch (err) {
       setBotError(err.message);
     }
@@ -197,6 +201,28 @@ export default function ConfigCrmPage() {
     }
   };
 
+  const guardarBot = async () => {
+    setCargando(true);
+    setMensaje('');
+    try {
+      const ids = String(botChatIds || '')
+        .split(',')
+        .map((v) => String(v).trim())
+        .filter(Boolean);
+      const r = await telegramApi.botActualizar({
+        chatIds: ids,
+        offset: Number(botOffset) || 0,
+        conversacionId: bot && bot.conversacionId ? Number(bot.conversacionId) : null,
+      });
+      setMensaje(`✓ Estado del bot guardado (${r.data.chatIds ? r.data.chatIds.length : 0} chats autorizados, offset ${r.data.offset || 0}).`);
+      cargar();
+    } catch (err) {
+      setMensaje(`⚠️ ${err.message}`);
+    } finally {
+      setCargando(false);
+    }
+  };
+
   return (
     <div>
       <DebugTag nombre="ConfigCrmPage" />
@@ -315,7 +341,18 @@ export default function ConfigCrmPage() {
           <p className="text-xs text-muted mb-2">Estado leído: {botLeidoEn.toLocaleTimeString('es-AR')}</p>
         )}
         {bot && !bot.activo && bot.motivo && <p className="text-xs mb-2" style={{ color: '#b45309', fontWeight: 600 }}>⚠️ En pausa: {bot.motivo}</p>}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="form-grid mt-3">
+          <label className="text-sm">
+            <span className="field-label">Chats autorizados (lista)</span>
+            <input className="input-os" value={botChatIds} onChange={(e) => setBotChatIds(e.target.value)} placeholder="-100123,-100456" />
+          </label>
+          <label className="text-sm">
+            <span className="field-label">Offset del polling</span>
+            <input className="input-os" type="number" value={botOffset} onChange={(e) => setBotOffset(e.target.value)} placeholder="0" />
+          </label>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap mt-3">
+          <button type="button" className="btn btn-primary text-sm" disabled={cargando} onClick={guardarBot}>Guardar bot</button>
           <button type="button" className="btn text-sm" disabled={cargando} onClick={reiniciarBot}>Reiniciar escucha</button>
           <button type="button" className="btn btn-ghost text-sm" onClick={cargar}>Refrescar estado</button>
           <span className="text-xs text-muted">Comandos: /nueva (tema aparte) · /ayuda · `confirmar` para las escrituras pendientes.</span>

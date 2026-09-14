@@ -13,9 +13,23 @@ const colorNivel = (nivel) => (nivel === 'alerta' ? 'var(--danger)' : nivel === 
 
 export default function SaludPage({ esAdmin }) {
   const [data, setData] = useState({ ultimo: null, ultimos: [] });
+  const [comparativa, setComparativa] = useState(null);
+  const [diasLlm, setDiasLlm] = useState(7);
   const [cargando, setCargando] = useState(true);
   const [aviso, setAviso] = useState('');
   const [corriendo, setCorriendo] = useState(false);
+
+  const cargarComparativa = useCallback(async (d) => {
+    try {
+      const res = await kernelApi.llmComparativa(d);
+      setComparativa(res.data || null);
+    } catch (_) {
+      // Sin comparativa el panel de Salud sigue siendo util: no se rompe la pantalla por esto.
+      setComparativa(null);
+    }
+  }, []);
+
+  useEffect(() => { cargarComparativa(diasLlm); }, [cargarComparativa, diasLlm]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -84,6 +98,44 @@ export default function SaludPage({ esAdmin }) {
           <button type="button" className="btn text-sm" onClick={exportarTendencia}>⬇ Descargar tendencia</button>
         )}
       </div>
+
+      {comparativa && comparativa.proveedores && comparativa.proveedores.length > 0 && (
+        <div className="card p-3 mb-4">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-sm font-medium">Motores LLM por proveedor</span>
+            <div className="flex gap-1">
+              {[1, 7, 30].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`btn text-xs ${diasLlm === d ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setDiasLlm(d)}
+                >
+                  {d} d
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-muted mb-2">
+            El modelo local y los pagos se miden por separado para poder compararlos. Los tokens del modelo
+            local son estimados por longitud (su worker no informa consumo real).
+          </p>
+          {comparativa.proveedores.map((p) => (
+            <div key={p.proveedor} className="py-2 text-xs" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="flex justify-between gap-2">
+                <span className="font-mono font-medium">{p.proveedor}</span>
+                <span>
+                  {p.llamadas} llamadas · {Number(p.tokens || 0).toLocaleString('es-AR')} tokens · {' '}
+                  {p.msPromedio} ms promedio · {p.msMax} ms máximo
+                </span>
+              </div>
+              <div className="text-muted mt-1">
+                {Object.entries(p.modulos || {}).sort((a, b) => b[1] - a[1]).map(([m, n]) => `${m}: ${n}`).join(' · ')}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {cargando && !ultimo && <p className="text-sm text-muted">Cargando…</p>}
       {ultimo && (
