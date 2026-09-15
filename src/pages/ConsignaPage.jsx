@@ -20,6 +20,7 @@ import { consignaApi, preparadosApi, observacionesApi } from '../api/api';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
 
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
@@ -468,7 +469,10 @@ export default function ConsignaPage() {
           <button type="button" className={`btn ${tab === 'preparados' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('preparados')}>Preparado devolución</button>
         </div>
         <div className="flex-1" />
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy en la vista de consignación (${tab}). ¿Que me sugeris?`)}>Preguntar al Secretario</button>
+        <BotonSecretario
+          className="btn btn-ghost text-xs"
+          consulta={`Estoy en la vista de consignación (${tab}). ¿Que me sugeris?`}
+        />
         <button type="button" className="btn btn-primary text-xs" onClick={() => {
           if (tab === 'liquidaciones') setLiqAbierto(true);
           if (tab === 'conciliador') setConcAbierto(true);

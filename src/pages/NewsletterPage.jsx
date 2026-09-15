@@ -10,6 +10,7 @@ import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { newsletterApi } from '../api/api';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
 
 export default function NewsletterPage() {
   const [suscriptores, setSuscriptores] = useState([]);
@@ -100,7 +101,10 @@ export default function NewsletterPage() {
           <option value="ALTA">Solo activos</option>
           <option value="BAJA">Solo bajas</option>
         </select>
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Tengo ${total} suscriptores al newsletter. ¿Que me sugeris?`)}>Preguntar al Secretario</button>
+        <BotonSecretario
+          className="btn btn-ghost text-xs"
+          consulta={`Tengo ${total} suscriptores al newsletter. ¿Que me sugeris?`}
+        />
         <button type="button" className="btn btn-primary text-xs" onClick={() => setModalAbierto(true)}>+ Suscriptor</button>
       </div>
 

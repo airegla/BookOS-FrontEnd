@@ -62,6 +62,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `BuscadorTecnicoBlock.jsx` — F6 — el buscador TECNICO del mostrador (la busqueda F7 del bookerp): modal global con la sintaxis T titulo / A autor / * codigo / X contiene contra /api/catalogo/f7. Es rapido y practico: LISTADO (no tarjetas), navegacion con flechas, Enter agrega el renglon cuando se esta facturando, y el resultado tecnico (EAN, precio, stock) siempre a la vista.
 - `CargarDocumentoBlock.jsx` — carga el contenido de un comprobante de otro modulo dentro del que se esta armando (patron bookerp): elegis un remito/pedido/compra recuperable y sus renglones se copian al borrador actual. Muestra preview antes de cargar.
 - `ChatAgente.jsx` — chat del agente, reutilizable por perfil. El Secretario (panel lateral) y el Asistente de ventas (pagina del CRM) comparten este componente: mismo motor, misma conversacion persistente y mismo render del envelope; cambia la semilla/tools del backend (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada.
+- `FormasPagoBlock.jsx` — sub-formas de pago (debito, credito 6 cuotas, promo semanal de Santa Fe...) vinculadas a un metodo de pago madre y a un operador, con su coeficiente y cuotas. Son las lineas que se eligen al cobrar (F10) y al registrar un recibo.
 - `ImportarCsvBlock.jsx` — importador CSV reutilizable. Dos destinos: 1) "Cargar en la vista": llama onCargar(filas) para meter las filas en el documento que se esta trabajando (items de venta, remito, liquidacion...). 2) "Procesar con el Secretario": adjunta el CSV al contexto y le pide al agente que lo procese con la herramienta que corresponda.
 - `ImportarDocumentoBlock.jsx` — modal "Importar documento" (bookerp: ImportarComprobanteModalBlock). Pestañas por módulo (pedidos, compras, remitos, liquidaciones, devoluciones), búsqueda, selección con vista previa y carga de los libros al trabajo actual.
 - `InteresesClienteBlock.jsx` — intereses de un cliente (doc 06 P5): tematicas cargadas con su origen, alta y baja, siembra de un perfil default y la afinidad REAL medida de sus compras. Es el mismo bloque en la ficha ("Ver") y en la edicion del cliente: lo que se ve es lo que se edita.
@@ -70,6 +71,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `MayoristaCabeceraBlock.jsx` — cabecera de una operacion del mayorista (F-12 §4.4): cliente (con su descuento y plazo), deposito de origen, tipo de operacion, fecha y observaciones. El deposito de destino es SIEMPRE el espejo del cliente elegido (su sabana): se muestra, no se elige.
 - `MayoristaTablaBlock.jsx` — renglones de una operacion del mayorista (F-12 §4.4): buscador asincronico de articulos + cantidad + tipo de stock por linea (consigna/firme) + importacion de CSV. Es el mismo bloque para remitos, facturas y devoluciones: cambia lo que la pagina hace con los items. Con conPrecio (facturas) muestra precio, descuento por linea y subtotal; con sabana (baja de consigna) muestra el disponible real del cliente por titulo y avisa si se factura de mas. La lista de renglones se pagina de a 20 (los documentos largos, p. ej. una liquidacion importada, no rompen la pantalla); los indices que editan son siempre los globales.
 - `ModeloChicoBlock.jsx` — panel del modelo chico local CON HERRAMIENTAS (laboratorio). Muestra su estado y el de su worker, sus topes editables en caliente, el indice compacto de las 33 herramientas para ajustarlo a mano (descripcion por modulo; las acciones salen del contrato y no se editan desde aca), la semilla corta y el prompt final que recibe el modelo. Regla del laboratorio: lo que el motor usa tiene que poder verse y tocarse desde el front; si algo no esta en esta pantalla, el vectorHumano no puede accederlo.
+- `OperadoresPagoBlock.jsx` — mantenimiento de operadores/pasarelas de pago (posnet de Payway, pos de MercadoPago, Fiserv...) con su porcentaje estimado de costo. Es la tabla madre de las sub-formas de pago: cada sub-forma cuelga de un operador.
 
 **src/hooks/**
 
@@ -77,7 +79,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `useAtajoGlobal.js` — atajo de teclado GLOBAL (patron del bookerp, adaptado): escucha en window, evita la accion por defecto del navegador y llama al callback. `activo` permite apagarlo (por ejemplo mientras hay un modal abierto, para no re-dispararlo).
 - `useIsMobile.js` — Hook para detectar viewport móvil (matchMedia).
 - `usePagination.js` — Hook de paginación + búsqueda en memoria para tablas.
-- `usePersistentWork.js` — borradores que sobreviven al cambio de pagina (localStorage). Regla de oro del OS: cambiar de pagina NO borra trabajo.
+- `usePersistentWork.js` — borradores que sobreviven al cambio de pagina y al refresco (localStorage). Regla de oro del OS: cambiar de pagina NO borra trabajo. La clave va POR USUARIO (el id lo deja el login en localStorage): dos operarios en la misma PC no se pisan el borrador. Devuelve ademas `restaurado`, para que la pantalla avise con el indicador "↺ limpiar".
 
 **src/pages/**
 
@@ -116,7 +118,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `TransportesPage.jsx` — transportes y depositos (eje del modulo mayorista). CRUD simple, stock por deposito y conexion con el Secretario.
 - `UsuariosPage.jsx` — ABM de usuarios con la regla indegradable visible: el ultimo admin no se puede borrar, desactivar ni degradar (el backend lo bloquea).
 - `VentasPage.jsx` — comprobante de venta en esquema "cabecera + tabla de items". Features bookerp: multi-pago, pendientes/recuperar (PEDIDO/PRESUPUESTO), giftcard (PDF), captura de email/newsletter y F10. Interconectado con el
-- `VentasPeriodoPage.jsx` — listado de ventas por periodo (el dia o un rango) con subtotales, filtro por tipo, paginado server-side y descarga CSV. Equivale a los "listados de la venta del dia y por periodo" del sistema legacy.
+- `VentasPeriodoPage.jsx` — listado de ventas por periodo (el dia o un rango) con subtotales, filtro por tipo, paginado server-side y descarga CSV. Equivale a los "listados de la venta del dia y por periodo" del sistema legacy. Se puede EMBEBER en un modal (prop `embebido`): en ese caso no repite el titulo ni la marca de debug, porque el modal ya los pone (Caja > Ventas del periodo).
 
 **src/styles/**
 
@@ -125,6 +127,8 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 
 **src/ui/**
 
+- `BorradorRestaurado.jsx` — aviso sutil de que la pantalla tiene trabajo recuperado del disco (la sesion del usuario sobrevive al refrescar). El boton "↺ limpiar" arranca de cero: es el unico gesto para descartar el borrador. Vive en un solo lugar para que todas las paginas se vean igual.
+- `BotonSecretario.jsx` — boton unico para hablar con el Secretario. Reemplaza los botones sueltos "Preguntar al Secretario" repartidos por el front: el icono, el texto, el tooltip y el comportamiento viven en un solo lugar (si algun dia el boton desaparece, se borra aca). Recibe la consulta ya armada por la vista y la deja en el bus del contexto, que la lleva al chat. Con `alPedir` la vista puede ademas cerrar su modal.
 - `DebugTag.jsx` — marca de identificacion de componente cuando debug_mode esta activo. Dos fuentes y alcanza con una: VITE_DEBUG_MODE (build) y el toggle debug_mode del OS (runtime, Sistema ▾ Config). Estado REACTIVO unico (useSyncExternalStore) compartido con el shell: el toggle se ve al instante, sin recargar, y VITE_DEBUG_MODE=true sigue siendo el piso. debug_mode=false -> no renderiza nada.
 - `Input.jsx` — input estandarizado del OS (clase .input-os).
 - `MermaidDiagram.jsx` — renderiza un diagrama Mermaid (texto) como SVG dentro del manual.
@@ -141,6 +145,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `csv.js` — parseo de CSV del lado del cliente + mapeo de columnas por alias. Se usa para importar un listado en el documento actual o adjuntarlo al Secretario.
 - `desarrolloPreguntas.js` — preguntas del instalador PoC. Agregar una pregunta = agregar un objeto aca; el formulario se arma solo y las respuestas se guardan en empresa.config. No se toca codigo core.
 - `exportar.js` — exportacion del lado del cliente. Dos caminos: - descargarCsv: CSV inmediato desde los datos que YA estan en pantalla (listado, carrito, detalle) sin tocar el backend. - descargarDesdeServidor: baja un archivo generado por el backend (una tool del Secretario o el endpoint /exportacion) usando el JWT.
+- `formasPago.js` — costo estimado de una sub-forma de pago (coeficiente del comercio + porcentaje del operador) y su etiqueta legible. Espejo de backend/src/utils/formasPago.helper.js: el mostrador ve lo que absorbe ANTES de cobrar, el backend guarda el mismo numero como snapshot.
 - `selectores.js` — busquedas asincronicas para SelectBuscador (maestros grandes). Una sola fuente para todas las pantallas: cada funcion devuelve [{ id, etiqueta, detalle? }] consultando el endpoint con search+limit (nunca se precarga la tabla entera).
 
 <!-- ARBOL:FIN -->
@@ -273,6 +278,30 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
   (`--muted` a `#6e6a62`, AA) se centralizaron en `globals.css`; los `th` de tabla quedaron sticky.
 - **Propuestas sin cuerpo + clasificacion (2026-09-13)**: el panel de Propuestas marca las que no
   traen cuerpo estructurado (no aprobables) con el motivo visible y el boton **Aprobar**
+
+## Sesion de trabajo, historiales y sub-formas de pago (15-Sep-2026)
+
+- **Sesion de trabajo persistente**: cada page de carga guarda su borrador en disco **por usuario**
+  (`hooks/usePersistentWork` usa `bookos_usuario_id`, que deja el login) y la cabecera muestra
+  `ui/BorradorRestaurado` ("↺ borrador recuperado" + "↺ limpiar"): Facturar (items + cabecera),
+  Caja (movimiento manual), Compras, Remitos, Inventario (busqueda) y los buscadores **F6 y F7**, que
+  ahora sobreviven al refresco y al cierre. La clave del borrador se limpia con el gesto ↺.
+- **Un solo boton del Secretario**: `ui/BotonSecretario` (icono 💬 + tooltip "Hablar con el
+  Secretario") reemplazo el boton suelto en las 15 pages y en las filas de resultado de F6/F7.
+- **Historiales en modal**: el historial anulable de Facturar y, dentro de Caja, "Ventas del
+  dia/periodo" y "Turnos cerrados (Z)" - que vivian al pie de la page - ahora son modales. En la
+  navbar "Ventas del dia/periodo" quedo despues de Caja (es su lugar natural).
+- **Ajustes de precio con seguimiento**: el cobro (F10) tiene el campo **nota de la venta** y el
+  renglon que sale con descuento o cambio de precio queda asentado por el motor en la misma nota
+  estructurada; el detalle del comprobante muestra la nota y el seguimiento, y la tabla de formas de
+  pago suma **Sub-forma** y **Costo est.**.
+- **Sub-formas de pago en la UI**: `ParametrosPage` suma las solapas **Operadores / pasarelas** (%
+  estimado de costo) y **Sub-formas de pago** (metodo madre, operador, subtipo DEBITO/CREDITO/QR/PROMO,
+  cuotas y coeficiente "1.10"); en el cobro y en el recibo de cuenta corriente cada linea de pago
+  puede llevar su sub-forma y la pantalla muestra el **costo estimado** que absorbe el comercio
+  (`utils/formasPago.js`, espejo de la formula del backend para verlo antes de confirmar).
+- **Multi-pago**: el "+" agrega una linea con **lo que falta** para cancelar el total, y cambiar el
+  metodo de una linea borra su sub-forma (cada sub-forma pertenece a un metodo madre).
   deshabilitado; el detalle vacio ya no muestra un `null`. El agente suma `materias_proponer`
   (propone materia para titulos sin materia por vecinos semanticos, exportable a CSV) y
   `materias_asignar` (asignacion en lote con preview y confirmacion).

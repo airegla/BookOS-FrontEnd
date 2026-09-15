@@ -22,6 +22,7 @@ import { mayoristaApi, depositosApi, observacionesApi, configApi } from '../api/
 import { buscarMayoristas } from '../utils/selectores';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
 
 const TABS = [
   { id: 'resumen', label: 'Resumen' },
@@ -762,7 +763,10 @@ export default function MayoristaPage() {
             <button key={t.id} type="button" className={`btn ${tab === t.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab(t.id)}>{t.label}</button>
           ))}
         </div>
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy en el módulo mayorista (${tab}). ¿Que me sugeris?`)}>Preguntar al Secretario</button>
+        <BotonSecretario
+          className="btn btn-ghost text-xs"
+          consulta={`Estoy en el módulo mayorista (${tab}). ¿Que me sugeris?`}
+        />
       </div>
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}

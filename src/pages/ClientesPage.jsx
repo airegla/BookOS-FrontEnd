@@ -12,6 +12,7 @@ import DebugTag from '../ui/DebugTag';
 import { clientesApi, ctaCteApi, crmApi } from '../api/api';
 import InteresesClienteBlock from '../blocks/InteresesClienteBlock';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
 
 // Condiciones frente al IVA frecuentes (dato heredado del legacy: puede venir texto libre).
 const CONDICIONES_IVA = ['Consumidor Final', 'Responsable Inscripto', 'Monotributo', 'Exento', 'No Categorizado'];
@@ -195,7 +196,7 @@ export default function ClientesPage() {
         footer={
           ficha ? (
             <div className="flex gap-2">
-              <button type="button" className="btn btn-ghost" onClick={() => pedirConsulta(`Que me podes decir de ${ficha.cliente.nombre}? Mira su cuenta corriente.`)}>Preguntar al Secretario</button>
+              <BotonSecretario consulta={`Que me podes decir de ${ficha.cliente.nombre}? Mira su cuenta corriente.`} />
               <button type="button" className="btn btn-primary" onClick={() => setFicha(null)}>Cerrar</button>
             </div>
           ) : null
@@ -241,7 +242,7 @@ export default function ClientesPage() {
         footer={
           grafo ? (
             <>
-              <button type="button" className="btn btn-ghost" onClick={() => { pedirConsulta(`¿Que me podes decir de ${grafo.cliente.nombre}? Mira sus interacciones.`); }}>Preguntar al Secretario</button>
+              <BotonSecretario consulta={`¿Que me podes decir de ${grafo.cliente.nombre}? Mira sus interacciones.`} />
               <button type="button" className="btn btn-primary" onClick={() => setGrafo(null)}>Cerrar</button>
             </>
           ) : null

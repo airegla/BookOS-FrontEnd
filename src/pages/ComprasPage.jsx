@@ -24,6 +24,8 @@ import { buscarProveedores } from '../utils/selectores';
 import { comprasApi, observacionesApi, pedidosProveedorApi } from '../api/api';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
 
 // El remito de proveedor tiene su propia vista ("Remitos"): aca no se ofrece como tipo
 // para que exista UN solo flujo (decision del vectorHumano: "que haya dos formas de hacer
@@ -44,7 +46,7 @@ export default function ComprasPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pedidos, setPedidos] = useState([]);
-  const [borrador, setBorrador] = usePersistentWork('compra', { proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
+  const [borrador, setBorrador, limpiarBorrador, restaurado] = usePersistentWork('compra', { proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
   const [ean, setEan] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [precio, setPrecio] = useState('');
@@ -285,7 +287,8 @@ export default function ComprasPage() {
         <h2 className="text-lg font-semibold">Compras</h2>
         <div className="flex gap-2">
           <button type="button" className="btn btn-primary" onClick={abrirPedido}>Pedido a proveedor</button>
-          <button type="button" className="btn btn-ghost" onClick={() => pedirConsulta('Dame un resumen de compras de los ultimos 30 dias.')}>Preguntar al Secretario</button>
+          <BorradorRestaurado visible={restaurado} onLimpiar={limpiarBorrador} />
+          <BotonSecretario consulta="Dame un resumen de compras de los ultimos 30 dias." />
         </div>
       </div>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
@@ -480,7 +483,7 @@ export default function ComprasPage() {
           detalle ? (
             <div className="flex gap-2">
               <button type="button" className="btn btn-ghost" onClick={() => exportarDetalle(detalle)}>Exportar CSV</button>
-              <button type="button" className="btn btn-ghost" onClick={() => pedirConsulta(`Resumime la compra #${detalle.id}${detalle.proveedor ? ` de ${detalle.proveedor.nombre}` : ''}.`)}>Preguntar al Secretario</button>
+              <BotonSecretario consulta={`Resumime la compra #${detalle.id}${detalle.proveedor ? ` de ${detalle.proveedor.nombre}` : ''}.`} />
               {detalle.estado !== 'ANULADA' && (
                 <button type="button" className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => { anular(detalle.id); setDetalle(null); }}>Anular</button>
               )}

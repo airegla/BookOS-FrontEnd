@@ -3,6 +3,8 @@
 // descripcion: listado de ventas por periodo (el dia o un rango) con subtotales,
 //   filtro por tipo, paginado server-side y descarga CSV. Equivale a los
 //   "listados de la venta del dia y por periodo" del sistema legacy.
+//   Se puede EMBEBER en un modal (prop `embebido`): en ese caso no repite el titulo ni la marca de
+//   debug, porque el modal ya los pone (Caja > Ventas del periodo).
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
@@ -17,7 +19,7 @@ const aISO = (d) => d.toISOString().slice(0, 10);
 const hoy = () => aISO(new Date());
 const haceDias = (d) => aISO(new Date(Date.now() - d * 24 * 60 * 60 * 1000));
 
-export default function VentasPeriodoPage() {
+export default function VentasPeriodoPage({ embebido = false }) {
   const [desde, setDesde] = useState(hoy());
   const [hasta, setHasta] = useState(hoy());
   const [tipo, setTipo] = useState('');
@@ -71,9 +73,9 @@ export default function VentasPeriodoPage() {
 
   return (
     <div>
-      <DebugTag nombre="VentasPeriodoPage" />
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Ventas del dia / periodo</h2>
+      {!embebido && <DebugTag nombre="VentasPeriodoPage" />}
+      <div className={`flex items-center mb-4 ${embebido ? 'justify-end' : 'justify-between'}`}>
+        {!embebido && <h2 className="text-lg font-semibold">Ventas del dia / periodo</h2>}
         <div className="flex gap-2">
           <button type="button" className="btn btn-ghost text-xs" onClick={() => { setDesde(hoy()); setHasta(hoy()); setPage(1); }}>Hoy</button>
           <button type="button" className="btn btn-ghost text-xs" onClick={() => { setDesde(haceDias(7)); setHasta(hoy()); setPage(1); }}>Ultimos 7 dias</button>

@@ -11,6 +11,8 @@ import DebugTag from '../ui/DebugTag';
 import { inventarioApi } from '../api/api';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
+import usePersistentWork from '../hooks/usePersistentWork';
 
 // Tipos FIFE de ajuste (bookerp): cada uno define los deltas; la cantidad siempre es positiva.
 // En altas/bajas de consigna el original sigue al actual (el proveedor entrega/retira fisicamente);
@@ -26,7 +28,9 @@ const TIPOS_AJUSTE = [
 ];
 
 export default function InventarioPage() {
-  const [busqueda, setBusqueda] = useState('');
+  // El buscador sobrevive al refrescar (el ajuste/transferencia son atomicos por articulo: ahi no
+  // hay borrador que guardar sin riesgo de precargar cantidades sobre otro libro).
+  const [busqueda, setBusqueda] = usePersistentWork('inventario_busqueda', '');
   const [filas, setFilas] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -191,7 +195,10 @@ export default function InventarioPage() {
         <input className="input-os" style={{ maxWidth: 320 }} placeholder="EAN o titulo..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') buscar(); }} />
         <button type="button" className="btn" onClick={buscar}>Buscar</button>
         <div className="flex-1" />
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy viendo el inventario (${total} articulos). ¿Que me sugeris reponer o ajustar?`)}>Preguntar al Secretario</button>
+        <BotonSecretario
+          className="btn btn-ghost text-xs"
+          consulta={`Estoy viendo el inventario (${total} articulos). ¿Que me sugeris reponer o ajustar?`}
+        />
       </div>
 
       <Table columnas={columnas} filas={filas} vacio="Busca un articulo" exportable exportarNombre="inventario" />

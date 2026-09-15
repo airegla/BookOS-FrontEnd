@@ -62,6 +62,8 @@ function Login({ onLogin }) {
     try {
       const res = await authApi.login(email, password);
       localStorage.setItem('bookos_token', res.data.token);
+      // La clave de los borradores es por usuario: el id se guarda para usePersistentWork.
+      if (res.data.user && res.data.user.id) localStorage.setItem('bookos_usuario_id', String(res.data.user.id));
       onLogin(res.data.user);
     } catch (err) {
       setError(err.message);
@@ -107,8 +109,14 @@ export default function App() {
       return;
     }
     authApi.me()
-      .then((res) => setUsuario(res.data))
-      .catch(() => localStorage.removeItem('bookos_token'))
+      .then((res) => {
+        setUsuario(res.data);
+        if (res.data && res.data.id) localStorage.setItem('bookos_usuario_id', String(res.data.id));
+      })
+      .catch(() => {
+        localStorage.removeItem('bookos_token');
+        localStorage.removeItem('bookos_usuario_id');
+      })
       .finally(() => setCargando(false));
     // Marcas de debug: el toggle debug_mode del OS manda en caliente (Sistema > Config), sin
     // recompilar el front. VITE_DEBUG_MODE sigue siendo el piso: si esta en true, no lo apaga.
@@ -155,6 +163,7 @@ export default function App() {
 
   const salir = () => {
     localStorage.removeItem('bookos_token');
+    localStorage.removeItem('bookos_usuario_id');
     setUsuario(null);
   };
 

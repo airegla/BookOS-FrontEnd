@@ -11,9 +11,11 @@ import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import SelectBuscador from '../ui/SelectBuscador';
 import { buscarClientes, buscarProveedores } from '../utils/selectores';
-import { ctaCteApi } from '../api/api';
+import { ctaCteApi, parametrosApi } from '../api/api';
 import { descargarDesdeServidor } from '../utils/exportar';
+import { costoEstimadoDeForma, etiquetaForma, formasDelMetodo } from '../utils/formasPago';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
 
 const METODOS = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CHEQUE'];
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
@@ -36,6 +38,9 @@ export default function CtaCtePage({ lado = 'cliente' }) {
   const [monto, setMonto] = useState('');
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
   const [obs, setObs] = useState('');
+  // Sub-formas de pago activas: el recibo lleva la misma foto economica que el cobro de una venta.
+  const [formas, setFormas] = useState([]);
+  const [formaPagoId, setFormaPagoId] = useState(null);
 
   const { setContextoActual, pedirConsulta } = useAppContext();
 
@@ -76,19 +81,24 @@ export default function CtaCtePage({ lado = 'cliente' }) {
     });
   }, [tipo, clienteId, proveedorId, cuenta.saldoActual, cuenta.movimientos.length]); // eslint-disable-line
 
+  useEffect(() => {
+    parametrosApi.formasPago().then((res) => setFormas(res.data || [])).catch(() => {});
+  }, []);
+
   const registrarRecibo = async () => {
     try {
       const payload = {
         monto: Number(monto),
         metodoPago,
         observaciones: obs || null,
+        formaPagoId: formaPagoId || null,
       };
       if (tipo === 'cliente') payload.clienteId = Number(clienteId);
       else payload.proveedorId = Number(proveedorId);
       const res = await ctaCteApi.registrarRecibo(payload);
       setMensaje(`Recibo ${res.data.numero || `#${res.data.reciboId}`} registrado ✓`);
       setReciboAbierto(false);
-      setMonto(''); setObs('');
+      setMonto(''); setObs(''); setFormaPagoId(null);
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -195,9 +205,10 @@ export default function CtaCtePage({ lado = 'cliente' }) {
             <button type="button" className="btn btn-ghost" disabled={!seleccionado || estudiando} onClick={estudiar}>
               {estudiando ? 'Estudiando...' : 'Estudiar comportamiento'}
             </button>
-            <button type="button" className="btn btn-ghost" disabled={!seleccionado} onClick={() => pedirConsulta(`Estoy viendo la cuenta corriente de ${tipo === 'cliente' ? 'cliente' : 'proveedor'} #${seleccionado} (saldo ${fmt(cuenta.saldoActual)}). ¿Que me contas del comportamiento?`)}>
-              Preguntar al Secretario
-            </button>
+            <BotonSecretario
+              disabled={!seleccionado}
+              consulta={`Estoy viendo la cuenta corriente de ${tipo === 'cliente' ? 'cliente' : 'proveedor'} #${seleccionado} (saldo ${fmt(cuenta.saldoActual)}). ¿Que me contas del comportamiento?`}
+            />
           </div>
         </div>
 
@@ -240,10 +251,24 @@ export default function CtaCtePage({ lado = 'cliente' }) {
         </label>
         <label className="block mb-3">
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Metodo de pago</span>
-          <select className="input-os" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)}>
+          <select className="input-os" value={metodoPago} onChange={(e) => { setMetodoPago(e.target.value); setFormaPagoId(null); }}>
             {METODOS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </label>
+        {formasDelMetodo(formas, metodoPago).length > 0 && (
+          <label className="block mb-3">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Sub-forma (opcional)</span>
+            <select className="input-os" value={formaPagoId || ''} onChange={(e) => setFormaPagoId(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">Sin sub-forma</option>
+              {formasDelMetodo(formas, metodoPago).map((f) => <option key={f.id} value={f.id}>{etiquetaForma(f)}</option>)}
+            </select>
+            {(() => {
+              const forma = formasDelMetodo(formas, metodoPago).find((f) => f.id === formaPagoId) || null;
+              const costo = costoEstimadoDeForma(forma, monto);
+              return costo > 0 ? <span className="block text-xs text-muted mt-1">Costo estimado: {fmt(costo)}</span> : null;
+            })()}
+          </label>
+        )}
         <label className="block mb-3">
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Observaciones</span>
           <input className="input-os" value={obs} onChange={(e) => setObs(e.target.value)} />

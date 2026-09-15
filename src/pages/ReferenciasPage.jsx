@@ -11,6 +11,7 @@ import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
 import { autoresApi, materiasApi, editorialesApi, observacionesApi } from '../api/api';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
 
 const TABS = [
   { id: 'autores', label: 'Autores' },
@@ -157,7 +158,10 @@ export default function ReferenciasPage() {
         <input className="input-os" style={{ maxWidth: 320 }} placeholder={esAutores ? 'Buscar autor...' : esMaterias ? 'Buscar materia...' : 'Buscar editorial...'} value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); cargar(tab, 1); } }} />
         <button type="button" className="btn btn-ghost text-xs" onClick={() => cargar()}>Buscar</button>
         <div className="flex-1" />
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy viendo las referencias (${tab}). Hay ${filas.length} registros. ¿Que me sugeris?`)}>Preguntar al Secretario</button>
+        <BotonSecretario
+          className="btn btn-ghost text-xs"
+          consulta={`Estoy viendo las referencias (${tab}). Hay ${filas.length} registros. ¿Que me sugeris?`}
+        />
         <button type="button" className="btn btn-primary text-xs" onClick={abrirAlta}>{esAutores ? '+ Autor' : esMaterias ? '+ Materia' : '+ Editorial'}</button>
       </div>
 

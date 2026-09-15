@@ -12,7 +12,7 @@ import ManualBlock from '../blocks/ManualBlock';
 //   Ventas  = entra dinero, sale mercaderia.
 //   Compras = entra mercaderia, sale dinero (incluye remitos y consigna).
 const GRUPOS = [
-  { nombre: 'Ventas', items: ['Facturar', 'Ventas del dia/periodo', 'Caja', 'Clientes', 'Cuenta corriente cliente', 'Newsletter'] },
+  { nombre: 'Ventas', items: ['Facturar', 'Caja', 'Ventas del dia/periodo', 'Clientes', 'Cuenta corriente cliente', 'Newsletter'] },
   { nombre: 'Compras', items: ['Compras', 'Remitos', 'Proveedores', 'Cuenta corriente proveedor', 'Consigna'] },
   { nombre: 'Stock', items: ['Inventario', 'Transportes', 'Mayorista'] },
   { nombre: 'Catalogo', items: ['Catalogo', 'Referencias'] },

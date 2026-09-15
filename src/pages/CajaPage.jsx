@@ -13,6 +13,10 @@ import DebugTag from '../ui/DebugTag';
 import { cajaApi, parametrosApi } from '../api/api';
 import { descargarCsv, descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
+import usePersistentWork from '../hooks/usePersistentWork';
+import VentasPeriodoPage from './VentasPeriodoPage';
 
 const MONEDA = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
@@ -29,7 +33,11 @@ export default function CajaPage() {
   const [actual, setActual] = useState(null);
   const [cierres, setCierres] = useState([]);
   const [categorias, setCategorias] = useState([]);
-  const [form, setForm] = useState({ tipo: 'INGRESO', concepto: '', monto: '', metodoPago: 'EFECTIVO' });
+  // El movimiento manual es un documento que se esta cargando: tipo, concepto y medio de pago
+  // sobreviven al refrescar. El MONTO se deja afuera A PROPOSITO: un importe viejo precargado es
+  // un error contable esperando.
+  const [ultimoMov, setUltimoMov, limpiarUltimoMov, restaurado] = usePersistentWork('caja_movimiento', { tipo: 'INGRESO', concepto: '', metodoPago: 'EFECTIVO' });
+  const [form, setForm] = useState({ ...ultimoMov, monto: '' });
   const [cierreForm, setCierreForm] = useState({ saldoRealDeclarado: '', montoApertura: '', observaciones: '' });
   const [cerrarAbierto, setCerrarAbierto] = useState(false);
   const [detalleCierre, setDetalleCierre] = useState(null);
@@ -39,6 +47,9 @@ export default function CajaPage() {
   const [pagoEditando, setPagoEditando] = useState(null);
   const [metodoNuevo, setMetodoNuevo] = useState('EFECTIVO');
   const [mensaje, setMensaje] = useState('');
+  // Historiales en modal (15-09): el listado de ventas del dia/periodo y los turnos cerrados.
+  const [ventasPeriodoAbierto, setVentasPeriodoAbierto] = useState(false);
+  const [turnosAbierto, setTurnosAbierto] = useState(false);
   const { setContextoActual, pedirConsulta } = useAppContext();
 
   const cargar = async (p = pageCierres) => {
@@ -58,6 +69,11 @@ export default function CajaPage() {
   useEffect(() => {
     parametrosApi.categoriasCaja().then((res) => setCategorias(res.data || [])).catch(() => {});
   }, []);
+
+  // Lo que se tipea en el movimiento manual queda guardado (menos el monto).
+  useEffect(() => {
+    setUltimoMov({ tipo: form.tipo, concepto: form.concepto, metodoPago: form.metodoPago });
+  }, [form.tipo, form.concepto, form.metodoPago]); // eslint-disable-line
 
   useEffect(() => {
     if (actual) setContextoActual({ vista: 'caja', totales: actual.totales });
@@ -162,7 +178,7 @@ export default function CajaPage() {
     { clave: 'totalVentas', titulo: 'Total ventas', render: (c) => MONEDA(c.totalVentas) },
     { clave: 'diferenciaEfectivo', titulo: 'Diferencia', render: (c) => <span style={{ color: Number(c.diferenciaEfectivo) === 0 ? 'var(--muted)' : 'var(--danger)' }}>{MONEDA(c.diferenciaEfectivo)}</span> },
     { clave: 'acciones', titulo: '', render: (c) => (
-      <button type="button" className="btn btn-ghost text-xs" onClick={() => verCierre(c.id)}>Ver informe</button>
+      <button type="button" className="btn btn-ghost text-xs" onClick={() => { setTurnosAbierto(false); verCierre(c.id); }}>Ver informe</button>
     ) },
   ];
 
@@ -170,9 +186,14 @@ export default function CajaPage() {
     <div>
       <DebugTag nombre="CajaPage" />
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Caja</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">Caja</h2>
+          <BorradorRestaurado visible={restaurado} onLimpiar={limpiarUltimoMov} />
+        </div>
         <div className="flex gap-2">
-          <button type="button" className="btn btn-ghost" onClick={() => pedirConsulta('¿Como esta la caja? Dame un resumen del turno abierto.')}>Preguntar al Secretario</button>
+          <BotonSecretario consulta="¿Como esta la caja? Dame un resumen del turno abierto." />
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => setVentasPeriodoAbierto(true)}>Ventas del periodo</button>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => setTurnosAbierto(true)}>Turnos (Z)</button>
           <button type="button" className="btn btn-primary" onClick={() => setCerrarAbierto(true)}>Cierre Z</button>
         </div>
       </div>
@@ -220,9 +241,17 @@ export default function CajaPage() {
         </div>
       </div>
 
-      <h3 className="font-semibold mb-2">Historial de cierres Z</h3>
-      <Table columnas={columnasCierres} filas={cierres} vacio="Sin cierres" />
-      <Paginador page={pageCierres} total={totalCierres} limite={20} onCambiar={setPageCierres} etiqueta="cierres" />
+      {/* HISTORIALES EN MODAL (15-09): lo que estaba al pie de la pagina. */}
+      <Modal abierto={ventasPeriodoAbierto} onClose={() => setVentasPeriodoAbierto(false)} titulo="Ventas del dia / periodo" ancho="1000px">
+        <VentasPeriodoPage embebido />
+      </Modal>
+
+      <Modal abierto={turnosAbierto} onClose={() => setTurnosAbierto(false)} titulo="Turnos cerrados (cierres Z)" ancho="900px"
+        footer={<button type="button" className="btn btn-primary" onClick={() => setTurnosAbierto(false)}>Cerrar</button>}
+      >
+        <Table columnas={columnasCierres} filas={cierres} vacio="Sin cierres" />
+        <Paginador page={pageCierres} total={totalCierres} limite={20} onCambiar={setPageCierres} etiqueta="cierres" />
+      </Modal>
 
       <Modal abierto={cerrarAbierto} onClose={() => setCerrarAbierto(false)} titulo="Cierre Z (arqueo)" ancho="420px"
         footer={

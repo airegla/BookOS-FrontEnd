@@ -22,12 +22,14 @@ import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
 
 export default function RemitosPage() {
   const [remitos, setRemitos] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [borrador, setBorrador, limpiarBorrador] = usePersistentWork('remito', { proveedor: '', numero: '', fecha: '', observaciones: '', tipoStockAfectado: 'CONSIGNA', items: [] });
+  const [borrador, setBorrador, limpiarBorrador, restaurado] = usePersistentWork('remito', { proveedor: '', numero: '', fecha: '', observaciones: '', tipoStockAfectado: 'CONSIGNA', items: [] });
   const [itemEan, setItemEan] = useState('');
   const [itemCantidad, setItemCantidad] = useState('');
   const [itemCosto, setItemCosto] = useState('');
@@ -203,9 +205,11 @@ export default function RemitosPage() {
       <div className="card p-4 mb-4">
         <div className="flex items-end justify-between mb-3">
           <h3 className="font-semibold">Cabecera del remito</h3>
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy armando un remito para ${borrador.proveedor || 'un proveedor'} con ${borrador.items.length} items. ¿Que me falta pedir?`)}>
-            Preguntar al Secretario
-          </button>
+          <BorradorRestaurado visible={restaurado} onLimpiar={limpiarBorrador} />
+          <BotonSecretario
+            className="btn btn-ghost text-xs"
+            consulta={`Estoy armando un remito para ${borrador.proveedor || 'un proveedor'} con ${borrador.items.length} items. ¿Que me falta pedir?`}
+          />
         </div>
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <label className="block">
@@ -294,7 +298,7 @@ export default function RemitosPage() {
         footer={
           verRemito ? (
             <>
-              <button type="button" className="btn btn-ghost" onClick={() => { pedirConsulta(`Este es el remito #${verRemito.id} de ${verRemito.proveedor} (estado ${verRemito.estado}). ¿Que hay que pedir?`); }}>Preguntar al Secretario</button>
+              <BotonSecretario consulta={`Este es el remito #${verRemito.id} de ${verRemito.proveedor} (estado ${verRemito.estado}). ¿Que hay que pedir?`} />
               <button type="button" className="btn btn-primary" onClick={() => { cruzar(verRemito.id); setVerRemito(null); }}>Cruzar faltantes</button>
               <button type="button" className="btn btn-ghost" onClick={() => setVerRemito(null)}>Cerrar</button>
             </>

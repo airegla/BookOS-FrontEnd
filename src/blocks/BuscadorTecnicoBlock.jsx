@@ -7,6 +7,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
+import BotonSecretario from '../ui/BotonSecretario';
+import usePersistentWork from '../hooks/usePersistentWork';
 import { catalogoApi } from '../api/api';
 import { useAppContext } from '../AppContext';
 
@@ -14,10 +16,14 @@ const money = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 const stockDe = (a) => Number(a.stock || 0) + Number(a.stockDeposito || 0);
 
 export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = false, onIrACatalogo = null }) {
-  const { emitirInstruccion, pedirConsulta } = useAppContext();
-  const [q, setQ] = useState('');
-  const [filas, setFilas] = useState([]);
-  const [buscado, setBuscado] = useState('');
+  const { emitirInstruccion } = useAppContext();
+  // F6 PERSISTENTE (como el F7): cerrar el modal o refrescar la pagina NO pierde la busqueda.
+  // El estado vive en disco (usePersistentWork) y el boton ↺ Limpiar lo arranca de cero.
+  const [memoria, setMemoria, limpiarMemoria] = usePersistentWork('buscador_f6', { q: '', filas: [], buscado: '' });
+  const { q, filas, buscado } = memoria;
+  const setQ = (v) => setMemoria((m) => ({ ...m, q: v }));
+  const setFilas = (v) => setMemoria((m) => ({ ...m, filas: v }));
+  const setBuscado = (v) => setMemoria((m) => ({ ...m, buscado: v }));
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
   const [indice, setIndice] = useState(0);
@@ -25,14 +31,8 @@ export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = f
   const listaRef = useRef(null);
 
   useEffect(() => {
-    if (!abierto) {
-      setQ('');
-      setFilas([]);
-      setBuscado('');
-      setError('');
-      setIndice(0);
-      return;
-    }
+    if (!abierto) return undefined;
+    setError('');
     const t = setTimeout(() => inputRef.current && inputRef.current.focus(), 80);
     return () => clearTimeout(t);
   }, [abierto]);
@@ -100,10 +100,18 @@ export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = f
     if (fila && fila.scrollIntoView) fila.scrollIntoView({ block: 'nearest' });
   }, [indice, filas]);
 
+  // ↺ Limpiar: borra el borrador guardado y arranca de cero (mismo gesto que el F7).
+  const limpiar = () => {
+    limpiarMemoria();
+    setError('');
+    setIndice(0);
+    if (inputRef.current) inputRef.current.focus();
+  };
+
   const footer = (
     <div className="flex items-center justify-between gap-2 w-full">
       <span className="text-xs text-muted">
-        T titulo · A autor · * codigo exacto · X contiene {enFacturar ? '· ↑↓ elegir · Enter buscar · Shift+Enter agrega' : '· ↑↓ elegir'}
+        T titulo · A autor · * codigo exacto · X contiene {enFacturar ? '· ↑↓ elegir · Enter buscar · Shift+Enter agrega' : '· ↑↓ elegir'} · la busqueda se conserva al cerrar
       </span>
       <button type="button" className="btn btn-ghost text-xs" onClick={onCerrar}>Cerrar (Esc)</button>
     </div>
@@ -123,6 +131,7 @@ export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = f
         <button type="button" className="btn btn-primary text-sm" disabled={cargando} onClick={() => buscar(q)}>
           {cargando ? 'Buscando...' : 'Buscar'}
         </button>
+        <button type="button" className="btn btn-ghost text-sm" title="Empezar de cero (borra la busqueda guardada)" onClick={limpiar}>↺ Limpiar</button>
       </div>
       {error && <p className="text-sm mb-2" style={{ color: 'var(--danger)' }}>{error}</p>}
       {buscado && !error && <p className="text-xs text-muted mb-1">{filas.length} resultado(s) para «{buscado}»</p>}
@@ -158,13 +167,12 @@ export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = f
                   <td className="text-right whitespace-nowrap">
                     {enFacturar && <button type="button" className="btn btn-primary text-xs" onClick={() => agregar(a)}>Agregar</button>}
                     <button type="button" className="btn btn-ghost text-xs ml-1" onClick={() => verFicha(a)}>Ficha</button>
-                    <button
-                      type="button"
+                    <BotonSecretario
+                      soloIcono
                       className="btn btn-ghost text-xs ml-1"
-                      onClick={() => { pedirConsulta(`Contame que sabemos de "${a.titulo}" (${eanDe(a)}).`); onCerrar(); }}
-                    >
-                      Preguntar
-                    </button>
+                      consulta={`Contame que sabemos de "${a.titulo}" (${eanDe(a)}).`}
+                      alPedir={onCerrar}
+                    />
                   </td>
                 </tr>
               ))}

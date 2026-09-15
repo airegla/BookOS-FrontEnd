@@ -346,6 +346,15 @@ export const parametrosApi = {
   crearCategoriaCaja: (payload) => axiosClient.post('/parametros/categorias-caja', payload),
   actualizarCategoriaCaja: (id, payload) => axiosClient.put(`/parametros/categorias-caja/${id}`, payload),
   eliminarCategoriaCaja: (id) => axiosClient.delete(`/parametros/categorias-caja/${id}`),
+  // Operadores/pasarelas (tabla madre) y sub-formas de pago (debito, credito 6 cuotas, promos).
+  operadoresPago: () => axiosClient.get('/parametros/operadores-pago'),
+  crearOperadorPago: (payload) => axiosClient.post('/parametros/operadores-pago', payload),
+  actualizarOperadorPago: (id, payload) => axiosClient.put(`/parametros/operadores-pago/${id}`, payload),
+  eliminarOperadorPago: (id) => axiosClient.delete(`/parametros/operadores-pago/${id}`),
+  formasPago: () => axiosClient.get('/parametros/formas-pago'),
+  crearFormaPago: (payload) => axiosClient.post('/parametros/formas-pago', payload),
+  actualizarFormaPago: (id, payload) => axiosClient.put(`/parametros/formas-pago/${id}`, payload),
+  eliminarFormaPago: (id) => axiosClient.delete(`/parametros/formas-pago/${id}`),
 };
 
 export const importadorApi = {

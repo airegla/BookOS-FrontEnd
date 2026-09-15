@@ -9,6 +9,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
+import BotonSecretario from '../ui/BotonSecretario';
+import usePersistentWork from '../hooks/usePersistentWork';
 import { kernelApi, crmApi } from '../api/api';
 import { useAppContext } from '../AppContext';
 
@@ -46,13 +48,17 @@ function textoDeComando(d) {
 }
 
 export default function BuscadorSemanticoBlock({ abierto, onCerrar, enFacturar = false, onAbrirAsistente }) {
-  const { emitirInstruccion, pedirConsulta, clienteIdActivo } = useAppContext();
-  const [texto, setTexto] = useState('');
-  const [resultados, setResultados] = useState([]);
-  const [consultado, setConsultado] = useState('');
+  const { emitirInstruccion, clienteIdActivo } = useAppContext();
+  // PERSISTENTE: cerrar el modal o REFRESCAR la pagina no pierde nada (texto, resultados y
+  // comando quedan en disco). El boton ↺ Limpiar arranca de cero.
+  const [memoria, setMemoria, limpiarMemoria] = usePersistentWork('buscador_f7', { texto: '', resultados: [], consultado: '', comandoTexto: '' });
+  const { texto, resultados, consultado, comandoTexto } = memoria;
+  const setTexto = (v) => setMemoria((m) => ({ ...m, texto: v }));
+  const setResultados = (v) => setMemoria((m) => ({ ...m, resultados: v }));
+  const setConsultado = (v) => setMemoria((m) => ({ ...m, consultado: v }));
+  const setComandoTexto = (v) => setMemoria((m) => ({ ...m, comandoTexto: v }));
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [comandoTexto, setComandoTexto] = useState('');
   const [creandoPedido, setCreandoPedido] = useState('');
   const [aviso, setAviso] = useState('');
   const inputRef = useRef(null);
@@ -151,12 +157,10 @@ export default function BuscadorSemanticoBlock({ abierto, onCerrar, enFacturar =
     }
   };
 
+  // ↺ Limpiar: borra el borrador guardado (texto, resultados y comando) y arranca de cero.
   const limpiar = () => {
-    setTexto('');
-    setResultados([]);
-    setConsultado('');
+    limpiarMemoria();
     setError('');
-    setComandoTexto('');
     if (inputRef.current) inputRef.current.focus();
   };
 
@@ -174,7 +178,7 @@ export default function BuscadorSemanticoBlock({ abierto, onCerrar, enFacturar =
             Abrir el Asistente
           </button>
         )}
-        <button type="button" className="btn btn-ghost text-xs" onClick={limpiar}>Limpiar</button>
+        <button type="button" className="btn btn-ghost text-xs" title="Empezar de cero (borra la busqueda guardada)" onClick={limpiar}>↺ Limpiar</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={onCerrar}>Cerrar (Esc)</button>
       </div>
     </div>
@@ -224,13 +228,11 @@ export default function BuscadorSemanticoBlock({ abierto, onCerrar, enFacturar =
               </div>
             </div>
             <div className="f7-acciones">
-              <button
-                type="button"
+              <BotonSecretario
                 className="btn btn-ghost text-xs"
-                onClick={() => { pedirConsulta(`Pregunta de mostrador: ${consultado}. Que me decis de "${a.titulo}"?`); onCerrar(); }}
-              >
-                Preguntar al Secretario
-              </button>
+                consulta={`Pregunta de mostrador: ${consultado}. Que me decis de "${a.titulo}"?`}
+                alPedir={onCerrar}
+              />
               {disponible ? (
                 <button
                   type="button"

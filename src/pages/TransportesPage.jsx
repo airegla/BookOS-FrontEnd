@@ -10,6 +10,7 @@ import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
 import { transportesApi, depositosApi } from '../api/api';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
 
 const TIPOS_DEPOSITO = ['CENTRAL', 'SUCURSAL', 'MAYORISTA'];
 
@@ -142,9 +143,10 @@ export default function TransportesPage() {
           <button type="button" className={`btn ${tab === 'depositos' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('depositos')}>Depósitos</button>
         </div>
         <div className="flex-1" />
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy en la vista de ${tab === 'transportes' ? 'transportes' : 'depósitos'} (${tab === 'transportes' ? transportes.length : depositos.length} registros). ¿Que me sugeris?`)}>
-          Preguntar al Secretario
-        </button>
+        <BotonSecretario
+          className="btn btn-ghost text-xs"
+          consulta={`Estoy en la vista de ${tab === 'transportes' ? 'transportes' : 'depósitos'} (${tab === 'transportes' ? transportes.length : depositos.length} registros). ¿Que me sugeris?`}
+        />
         <button type="button" className="btn btn-primary text-xs" onClick={abrirNuevo}>
           + {tab === 'transportes' ? 'Transporte' : 'Depósito'}
         </button>

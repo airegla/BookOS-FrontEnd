@@ -10,10 +10,15 @@ import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
 import { parametrosApi } from '../api/api';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
+import OperadoresPagoBlock from '../blocks/OperadoresPagoBlock';
+import FormasPagoBlock from '../blocks/FormasPagoBlock';
 
 const TABS = [
   { id: 'metodos', label: 'Metodos de pago' },
   { id: 'categorias', label: 'Categorias de caja' },
+  { id: 'operadores', label: 'Operadores / pasarelas' },
+  { id: 'formas', label: 'Sub-formas de pago' },
 ];
 
 export default function ParametrosPage() {
@@ -29,8 +34,12 @@ export default function ParametrosPage() {
   const { setContextoActual, pedirConsulta } = useAppContext();
 
   const esMetodos = tab === 'metodos';
+  // Los dos primeros tabs comparten la tabla generica; los de pago traen su propio block.
+  const esGenerico = tab === 'metodos' || tab === 'categorias';
+  const etiquetaTab = (TABS.find((t) => t.id === tab) || {}).label || '';
 
   const cargar = async (t = tab) => {
+    if (t !== 'metodos' && t !== 'categorias') { setFilas([]); return; }
     try {
       const res = t === 'metodos' ? await parametrosApi.metodosPago() : await parametrosApi.categoriasCaja();
       setFilas(res.data || []);
@@ -87,19 +96,25 @@ export default function ParametrosPage() {
       <DebugTag nombre="ParametrosPage" />
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Parámetros</h2>
-        <span className="text-xs text-muted">metodos de pago · categorias de caja (bookerp)</span>
+        <span className="text-xs text-muted">metodos de pago · categorias de caja · operadores/pasarelas · sub-formas (bookerp)</span>
       </div>
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         {TABS.map((t) => (
           <button key={t.id} type="button" className={`btn ${tab === t.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
 
+      {!esGenerico && (tab === 'operadores' ? <OperadoresPagoBlock /> : <FormasPagoBlock />)}
+
+      {esGenerico && (<>
       <div className="flex justify-end gap-2 mb-4">
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Tengo ${filas.length} ${esMetodos ? 'metodos de pago' : 'categorias de caja'} configurados. ¿Que me sugeris?`)}>Preguntar al Secretario</button>
+        <BotonSecretario
+          className="btn btn-ghost text-xs"
+          consulta={`Tengo ${filas.length} ${etiquetaTab.toLowerCase()} configurados. ¿Que me sugeris?`}
+        />
         <button type="button" className="btn btn-primary text-xs" onClick={() => setModalAbierto(true)}>{esMetodos ? '+ Método de pago' : '+ Categoría de caja'}</button>
       </div>
 
@@ -124,6 +139,7 @@ export default function ParametrosPage() {
         </label>
         {!esMetodos && <p className="text-xs text-muted">Las categorias se sugieren al cargar el concepto de un movimiento manual de caja.</p>}
       </Modal>
+      </>)}
     </div>
   );
 }

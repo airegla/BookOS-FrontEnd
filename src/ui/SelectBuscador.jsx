@@ -25,6 +25,10 @@ export default function SelectBuscador({
   const [resultados, setResultados] = useState([]);
   const [resaltado, setResaltado] = useState(-1);
   const [cargando, setCargando] = useState(false);
+  // Texto del item elegido: cada vista mapea las sugerencias a su manera (etiqueta / nombre) y no
+  // siempre puede reconstruir la etiqueta despues. Sin memorizarla, el input quedaba VACIO tras
+  // elegir (bug reportado en Facturar: se seleccionaba el cliente y no se veia el nombre).
+  const [etiquetaElegida, setEtiquetaElegida] = useState('');
   const cajaRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -36,6 +40,11 @@ export default function SelectBuscador({
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
+
+  // Si el padre limpia la seleccion (valor vacio), la etiqueta memorizada tambien se va.
+  useEffect(() => {
+    if (valor === null || valor === undefined || valor === '') setEtiquetaElegida('');
+  }, [valor]);
 
   // Busqueda con debounce: a partir de `minimo` letras, sin precarga sincronica.
   useEffect(() => {
@@ -60,6 +69,7 @@ export default function SelectBuscador({
   }, [consulta, abierto, minimo, debounceMs]); // eslint-disable-line
 
   const elegir = (item) => {
+    setEtiquetaElegida(item ? (item.etiqueta || item.nombre || '') : '');
     onSeleccionar(item);
     setAbierto(false);
     setConsulta('');
@@ -67,6 +77,7 @@ export default function SelectBuscador({
   };
 
   const limpiar = () => {
+    setEtiquetaElegida('');
     onSeleccionar(null);
     setConsulta('');
     setResultados([]);
@@ -117,7 +128,7 @@ export default function SelectBuscador({
           style={{ width: '100%' }}
           placeholder={placeholder}
           disabled={deshabilitado}
-          value={abierto ? consulta : (etiquetaValor || textoInicial || '')}
+          value={abierto ? consulta : (etiquetaValor || etiquetaElegida || textoInicial || '')}
           onFocus={() => { setAbierto(true); setConsulta(''); }}
           onChange={tipear}
           onKeyDown={tecla}

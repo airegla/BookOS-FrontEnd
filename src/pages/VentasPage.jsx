@@ -19,8 +19,11 @@ import Paginador from '../ui/Paginador';
 import { ventasApi, clientesApi, agenteApi, exportacionApi, parametrosApi, crmApi } from '../api/api';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
+import { costoEstimadoDeForma, etiquetaForma, formasDelMetodo } from '../utils/formasPago';
 import usePersistentWork from '../hooks/usePersistentWork';
 import { useAppContext } from '../AppContext';
+import BotonSecretario from '../ui/BotonSecretario';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
 
 const TIPOS = ['FACTURA_B', 'FACTURA_C', 'PEDIDO', 'PRESUPUESTO', 'GIFTCARD'];
 const METODOS = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CTA_CTE'];
@@ -47,13 +50,24 @@ const esNota = (v) => {
 };
 
 export default function VentasPage() {
-  const [items, setItems] = usePersistentWork('venta', []);
-  const [clienteElegido, setClienteElegido] = useState(null);
-  const [clienteId, setClienteId] = useState(null);
-  const [tipo, setTipo] = useState('FACTURA_B');
-  const [metodoPago, setMetodoPago] = useState('EFECTIVO');
+  // BORRADOR PERSISTENTE (por usuario): items + cabecera sobreviven al refresco y al cambio de
+  // pagina. La cabecera avisa con el indicador ↺ y ofrece limpiar.
+  const [borrador, setBorrador, limpiarBorrador, restaurado] = usePersistentWork('venta', {
+    items: [], tipo: 'FACTURA_B', clienteId: null, clienteElegido: null,
+    metodoPago: 'EFECTIVO', descuentoGlobal: 0, emailComprobante: '', enviarEmail: false,
+  });
+  const { items, tipo, clienteId, clienteElegido, metodoPago, descuentoGlobal, emailComprobante, enviarEmail } = borrador;
+  const setItems = (v) => setBorrador((b) => ({ ...b, items: typeof v === 'function' ? v(b.items) : v }));
+  const setClienteElegido = (v) => setBorrador((b) => ({ ...b, clienteElegido: typeof v === 'function' ? v(b.clienteElegido) : v }));
+  const setClienteId = (v) => setBorrador((b) => ({ ...b, clienteId: v }));
+  const setTipo = (v) => setBorrador((b) => ({ ...b, tipo: v }));
+  const setMetodoPago = (v) => setBorrador((b) => ({ ...b, metodoPago: v }));
+  const setDescuentoGlobal = (v) => setBorrador((b) => ({ ...b, descuentoGlobal: v }));
+  const setEmailComprobante = (v) => setBorrador((b) => ({ ...b, emailComprobante: v }));
+  const setEnviarEmail = (v) => setBorrador((b) => ({ ...b, enviarEmail: v }));
   const [metodos, setMetodos] = useState(METODOS);
-  const [descuentoGlobal, setDescuentoGlobal] = useState(0);
+  // El historial era el listado al pie de la pagina; ahora es un modal (15-09).
+  const [historialAbierto, setHistorialAbierto] = useState(false);
   const [cobrarAbierto, setCobrarAbierto] = useState(false);
   const [recibido, setRecibido] = useState('');
   const [mensaje, setMensaje] = useState('');
@@ -71,10 +85,11 @@ export default function VentasPage() {
   const [ndMonto, setNdMonto] = useState('');
   const [ndMotivo, setNdMotivo] = useState('');
 
-  // multi-pago, email del comprobante, ficha marcada, pendientes
+  // multi-pago, ficha marcada, pendientes
   const [pagos, setPagos] = useState([]);
-  const [emailComprobante, setEmailComprobante] = useState('');
-  const [enviarEmail, setEnviarEmail] = useState(false);
+  // Sub-formas de pago activas (debito, credito 6 cuotas, promos): propiedad de COMO paga el cliente.
+  const [formas, setFormas] = useState([]);
+  const [notaVenta, setNotaVenta] = useState('');
   const [ficha, setFicha] = useState(null); // cliente marcado (nacio en el POS con solo el mail)
   const [fichaForm, setFichaForm] = useState({});
   const [perfiles, setPerfiles] = useState([]);
@@ -86,9 +101,10 @@ export default function VentasPage() {
   const clienteActual = clienteElegido;
 
   // Busqueda de clientes en el servidor (nunca se precarga la tabla entera).
+  // `nombre` es el nombre canonico del modelo: la cabecera lo lee de aca para mostrar el elegido.
   const buscarClientes = async (q) => {
     const res = await clientesApi.listar({ search: q, limit: 20 });
-    return (res.data || []).map((c) => ({ id: c.id, etiqueta: c.nombre, detalle: c.telefono || c.documento || '' }));
+    return (res.data || []).map((c) => ({ id: c.id, etiqueta: c.nombre, nombre: c.nombre, detalle: c.telefono || c.documento || '' }));
   };
 
   useEffect(() => {
@@ -98,6 +114,7 @@ export default function VentasPage() {
         if (activos.length) setMetodos(activos);
       })
       .catch(() => {});
+    parametrosApi.formasPago().then((res) => setFormas(res.data || [])).catch(() => {});
   }, []);
 
   // El mail de la ficha precarga el comprobante: lo que se manda es lo que se ve (se puede pisar).
@@ -189,6 +206,11 @@ export default function VentasPage() {
   const subtotal = items.reduce((acc, i) => acc + (Number(i.precio) || 0) * (Number(i.cantidad) || 0) * (1 - (Number(i.descuento) || 0) / 100), 0);
   const total = Math.max(0, subtotal - (Number(descuentoGlobal) || 0));
   const sumaPagos = pagos.reduce((a, p) => a + (Number(p.monto) || 0), 0);
+  // Lo que absorbe el comercio por las sub-formas elegidas (coeficiente + % del operador).
+  const costoTotalPagos = pagos.reduce((a, p) => {
+    const forma = formasDelMetodo(formas, p.metodoPago).find((f) => f.id === p.formaPagoId) || null;
+    return a + costoEstimadoDeForma(forma, p.monto);
+  }, 0);
   // Vuelto = lo que entrego el cliente menos el total (control visual del mostrador).
   const vuelto = (Number(recibido) || 0) - total;
 
@@ -197,15 +219,27 @@ export default function VentasPage() {
       setMensaje('⚠️ Pedido/Presupuesto requieren un cliente o un mail (el mail crea la ficha).');
       return;
     }
-    setPagos([{ metodoPago, monto: total }]);
+    setPagos([{ metodoPago, monto: total, formaPagoId: null }]);
     setRecibido('');
+    setNotaVenta('');
     setCobrarAbierto(true);
   };
 
   const setPago = (i, campo, valor) => {
-    setPagos((prev) => prev.map((p, idx) => (idx === i ? { ...p, [campo]: campo === 'monto' ? Number(valor) || 0 : valor } : p)));
+    setPagos((prev) => prev.map((p, idx) => {
+      if (idx !== i) return p;
+      if (campo === 'monto') return { ...p, monto: Number(valor) || 0 };
+      // Cambiar el metodo borra la sub-forma: cada sub-forma cuelga de un metodo madre.
+      if (campo === 'metodoPago') return { ...p, metodoPago: valor, formaPagoId: null };
+      return { ...p, [campo]: valor };
+    }));
   };
-  const agregarPago = () => setPagos((prev) => [...prev, { metodoPago: 'EFECTIVO', monto: 0 }]);
+  const agregarPago = () => setPagos((prev) => {
+    // Lo que FALTA para cancelar el total viaja como monto de la linea nueva: el mostrador no
+    // tiene que calcular el saldo a mano al partir el pago en dos formas.
+    const pagado = prev.reduce((a, p) => a + (Number(p.monto) || 0), 0);
+    return [...prev, { metodoPago: 'EFECTIVO', monto: Math.max(0, Math.round((total - pagado) * 100) / 100), formaPagoId: null }];
+  });
   const quitarPago = (i) => setPagos((prev) => prev.filter((_, idx) => idx !== i));
 
   // P6: el mail es la identidad. Si ya existe ficha, el cliente se selecciona solo; si nacio en
@@ -253,8 +287,12 @@ export default function VentasPage() {
         descuentoGlobal,
         emailComprobante: emailComprobante.trim() || null,
         enviarComprobante: enviarEmail && Boolean(emailComprobante.trim()),
+        // Nota libre del vendedor: el motor le agrega el seguimiento de precios en el mismo campo.
+        nota: notaVenta.trim() || null,
       };
-      if (pagos.length > 1 || tipo === 'PEDIDO' || tipo === 'PRESUPUESTO') {
+      // Si alguna linea lleva sub-forma (tarjeta/promo) el desglose viaja completo aunque sea una sola.
+      const haySubForma = pagos.some((p) => p.formaPagoId);
+      if (pagos.length > 1 || tipo === 'PEDIDO' || tipo === 'PRESUPUESTO' || haySubForma) {
         const esPendiente = tipo === 'PEDIDO' || tipo === 'PRESUPUESTO';
         const suma = pagos.reduce((a, p) => a + (Number(p.monto) || 0), 0);
         if (suma > total + 0.01) { setMensaje(`⚠️ La suma de pagos (${fmt(suma)}) supera el total (${fmt(total)})`); return; }
@@ -420,7 +458,7 @@ export default function VentasPage() {
     { clave: 'fecha', titulo: 'Fecha', render: (v) => new Date(v.createdAt).toLocaleString('es-AR'), valorExport: (v) => new Date(v.createdAt).toLocaleString('es-AR') },
     { clave: 'acciones', titulo: '', render: (v) => (
       <div className="flex gap-2">
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => verDetalle(v)}>Ver</button>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => { setHistorialAbierto(false); verDetalle(v); }}>Ver</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => descargar(v, 'csv')}>CSV</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => descargar(v, 'pdf')}>PDF</button>
         <button type="button" className="btn btn-ghost text-xs" onClick={() => enviarPorMail(v)}>Mail</button>
@@ -432,8 +470,14 @@ export default function VentasPage() {
     <div>
       <DebugTag nombre="VentasPage" />
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Ventas</h2>
-        <span className="text-xs text-muted">factura descuenta stock · pedido/presupuesto exigen cliente · anular revierte stock, caja y CC · F10 cobrar · F2 cliente rapido</span>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">Ventas</h2>
+          <BorradorRestaurado visible={restaurado} onLimpiar={limpiarBorrador} />
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted">factura descuenta stock · pedido/presupuesto exigen cliente · anular revierte stock, caja y CC · F10 cobrar · F2 cliente rapido</span>
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => setHistorialAbierto(true)}>Historial</button>
+        </div>
       </div>
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
@@ -484,9 +528,10 @@ export default function VentasPage() {
         </p>
         <div className="flex justify-end gap-2 mt-3">
           <button type="button" className="btn btn-ghost text-xs" onClick={cargarPendientes}>Pendientes</button>
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => pedirConsulta(`Estoy armando una ${tipo} con ${items.length} items. Sugerime titulos para completarla.`)}>
-            Preguntar al Secretario
-          </button>
+          <BotonSecretario
+            className="btn btn-ghost text-xs"
+            consulta={`Estoy armando una ${tipo} con ${items.length} items. Sugerime titulos para completarla.`}
+          />
         </div>
       </div>
 
@@ -523,9 +568,14 @@ export default function VentasPage() {
         </div>
       </div>
 
-      <h3 className="font-semibold mb-2">Historial de ventas (documentos)</h3>
-      <Table columnas={columnasHistorial} filas={historial} vacio="Sin ventas" exportable exportarNombre="ventas" />
-      <Paginador page={page} total={totalHistorial} limite={30} onCambiar={setPage} etiqueta="ventas" />
+      {/* HISTORIAL DE VENTAS EN MODAL (15-09): era el listado al pie de la pagina. El listado de
+          ventas del dia/periodo vive en Caja (submenu de caja). */}
+      <Modal abierto={historialAbierto} onClose={() => setHistorialAbierto(false)} titulo="Historial de ventas (documentos)" ancho="1000px"
+        footer={<button type="button" className="btn btn-primary" onClick={() => setHistorialAbierto(false)}>Cerrar</button>}
+      >
+        <Table columnas={columnasHistorial} filas={historial} vacio="Sin ventas" exportable exportarNombre="ventas" />
+        <Paginador page={page} total={totalHistorial} limite={30} onCambiar={setPage} etiqueta="ventas" />
+      </Modal>
 
       {/* COBRO (multi-pago) */}
       <Modal abierto={cobrarAbierto} onClose={() => setCobrarAbierto(false)} titulo={`Cobrar ${tipo}`} ancho="480px"
@@ -555,16 +605,43 @@ export default function VentasPage() {
             </div>
           </div>
         </div>
-        {pagos.map((p, i) => (
-          <div key={i} className="flex gap-2 mb-2 items-center">
-            <select className="input-os" value={p.metodoPago} onChange={(e) => setPago(i, 'metodoPago', e.target.value)}>
-              {metodos.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <input className="input-os" type="number" min="0" value={p.monto} onChange={(e) => setPago(i, 'monto', e.target.value)} style={{ maxWidth: 130 }} />
-            {pagos.length > 1 && <button type="button" className="btn btn-ghost text-xs" onClick={() => quitarPago(i)}>✕</button>}
-          </div>
-        ))}
-        <button type="button" className="btn btn-ghost text-xs" onClick={agregarPago}>+ Agregar pago</button>
+        {pagos.map((p, i) => {
+          const subFormas = formasDelMetodo(formas, p.metodoPago);
+          const forma = subFormas.find((f) => f.id === p.formaPagoId) || null;
+          const costo = costoEstimadoDeForma(forma, p.monto);
+          return (
+            <div key={i} className="mb-2">
+              <div className="flex gap-2 items-center">
+                <select className="input-os" value={p.metodoPago} onChange={(e) => setPago(i, 'metodoPago', e.target.value)}>
+                  {metodos.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <input className="input-os" type="number" min="0" value={p.monto} onChange={(e) => setPago(i, 'monto', e.target.value)} style={{ maxWidth: 130 }} />
+                {pagos.length > 1 && <button type="button" className="btn btn-ghost text-xs" onClick={() => quitarPago(i)}>✕</button>}
+              </div>
+              {subFormas.length > 0 && (
+                <div className="flex gap-2 items-center mt-1">
+                  <select className="input-os" value={p.formaPagoId || ''} onChange={(e) => setPago(i, 'formaPagoId', e.target.value ? Number(e.target.value) : null)}>
+                    <option value="">Sub-forma (opcional)...</option>
+                    {subFormas.map((f) => <option key={f.id} value={f.id}>{etiquetaForma(f)}</option>)}
+                  </select>
+                  {costo > 0 && <span className="text-xs text-muted whitespace-nowrap">costo est. {fmt(costo)}</span>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="flex justify-between items-center">
+          <button type="button" className="btn btn-ghost text-xs" onClick={agregarPago}>+ Agregar pago</button>
+          {costoTotalPagos > 0 && <span className="text-xs text-muted">Costo estimado de las sub-formas: {fmt(costoTotalPagos)}</span>}
+        </div>
+        <label className="block mt-3">
+          <span className="block text-xs uppercase tracking-widest text-muted mb-1">Nota de la venta (opcional)</span>
+          <input className="input-os" placeholder="Observacion del vendedor: queda guardada con la venta" value={notaVenta} onChange={(e) => setNotaVenta(e.target.value)} />
+        </label>
+        <p className="text-xs text-muted mt-1">
+          Si un renglon sale con descuento o cambio de precio, el motor lo asienta solo en la misma nota
+          (seguimiento) y sale tambien en el documento.
+        </p>
         <p className="text-xs text-muted mt-2">
           {tipo === 'PEDIDO' || tipo === 'PRESUPUESTO'
             ? `${tipo} no descuenta stock y requiere cliente seleccionado.`
@@ -637,7 +714,7 @@ export default function VentasPage() {
         footer={
           detalle ? (
             <>
-              <button type="button" className="btn btn-ghost" onClick={() => { pedirConsulta(`Analiza la venta #${detalle.id}: ${(detalle.items || []).length} items por ${fmt(detalle.total)}. ¿Que ves?`); }}>Preguntar al Secretario</button>
+              <BotonSecretario consulta={`Analiza la venta #${detalle.id}: ${(detalle.items || []).length} items por ${fmt(detalle.total)}. ¿Que ves?`} />
               {detalle.estado === 'COMPLETADA' && !esNota(detalle) && (
                 <>
                   <button type="button" className="btn btn-ghost" onClick={abrirNc}>Nota de credito</button>
@@ -672,14 +749,29 @@ export default function VentasPage() {
               )}
             />
             <div className="flex justify-end font-semibold mt-3">Total: {fmt(detalle.total)}</div>
+            {detalle.nota && (
+              <div className="mt-3 text-sm" style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 8 }}>
+                {detalle.nota.texto && <p><strong>Nota:</strong> {detalle.nota.texto}</p>}
+                {(detalle.nota.seguimiento || []).map((s, idx) => (
+                  <p key={idx} className="text-xs text-muted">
+                    {s.tipo === 'PRECIO_BAJA' ? 'Baja' : 'Sube'} de precio: {s.item} · lista {fmt(s.precioLista)} → vendido {fmt(s.precioVendido)} ({s.diferencia > 0 ? '+' : ''}{s.diferencia})
+                  </p>
+                ))}
+              </div>
+            )}
             {(detalle.pagos || []).length > 0 && (
               <div className="mt-4">
                 <h4 className="font-semibold text-sm mb-1">Formas de pago</h4>
                 <table className="table-os">
-                  <thead><tr><th>Metodo</th><th>Monto</th></tr></thead>
+                  <thead><tr><th>Metodo</th><th>Sub-forma</th><th>Monto</th><th>Costo est.</th></tr></thead>
                   <tbody>
                     {detalle.pagos.map((p) => (
-                      <tr key={p.id}><td>{p.metodoPagoNombre}</td><td>{fmt(p.monto)}</td></tr>
+                      <tr key={p.id}>
+                        <td>{p.metodoPagoNombre}</td>
+                        <td>{p.formaPagoNombre || '—'}</td>
+                        <td>{fmt(p.monto)}</td>
+                        <td>{p.costoEstimado ? fmt(p.costoEstimado) : '—'}</td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
