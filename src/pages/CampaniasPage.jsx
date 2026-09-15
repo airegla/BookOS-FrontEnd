@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
 import Modal from '../ui/Modal';
 import SelectBuscador from '../ui/SelectBuscador';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
+import usePersistentWork from '../hooks/usePersistentWork';
 import { buscarMaterias, buscarClientes } from '../utils/selectores';
 import { campaniasApi, crmApi } from '../api/api';
 
@@ -31,14 +33,14 @@ export default function CampaniasPage() {
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [ocupado, setOcupado] = useState('');
-  const [form, setForm] = useState({
+  // BORRADOR PERSISTENTE: la campana a medio armar (con su segmento elegido) sobrevive al refresco.
+  const [form, setForm, limpiarForm, formRestaurado] = usePersistentWork('campania_nueva', {
     nombre: '',
     brief: '',
     cantidadTitulos: 5,
     segmentoTipo: 'perfil',
     perfil: '',
     materia: '',
-    clientesTexto: '',
     // Segmento personalizado: los clientes elegidos con el buscador (no ids tipeados a mano).
     clientes: [],
     menosDias: '',
@@ -102,7 +104,7 @@ export default function CampaniasPage() {
         hasta: form.hasta || null,
       });
       setMensaje('✓ Campaña creada. Ahora generá los borradores y revisalos.');
-      setForm({ ...form, nombre: '', brief: '' });
+      limpiarForm();
       await cargarLista(res.data.campaniaId);
     } catch (err) { setMensaje(`⚠️ ${err.message}`); } finally { setOcupado(''); }
   };
@@ -197,7 +199,10 @@ export default function CampaniasPage() {
       <DebugTag nombre="CampaniasPage" />
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-lg font-semibold">Campañas</h2>
-        <button type="button" className="btn btn-ghost text-xs" onClick={() => setHistorialAbierto(true)}>Historial</button>
+        <div className="flex items-center gap-2">
+          <BorradorRestaurado visible={formRestaurado} onLimpiar={limpiarForm} />
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => setHistorialAbierto(true)}>Historial</button>
+        </div>
       </div>
       <p className="text-sm text-muted mb-4">
         Un lote de mails para un grupo de clientes: el asistente arma una propuesta con títulos en stock para

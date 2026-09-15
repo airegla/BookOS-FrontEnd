@@ -9,24 +9,28 @@
 import { useState } from 'react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
+// Sesion de trabajo: los tres datos tipeados sobreviven al refresco y al cierre del modal.
+import usePersistentWork from '../hooks/usePersistentWork';
 import { clientesApi } from '../api/api';
 
 export default function AltaRapidaClienteBlock({ abierto, onCerrar, onCreado, contexto = '' }) {
-  const [nombre, setNombre] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [email, setEmail] = useState('');
+  const [form, setForm, limpiarForm, restaurado] = usePersistentWork('alta_rapida_cliente', { nombre: '', telefono: '', email: '' });
+  const { nombre, telefono, email } = form;
+  const setNombre = (v) => setForm((f) => ({ ...f, nombre: v }));
+  const setTelefono = (v) => setForm((f) => ({ ...f, telefono: v }));
+  const setEmail = (v) => setForm((f) => ({ ...f, email: v }));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
+  // limpiar borra el BORRADOR (el gesto ↺ limpiar); cerrar ya no lo borra: si el operario cierra por
+  // error, al volver a abrir encuentra lo que estaba cargando.
   const limpiar = () => {
-    setNombre('');
-    setTelefono('');
-    setEmail('');
+    limpiarForm();
     setError('');
   };
 
   const cerrar = () => {
-    limpiar();
     onCerrar();
   };
 
@@ -75,6 +79,7 @@ export default function AltaRapidaClienteBlock({ abierto, onCerrar, onCreado, co
   return (
     <Modal abierto={abierto} onClose={cerrar} titulo="Alta rapida de cliente" ancho="460px" footer={footer}>
       <div className="space-y-2">
+        <BorradorRestaurado visible={restaurado} onLimpiar={limpiar} />
         <Input label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Apellido, Nombre" autoFocus />
         <Input label="Celular" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="261 555 1234" />
         <Input label="Email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="para el seguimiento y el newsletter" />
