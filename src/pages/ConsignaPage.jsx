@@ -14,6 +14,7 @@ import DebugTag from '../ui/DebugTag';
 import ItemsEditorBlock from '../blocks/ItemsEditorBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import ImportarDocumentoBlock from '../blocks/ImportarDocumentoBlock';
+import BuscadorArticuloBlock from '../blocks/BuscadorArticuloBlock';
 import SelectBuscador from '../ui/SelectBuscador';
 import { buscarProveedores } from '../utils/selectores';
 import { consignaApi, preparadosApi, observacionesApi } from '../api/api';
@@ -615,6 +616,10 @@ export default function ConsignaPage() {
             </>
           )}
         </div>
+        <BuscadorArticuloBlock
+          etiqueta="Agregar a la liquidación"
+          onSeleccionar={(a) => setLiqItems((prev) => [...prev, { articuloId: a.articuloId || a.id || null, ean13: a.ean13, titulo: a.titulo, cantidad: 1, precioUnitario: Number(a.precio) || 0 }])}
+        />
         <div className="flex justify-end mb-3">
           <button type="button" className="btn btn-ghost text-xs" disabled={!liqProveedor} onClick={traerCorte}>Traer corte</button>
         </div>
