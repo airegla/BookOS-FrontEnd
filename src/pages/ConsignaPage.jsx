@@ -39,11 +39,14 @@ export default function ConsignaPage() {
   // liquidacion nueva
   const [liqAbierto, setLiqAbierto] = useState(false);
   // BORRADOR PERSISTENTE por usuario: cabecera y renglones de la liquidacion sobreviven al refresco.
-  const [liq, setLiq, limpiarLiq, liqRestaurado] = usePersistentWork('consigna_liquidacion', { proveedor: '', items: [], desc: 0, obs: '' });
-  const { proveedor: liqProveedor, items: liqItems, desc: liqDesc, obs: liqObs } = liq;
+  const [liq, setLiq, limpiarLiq, liqRestaurado] = usePersistentWork('consigna_liquidacion', { proveedor: '', items: [], desc: 0, obs: '', modo: 'diferencia', desde: '', hasta: '' });
+  const { proveedor: liqProveedor, items: liqItems, desc: liqDesc, obs: liqObs, modo: liqModo, desde: liqDesde, hasta: liqHasta } = liq;
   const setLiqProveedor = (v) => setLiq((b) => ({ ...b, proveedor: v }));
   const setLiqDesc = (v) => setLiq((b) => ({ ...b, desc: v }));
   const setLiqObs = (v) => setLiq((b) => ({ ...b, obs: v }));
+  const setLiqModo = (v) => setLiq((b) => ({ ...b, modo: v }));
+  const setLiqDesde = (v) => setLiq((b) => ({ ...b, desde: v }));
+  const setLiqHasta = (v) => setLiq((b) => ({ ...b, hasta: v }));
   const setLiqItems = (v) => setLiq((b) => ({ ...b, items: typeof v === 'function' ? v(b.items) : v }));
 
   // conciliador
@@ -177,6 +180,25 @@ export default function ConsignaPage() {
   // ---- Liquidaciones ----
   const totalLiq = liqItems.reduce((a, i) => a + (Number(i.precioUnitario) || 0) * (Number(i.cantidad) || 0), 0);
 
+  // TRAE EL CORTE: el motor ya sabe cortar por diferencia de stock o por periodo (con su preview).
+  // Si el operario ya cargo renglones a mano, se le pregunta antes de reemplazarlos.
+  const traerCorte = async () => {
+    if (!liqProveedor) { setMensaje('⚠️ Elegí el proveedor antes de traer el corte'); return; }
+    if (liqModo === 'periodo' && (!liqDesde || !liqHasta)) { setMensaje('⚠️ El corte por período necesita desde y hasta'); return; }
+    if (liqItems.length > 0 && !window.confirm(`Ya hay ${liqItems.length} renglón(es) cargados: ¿los reemplazo por el corte?`)) return;
+    try {
+      const res = await consignaApi.previsualizarLiquidacion({
+        proveedorId: Number(liqProveedor), modo: liqModo, desde: liqDesde || undefined, hasta: liqHasta || undefined, porcentajeDescuento: Number(liqDesc) || 0,
+      });
+      const corte = res.data || {};
+      const filas = (corte.items || []).map((i) => ({ articuloId: i.articuloId, ean13: i.codigo, titulo: i.titulo, cantidad: Number(i.cantidad) || 0, precioUnitario: Number(i.precioUnitario) || 0 }));
+      setLiqItems(filas);
+      setMensaje(filas.length
+        ? `Corte ${corte.modo} de ${corte.proveedor}: ${filas.length} título(s) por $${Number(corte.total || 0).toLocaleString('es-AR')} ✓`
+        : 'El corte no encontró consigna para liquidar con esos parámetros');
+    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
+  };
+
   const crearLiquidacion = async () => {
     try {
       await consignaApi.crearLiquidacion({
@@ -184,7 +206,12 @@ export default function ConsignaPage() {
         totalEstimado: totalLiq,
         porcentajeDescuento: Number(liqDesc) || 0,
         observaciones: liqObs || null,
-        detalle: liqItems.map((i) => ({ ean13: i.ean13, titulo: i.titulo || i.ean13, cantidad: Number(i.cantidad), precioUnitario: Number(i.precioUnitario) || 0 })),
+        // El modo y el rango viajan al motor: la liquidacion queda registrada con COMO se corto.
+        modo: liqModo,
+        desde: liqModo === 'periodo' ? liqDesde : null,
+        hasta: liqModo === 'periodo' ? liqHasta : null,
+        // Los renglones viajan como overrides (el servicio los cruza por articuloId).
+        items: liqItems.map((i) => ({ articuloId: i.articuloId || null, cantidad: Number(i.cantidad) || 0, precioUnitario: Number(i.precioUnitario) || 0 })),
       });
       setMensaje('Liquidación creada ✓');
       setLiqAbierto(false);
@@ -568,8 +595,30 @@ export default function ConsignaPage() {
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Observaciones</span>
             <input className="input-os" value={liqObs} onChange={(e) => setLiqObs(e.target.value)} />
           </label>
+          <label className="block">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Corte</span>
+            <select className="input-os" value={liqModo} onChange={(e) => setLiqModo(e.target.value)}>
+              <option value="diferencia">Diferencia de stock</option>
+              <option value="periodo">Ventas del período</option>
+            </select>
+          </label>
+          {liqModo === 'periodo' && (
+            <>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-widest text-muted mb-1">Desde</span>
+                <input className="input-os" type="date" value={liqDesde} onChange={(e) => setLiqDesde(e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-widest text-muted mb-1">Hasta</span>
+                <input className="input-os" type="date" value={liqHasta} onChange={(e) => setLiqHasta(e.target.value)} />
+              </label>
+            </>
+          )}
         </div>
-        <ItemsEditorBlock items={liqItems} onChange={setLiqItems} onRemove={(i) => setLiqItems(liqItems.filter((_, idx) => idx !== i))} columnas={colLiqItems} vacio="Agrega renglones con EAN + cantidad + precio" />
+        <div className="flex justify-end mb-3">
+          <button type="button" className="btn btn-ghost text-xs" disabled={!liqProveedor} onClick={traerCorte}>Traer corte</button>
+        </div>
+        <ItemsEditorBlock items={liqItems} onChange={setLiqItems} onRemove={(i) => setLiqItems(liqItems.filter((_, idx) => idx !== i))} columnas={colLiqItems} vacio="Agrega renglones con EAN + cantidad + precio, o traelos con el corte" />
         <div className="flex justify-between mt-3">
           <div className="flex gap-2">
             <button type="button" className="btn btn-ghost text-xs" onClick={() => setLiqItems([...liqItems, { ean13: '', titulo: '', cantidad: 1, precioUnitario: 0 }])}>+ Renglón</button>

@@ -289,6 +289,7 @@ export const mayoristaApi = {
 export const consignaApi = {
   liquidaciones: (params = {}) => axiosClient.get('/liquidaciones', { params }),
   crearLiquidacion: (payload) => axiosClient.post('/liquidaciones', payload),
+  previsualizarLiquidacion: (params = {}) => axiosClient.get('/liquidaciones/previsualizar', { params }),
   obtenerLiquidacion: (id) => axiosClient.get(`/liquidaciones/${id}`),
   anularLiquidacion: (id) => axiosClient.post(`/liquidaciones/${id}/anular`),
   facturarLiquidacion: (id, compraId) => axiosClient.post(`/liquidaciones/${id}/facturar`, { compraId }),
