@@ -401,6 +401,8 @@ export const agenteApi = {
   },
   // Confirmacion de una escritura destructiva: misma tool con confirmado:true, sin LLM.
   confirmar: (herramienta, argumentos, conversacionId = null) => axiosClient.post('/agente/confirmar', { herramienta, argumentos, conversacionId: conversacionId || null }),
+  // Feedback empatico del turno (D13): pulgar (+1/-1) y/o escala 1-5. No gasta LLM.
+  feedback: (evaluacionId, { pulgar = null, score = null } = {}) => axiosClient.post('/agente/feedback', { evaluacionId, pulgar, score }),
   metricas: (dias = 30) => axiosClient.get('/agente/metricas', { params: { dias } }),
   memoria: (params = {}) => axiosClient.get('/agente/memoria', { params }),
   memoriaEliminar: (id) => axiosClient.delete(`/agente/memoria/${id}`),

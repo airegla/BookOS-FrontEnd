@@ -110,6 +110,9 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
       let buffer = '';
       let acumulado = '';
       let recibioAlgo = false;
+      // Ancla del feedback empatico (E3): viaja en el evento resultado y se cuelga del mensaje de
+      // TEXTO, que es donde el operario lee la respuesta (el evento resultado suele venir sin texto).
+      let evaluacionId = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -142,6 +145,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
               setMensajes((prev) => [...prev, { rol: 'pregunta', pregunta: payload }]);
             } else if (evento === 'resultado') {
               recibioAlgo = true;
+              if (payload.evaluacionId) evaluacionId = payload.evaluacionId;
               if (payload.conversacionId) {
                 setConversacionId(payload.conversacionId);
                 try {
@@ -166,7 +170,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
       }
 
       if (acumulado) {
-        setMensajes((prev) => [...prev, { rol: 'agente', texto: acumulado }]);
+        setMensajes((prev) => [...prev, { rol: 'agente', texto: acumulado, evaluacionId }]);
       } else if (!recibioAlgo) {
         setMensajes((prev) => [...prev, {
           rol: 'agente',

@@ -4,6 +4,8 @@
 //   Asistente de ventas (pagina del CRM) comparten este componente: mismo motor, misma
 //   conversacion persistente y mismo render del envelope; cambia la semilla/tools del backend
 //   (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada.
+//   Bajo la respuesta viaja el voto del turno (pulgar + escala, plan-rediseno/11 E3): el operario
+//   manda sobre cualquier inferencia del evaluador.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useAgenteStream from '../hooks/useAgenteStream';
@@ -216,6 +218,40 @@ const AYUDA_VACIA = {
     </>
   ),
 };
+
+// Voto del turno (plan-rediseno/11, E3): pulgar y escala 1-5 contra la evaluacion empatica del
+// turno. Se puede votar UNA vez y las dos formas se combinan (el backend las cruza); el voto no
+// gasta LLM y si falla se avisa sin romper la conversacion.
+function VotoTurno({ evaluacionId }) {
+  const [estado, setEstado] = useState(null); // 'ok' | 'error'
+  const [enviando, setEnviando] = useState(false);
+
+  async function votar(pulgar, score) {
+    if (enviando || estado === 'ok') return;
+    setEnviando(true);
+    try {
+      await agenteApi.feedback(evaluacionId, { pulgar, score });
+      setEstado('ok');
+    } catch (_) {
+      setEstado('error');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  if (estado === 'ok') return <div className="text-xs text-muted mt-1">✓ Gracias, quedó registrado</div>;
+  return (
+    <div className="flex items-center gap-1 mt-1 text-xs">
+      <span className="text-muted">¿Qué tal el trato?</span>
+      <button type="button" className="btn btn-ghost text-xs px-1" disabled={enviando} onClick={() => votar(1, null)} title="Bien">👍</button>
+      <button type="button" className="btn btn-ghost text-xs px-1" disabled={enviando} onClick={() => votar(-1, null)} title="Para mejorar">👎</button>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button key={n} type="button" className="btn btn-ghost text-xs px-1" disabled={enviando} onClick={() => votar(null, n)} title={`${n} de 5`}>{n}</button>
+      ))}
+      {estado === 'error' && <span className="text-muted">no se pudo registrar</span>}
+    </div>
+  );
+}
 
 export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secretario', onCerrarMobile = null }) {
   const { contextoActual, setUltimosRecomendados, consultaAutomatica, pedirConsulta, emitirInstruccion, csvAdjunto, setCsvAdjunto } = useAppContext();
@@ -509,6 +545,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
                   </>
                 ) : m.texto}
               </div>
+              {m.evaluacionId && <VotoTurno evaluacionId={m.evaluacionId} />}
             </div>
           );
         })}

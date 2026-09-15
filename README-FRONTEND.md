@@ -353,3 +353,9 @@ Notificar ingresos, Notificar agotados, Despachar con mail de control). Ambas so
 (doc 06 E-BR2) en vez del placeholder de etapa.- **Ciclo y resumen en el Radar (E-BR3)**: el Radar suma **▶️ Correr ciclo completo** (lo mismo que
   corre solo los lunes 9:00: radar → avisos → despacho) y **📨 Resumen diario a control**, con el
   resumen de lo que hizo cada corrida en pantalla.
+- **Feedback del trato en el chat (ruta empatica, E3)**: bajo la respuesta del Secretario y del
+  Asistente de ventas aparece el voto del turno — 👍/👎 y la escala 1–5, que se combinan (el
+  operario manda sobre cualquier inferencia: plan 11, D13). Se vota una vez y queda "✓ Gracias,
+  quedó registrado"; si el POST falla se avisa sin romper la conversación. Lo dibuja `VotoTurno` en
+  `ChatAgente.jsx`; el `evaluacionId` llega en el evento `resultado` del SSE y lo propaga
+  `useAgenteStream`; el POST vive en `agenteApi.feedback` (`api/api.js`).
