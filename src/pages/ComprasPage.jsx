@@ -49,7 +49,10 @@ export default function ComprasPage() {
   // El stock que ingresa NO se elige: lo determina el TIPO de comprobante (practica [29]: una sola
   // fuente de verdad). FACTURA_CONSIGNA entra en consigna; el resto, firme; los financieros no mueven.
   const [borrador, setBorrador, limpiarBorrador, restaurado] = usePersistentWork('compra', { proveedorId: '', tipoComprobante: 'FACTURA', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
-  const stockAfectado = borrador.tipoComprobante === 'FACTURA_CONSIGNA' ? 'CONSIGNA' : 'FIRME';
+  // Espejo del mapa del servicio (compra.service.STOCK_POR_TIPO): el stock lo determina el TIPO de
+  // comprobante (practica [29]) y aca solo se MUESTRA lo que el backend va a hacer.
+  const STOCK_POR_TIPO = { FACTURA: 'FIRME', FACTURA_FIRME: 'FIRME', FACTURA_CONSIGNA: 'CONSIGNA', REMITO: 'CONSIGNA', LIQUIDACION: 'FIRME' };
+  const stockAfectado = STOCK_POR_TIPO[borrador.tipoComprobante] || 'FIRME';
   const [ean, setEan] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [precio, setPrecio] = useState('');
