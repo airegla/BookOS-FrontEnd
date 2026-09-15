@@ -11,6 +11,9 @@ import DebugTag from '../ui/DebugTag';
 import { transportesApi, depositosApi } from '../api/api';
 import { useAppContext } from '../AppContext';
 import BotonSecretario from '../ui/BotonSecretario';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
+// Sesion de trabajo: lo tipeado en el modal sobrevive al refresco.
+import usePersistentWork from '../hooks/usePersistentWork';
 
 const TIPOS_DEPOSITO = ['CENTRAL', 'SUCURSAL', 'MAYORISTA'];
 
@@ -24,7 +27,7 @@ export default function TransportesPage() {
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [form, setForm] = useState({ nombre: '', cuit: '', telefono: '', tipo: 'SUCURSAL', direccion: '' });
+  const [form, setForm, limpiarForm, formRestaurado] = usePersistentWork('transporte_nuevo', { nombre: '', cuit: '', telefono: '', tipo: 'SUCURSAL', direccion: '' });
 
   const [stockDeposito, setStockDeposito] = useState(null);
 
@@ -46,7 +49,7 @@ export default function TransportesPage() {
 
   const abrirNuevo = () => {
     setEditando(null);
-    setForm({ nombre: '', cuit: '', telefono: '', tipo: 'SUCURSAL', direccion: '' });
+    // NO se borra el borrador: si habia uno a medio cargar, se sigue desde ahi (el gesto ↺ limpia).
     setModalAbierto(true);
   };
 
@@ -75,6 +78,7 @@ export default function TransportesPage() {
       }
       setMensaje(`${tab === 'transportes' ? 'Transporte' : 'Depósito'} ${editando ? 'actualizado' : 'creado'} ✓`);
       setModalAbierto(false);
+      limpiarForm();
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -167,6 +171,7 @@ export default function TransportesPage() {
       >
         <label className="block mb-3">
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Nombre</span>
+          <BorradorRestaurado visible={formRestaurado} onLimpiar={limpiarForm} />
           <input className="input-os" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
         </label>
         {tab === 'transportes' ? (
