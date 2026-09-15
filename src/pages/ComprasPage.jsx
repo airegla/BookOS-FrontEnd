@@ -46,7 +46,10 @@ export default function ComprasPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pedidos, setPedidos] = useState([]);
-  const [borrador, setBorrador, limpiarBorrador, restaurado] = usePersistentWork('compra', { proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
+  // El stock que ingresa NO se elige: lo determina el TIPO de comprobante (practica [29]: una sola
+  // fuente de verdad). FACTURA_CONSIGNA entra en consigna; el resto, firme; los financieros no mueven.
+  const [borrador, setBorrador, limpiarBorrador, restaurado] = usePersistentWork('compra', { proveedorId: '', tipoComprobante: 'FACTURA', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
+  const stockAfectado = borrador.tipoComprobante === 'FACTURA_CONSIGNA' ? 'CONSIGNA' : 'FIRME';
   const [ean, setEan] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [precio, setPrecio] = useState('');
@@ -119,7 +122,7 @@ export default function ComprasPage() {
       const res = await comprasApi.crear({
         proveedorId: borrador.proveedorId ? Number(borrador.proveedorId) : null,
         tipoComprobante: borrador.tipoComprobante,
-        tipoStockAfectado: borrador.tipoStockAfectado,
+        tipoStockAfectado: stockAfectado,
         nroComprobante: borrador.nroComprobante || null,
         fechaEmision: borrador.fechaEmision || null,
         fechaVencimiento: borrador.fechaVencimiento || null,
@@ -127,8 +130,8 @@ export default function ComprasPage() {
         observaciones: borrador.observaciones || null,
         items: borrador.items,
       });
-      setMensaje(`Compra #${res.data.compraId} por $${Number(res.data.importeTotal).toLocaleString('es-AR')} ✓ ${SIN_STOCK.includes(borrador.tipoComprobante) ? '(solo cuenta corriente: no mueve stock)' : `(stock ${borrador.tipoStockAfectado} actualizado)`}`);
-      setBorrador({ proveedorId: '', tipoComprobante: 'FACTURA', tipoStockAfectado: 'FIRME', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
+      setMensaje(`Compra #${res.data.compraId} por $${Number(res.data.importeTotal).toLocaleString('es-AR')} ✓ ${SIN_STOCK.includes(borrador.tipoComprobante) ? '(solo cuenta corriente: no mueve stock)' : `(stock ${stockAfectado} actualizado)`}`);
+      setBorrador({ proveedorId: '', tipoComprobante: 'FACTURA', nroComprobante: '', fechaEmision: '', fechaVencimiento: '', descuentoGlobal: 0, observaciones: '', items: [] });
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -308,10 +311,7 @@ export default function ComprasPage() {
           <select className="input-os" style={{ maxWidth: 180 }} value={borrador.tipoComprobante} onChange={(e) => setBorrador({ ...borrador, tipoComprobante: e.target.value })}>
             {TIPOS.map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
           </select>
-          <select className="input-os" style={{ maxWidth: 120 }} value={borrador.tipoStockAfectado} onChange={(e) => setBorrador({ ...borrador, tipoStockAfectado: e.target.value })}>
-            <option value="FIRME">FIRME</option>
-            <option value="CONSIGNA">CONSIGNA</option>
-          </select>
+          <span className="input-os text-xs flex items-center" style={{ maxWidth: 120 }} title="Lo determina el tipo de comprobante">Stock: {stockAfectado}</span>
           <input className="input-os" style={{ maxWidth: 150 }} placeholder="Nro comprobante" value={borrador.nroComprobante} onChange={(e) => setBorrador({ ...borrador, nroComprobante: e.target.value })} />
           <label className="flex items-center gap-1 text-xs text-muted">
             Fecha emision
