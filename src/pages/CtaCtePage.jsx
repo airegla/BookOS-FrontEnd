@@ -41,6 +41,9 @@ export default function CtaCtePage({ lado = 'cliente' }) {
   // Sub-formas de pago activas: el recibo lleva la misma foto economica que el cobro de una venta.
   const [formas, setFormas] = useState([]);
   const [formaPagoId, setFormaPagoId] = useState(null);
+  // Los numeros del papel: el cheque exige su numero, la tarjeta acepta el de la operacion.
+  const [nroCheque, setNroCheque] = useState('');
+  const [nroTransaccion, setNroTransaccion] = useState('');
 
   const { setContextoActual, pedirConsulta } = useAppContext();
 
@@ -92,13 +95,15 @@ export default function CtaCtePage({ lado = 'cliente' }) {
         metodoPago,
         observaciones: obs || null,
         formaPagoId: formaPagoId || null,
+        numeroCheque: nroCheque.trim() || null,
+        numeroTransaccion: nroTransaccion.trim() || null,
       };
       if (tipo === 'cliente') payload.clienteId = Number(clienteId);
       else payload.proveedorId = Number(proveedorId);
       const res = await ctaCteApi.registrarRecibo(payload);
       setMensaje(`Recibo ${res.data.numero || `#${res.data.reciboId}`} registrado ✓`);
       setReciboAbierto(false);
-      setMonto(''); setObs(''); setFormaPagoId(null);
+      setMonto(''); setObs(''); setFormaPagoId(null); setNroCheque(''); setNroTransaccion('');
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -241,7 +246,7 @@ export default function CtaCtePage({ lado = 'cliente' }) {
         footer={
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setReciboAbierto(false)}>Cancelar</button>
-            <button type="button" className="btn btn-primary" disabled={!monto || Number(monto) <= 0} onClick={registrarRecibo}>Guardar</button>
+            <button type="button" className="btn btn-primary" disabled={!monto || Number(monto) <= 0 || (metodoPago === 'CHEQUE' && !nroCheque.trim())} onClick={registrarRecibo}>Guardar</button>
           </>
         }
       >
@@ -273,6 +278,18 @@ export default function CtaCtePage({ lado = 'cliente' }) {
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Observaciones</span>
           <input className="input-os" value={obs} onChange={(e) => setObs(e.target.value)} />
         </label>
+        {metodoPago === 'CHEQUE' && (
+          <label className="block mb-3">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Nro de cheque</span>
+            <input className="input-os" value={nroCheque} onChange={(e) => setNroCheque(e.target.value)} placeholder="Obligatorio" />
+          </label>
+        )}
+        {metodoPago === 'TARJETA' && (
+          <label className="block mb-3">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">Nro de transacción</span>
+            <input className="input-os" value={nroTransaccion} onChange={(e) => setNroTransaccion(e.target.value)} placeholder="Del ticket (opcional)" />
+          </label>
+        )}
       </Modal>
     </div>
   );

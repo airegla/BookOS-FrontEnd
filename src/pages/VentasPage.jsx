@@ -290,9 +290,9 @@ export default function VentasPage() {
         // Nota libre del vendedor: el motor le agrega el seguimiento de precios en el mismo campo.
         nota: notaVenta.trim() || null,
       };
-      // Si alguna linea lleva sub-forma (tarjeta/promo) el desglose viaja completo aunque sea una sola.
-      const haySubForma = pagos.some((p) => p.formaPagoId);
-      if (pagos.length > 1 || tipo === 'PEDIDO' || tipo === 'PRESUPUESTO' || haySubForma) {
+      // Si alguna linea lleva sub-forma o los numeros del papel (cheque/posnet), el desglose viaja completo.
+      const hayDetalle = pagos.some((p) => p.formaPagoId || p.numeroCheque || p.numeroTransaccion);
+      if (pagos.length > 1 || tipo === 'PEDIDO' || tipo === 'PRESUPUESTO' || hayDetalle) {
         const esPendiente = tipo === 'PEDIDO' || tipo === 'PRESUPUESTO';
         const suma = pagos.reduce((a, p) => a + (Number(p.monto) || 0), 0);
         if (suma > total + 0.01) { setMensaje(`⚠️ La suma de pagos (${fmt(suma)}) supera el total (${fmt(total)})`); return; }
@@ -627,6 +627,12 @@ export default function VentasPage() {
                   {costo > 0 && <span className="text-xs text-muted whitespace-nowrap">costo est. {fmt(costo)}</span>}
                 </div>
               )}
+              {p.metodoPago === 'CHEQUE' && (
+                <input className="input-os mt-1" placeholder="Nro de cheque (obligatorio)" value={p.numeroCheque || ''} onChange={(e) => setPago(i, 'numeroCheque', e.target.value)} />
+              )}
+              {p.metodoPago === 'TARJETA' && (
+                <input className="input-os mt-1" placeholder="Nro de transacción del ticket (opcional)" value={p.numeroTransaccion || ''} onChange={(e) => setPago(i, 'numeroTransaccion', e.target.value)} />
+              )}
             </div>
           );
         })}
@@ -763,12 +769,13 @@ export default function VentasPage() {
               <div className="mt-4">
                 <h4 className="font-semibold text-sm mb-1">Formas de pago</h4>
                 <table className="table-os">
-                  <thead><tr><th>Metodo</th><th>Sub-forma</th><th>Monto</th><th>Costo est.</th></tr></thead>
+                  <thead><tr><th>Metodo</th><th>Sub-forma</th><th>Nro</th><th>Monto</th><th>Costo est.</th></tr></thead>
                   <tbody>
                     {detalle.pagos.map((p) => (
                       <tr key={p.id}>
                         <td>{p.metodoPagoNombre}</td>
                         <td>{p.formaPagoNombre || '—'}</td>
+                        <td>{p.numeroCheque ? `cheque ${p.numeroCheque}` : p.numeroTransaccion ? `op. ${p.numeroTransaccion}` : '—'}</td>
                         <td>{fmt(p.monto)}</td>
                         <td>{p.costoEstimado ? fmt(p.costoEstimado) : '—'}</td>
                       </tr>
