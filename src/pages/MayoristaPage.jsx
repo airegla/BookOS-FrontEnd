@@ -23,6 +23,9 @@ import { buscarMayoristas } from '../utils/selectores';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
 import BotonSecretario from '../ui/BotonSecretario';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
+// Sesion de trabajo: el borrador de cada sub-forma sobrevive al refresco y al cierre.
+import usePersistentWork from '../hooks/usePersistentWork';
 
 const TABS = [
   { id: 'resumen', label: 'Resumen' },
@@ -66,21 +69,21 @@ export default function MayoristaPage() {
   const [totales, setTotales] = useState({ remitos: 0, ventas: 0, devoluciones: 0, pedidos: 0, sabanas: 0, ajustes: 0 });
   const timers = useRef({});
   const [verRemito, setVerRemito] = useState(null);
-  const [cab, setCab] = useState(CABECERA_VACIA);
+  const [cab, setCab, limpiarCab, restCab] = usePersistentWork('mayorista_remito_cab', CABECERA_VACIA);
   const [consignaHabilitada, setConsignaHabilitada] = useState(true);
-  const [items, setItems] = useState([]);
-  const [fact, setFact] = useState(FACTURA_VACIA);
-  const [itemsFact, setItemsFact] = useState([]);
+  const [items, setItems, limpiarItems, restItems] = usePersistentWork('mayorista_remito_items', []);
+  const [fact, setFact, limpiarFact, restFact] = usePersistentWork('mayorista_factura', FACTURA_VACIA);
+  const [itemsFact, setItemsFact, limpiarItemsFact, restItemsFact] = usePersistentWork('mayorista_factura_items', []);
   const [sabana, setSabana] = useState(null);
   const [verVenta, setVerVenta] = useState(null);
-  const [dev, setDev] = useState(DEVOLUCION_VACIA);
-  const [itemsDev, setItemsDev] = useState([]);
+  const [dev, setDev, limpiarDev, restDev] = usePersistentWork('mayorista_devolucion', DEVOLUCION_VACIA);
+  const [itemsDev, setItemsDev, limpiarItemsDev, restItemsDev] = usePersistentWork('mayorista_devolucion_items', []);
   const [sabanaDev, setSabanaDev] = useState(null);
   const [verDev, setVerDev] = useState(null);
-  const [ped, setPed] = useState(PEDIDO_VACIO);
-  const [itemsPed, setItemsPed] = useState([]);
+  const [ped, setPed, limpiarPed, restPed] = usePersistentWork('mayorista_pedido', PEDIDO_VACIO);
+  const [itemsPed, setItemsPed, limpiarItemsPed, restItemsPed] = usePersistentWork('mayorista_pedido_items', []);
   const [sabanaPed, setSabanaPed] = useState(null);
-  const [modoPed, setModoPed] = useState('individual');
+  const [modoPed, setModoPed, limpiarModoPed, restModoPed] = usePersistentWork('mayorista_pedido_modo', 'individual');
   const [fechaLimite, setFechaLimite] = useState('');
   const [lote, setLote] = useState(null);
   const [verPedido, setVerPedido] = useState(null);
@@ -242,6 +245,7 @@ export default function MayoristaPage() {
       setMensaje(`Remito ${d.numero} emitido ✓${avisos}`);
       setCab(CABECERA_VACIA);
       setItems([]);
+      limpiarCab(); limpiarItems();
       cargarLista('remitos');
       mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
     } catch (e) { setMensaje(`⚠️ ${e.message}`); }
@@ -309,6 +313,7 @@ export default function MayoristaPage() {
       setMensaje(`${d.numeroComprobante} emitido ✓ (total $${Number(d.total).toLocaleString('es-AR')})${avisos}`);
       setFact(FACTURA_VACIA);
       setItemsFact([]);
+      limpiarFact(); limpiarItemsFact();
       setSabana(null);
       cargarLista('ventas');
       mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
@@ -359,6 +364,7 @@ export default function MayoristaPage() {
       setMensaje(`${d.numero} registrada ✓ (acuse generado${d.acuse ? ': PDF + CSV' : ''})${d.totalValorizado ? ` · NC de $${Number(d.totalValorizado).toLocaleString('es-AR')} en la CC` : ''}`);
       setDev(DEVOLUCION_VACIA);
       setItemsDev([]);
+      limpiarDev(); limpiarItemsDev();
       setSabanaDev(null);
       cargarLista('devoluciones');
       mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
@@ -402,6 +408,7 @@ export default function MayoristaPage() {
       setMensaje(`Pedido ${res.data.numero} creado (borrador: aprobalo y se lo envías al cliente) ✓`);
       setPed(PEDIDO_VACIO);
       setItemsPed([]);
+      limpiarPed(); limpiarItemsPed(); limpiarModoPed();
       setSabanaPed(null);
       cargarLista('pedidos');
       mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
@@ -750,6 +757,15 @@ export default function MayoristaPage() {
     },
   ];
 
+  // Indicador del borrador de la pestana ACTIVA: cada sub-forma tiene el suyo, y el gesto limpiar
+  // borra solo el de la pestana en la que estas.
+  const borradorActivo = {
+    remitos: { visto: restCab || restItems, limpiar: () => { limpiarCab(); limpiarItems(); } },
+    ventas: { visto: restFact || restItemsFact, limpiar: () => { limpiarFact(); limpiarItemsFact(); } },
+    devoluciones: { visto: restDev || restItemsDev, limpiar: () => { limpiarDev(); limpiarItemsDev(); } },
+    pedidos: { visto: restPed || restItemsPed || restModoPed, limpiar: () => { limpiarPed(); limpiarItemsPed(); limpiarModoPed(); } },
+  }[tab];
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -770,6 +786,8 @@ export default function MayoristaPage() {
       </div>
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
+
+      {borradorActivo && borradorActivo.visto && <BorradorRestaurado visible onLimpiar={borradorActivo.limpiar} />}
 
       {observacion && (
         <div className="card p-3 mb-4" style={{ borderLeft: '3px solid var(--accent)' }}>
