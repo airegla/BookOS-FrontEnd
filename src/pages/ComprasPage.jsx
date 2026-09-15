@@ -122,7 +122,6 @@ export default function ComprasPage() {
       const res = await comprasApi.crear({
         proveedorId: borrador.proveedorId ? Number(borrador.proveedorId) : null,
         tipoComprobante: borrador.tipoComprobante,
-        tipoStockAfectado: stockAfectado,
         nroComprobante: borrador.nroComprobante || null,
         fechaEmision: borrador.fechaEmision || null,
         fechaVencimiento: borrador.fechaVencimiento || null,
