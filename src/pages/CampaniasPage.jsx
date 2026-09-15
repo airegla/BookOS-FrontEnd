@@ -7,8 +7,9 @@
 
 import { useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
+import Modal from '../ui/Modal';
 import SelectBuscador from '../ui/SelectBuscador';
-import { buscarMaterias } from '../utils/selectores';
+import { buscarMaterias, buscarClientes } from '../utils/selectores';
 import { campaniasApi, crmApi } from '../api/api';
 
 const ESTADO_COLOR = {
@@ -27,6 +28,7 @@ export default function CampaniasPage() {
   const [perfiles, setPerfiles] = useState([]);
   const [materiaNombre, setMateriaNombre] = useState('');
   const [abiertaPropuesta, setAbiertaPropuesta] = useState(null);
+  const [historialAbierto, setHistorialAbierto] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [ocupado, setOcupado] = useState('');
   const [form, setForm] = useState({
@@ -37,6 +39,8 @@ export default function CampaniasPage() {
     perfil: '',
     materia: '',
     clientesTexto: '',
+    // Segmento personalizado: los clientes elegidos con el buscador (no ids tipeados a mano).
+    clientes: [],
     menosDias: '',
     limiteClientes: '',
     desde: '',
@@ -74,7 +78,7 @@ export default function CampaniasPage() {
   const valoresSegmento = () => {
     if (form.segmentoTipo === 'perfil') return form.perfil ? [form.perfil] : [];
     if (form.segmentoTipo === 'tematica') return form.materia ? [Number(form.materia)] : [];
-    return String(form.clientesTexto || '').split(/[,\s]+/).map((v) => Number(v)).filter((v) => Number.isInteger(v) && v > 0);
+    return (form.clientes || []).map((c) => Number(c.id)).filter((n) => Number.isInteger(n) && n > 0);
   };
 
   const crear = async () => {
@@ -191,7 +195,10 @@ export default function CampaniasPage() {
   return (
     <div>
       <DebugTag nombre="CampaniasPage" />
-      <h2 className="text-lg font-semibold mb-1">Campañas</h2>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-lg font-semibold">Campañas</h2>
+        <button type="button" className="btn btn-ghost text-xs" onClick={() => setHistorialAbierto(true)}>Historial</button>
+      </div>
       <p className="text-sm text-muted mb-4">
         Un lote de mails para un grupo de clientes: el asistente arma una propuesta con títulos en stock para
         cada uno, vos revisás y aprobás, y recién ahí sale el envío. Todo queda en el historial.
@@ -225,7 +232,7 @@ export default function CampaniasPage() {
               <select className="input-os" value={form.segmentoTipo} onChange={(e) => setForm({ ...form, segmentoTipo: e.target.value })}>
                 <option value="perfil">Por perfil (lectura de entrada)</option>
                 <option value="tematica">Por temática del catálogo</option>
-                <option value="clientes">Por clientes puntuales (ids)</option>
+                <option value="clientes">Por clientes puntuales (elegidos con el buscador)</option>
               </select>
             </label>
             {form.segmentoTipo === 'perfil' && (
@@ -250,10 +257,29 @@ export default function CampaniasPage() {
               </label>
             )}
             {form.segmentoTipo === 'clientes' && (
-              <label className="block mb-2">
-                <span className="field-label">Ids de cliente (separados por coma)</span>
-                <input className="input-os" value={form.clientesTexto} onChange={(e) => setForm({ ...form, clientesTexto: e.target.value })} placeholder="73, 66" />
-              </label>
+              <div className="mb-2">
+                <span className="field-label">Clientes del envío</span>
+                <SelectBuscador
+                  valor={null}
+                  etiquetaValor=""
+                  placeholder="Buscar cliente por nombre, mail o documento..."
+                  buscar={buscarClientes}
+                  onSeleccionar={(it) => {
+                    if (!it) return;
+                    setForm((f) => (f.clientes.some((c) => c.id === it.id) ? f : { ...f, clientes: [...f.clientes, { id: it.id, nombre: it.nombre || it.etiqueta }] }));
+                  }}
+                />
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {!(form.clientes || []).length && <span className="text-xs text-muted">Todavía no elegiste clientes.</span>}
+                  {(form.clientes || []).map((c) => (
+                    <span key={c.id} className="chip-tema">
+                      {c.nombre}
+                      <button type="button" className="ml-1" onClick={() => setForm((f) => ({ ...f, clientes: f.clientes.filter((x) => x.id !== c.id) }))}>✕</button>
+                    </span>
+                  ))}
+                </div>
+                {(form.clientes || []).length > 0 && <p className="text-xs text-muted mt-1">{(form.clientes || []).length} cliente(s) en el envío.</p>}
+              </div>
             )}
             <div className="grid grid-cols-2 gap-2">
               <label className="block mb-2">
@@ -272,8 +298,9 @@ export default function CampaniasPage() {
             <button type="button" className="btn btn-primary text-sm" disabled={ocupado === 'crear'} onClick={crear}>Crear campaña</button>
           </div>
 
-          <div className="card p-3">
-            <h3 className="font-semibold mb-2 text-sm">Historial</h3>
+          <Modal abierto={historialAbierto} onClose={() => setHistorialAbierto(false)} titulo="Historial de campañas" ancho="620px"
+            footer={<button type="button" className="btn btn-primary" onClick={() => setHistorialAbierto(false)}>Cerrar</button>}
+          >
             <div className="space-y-1" style={{ maxHeight: 420, overflowY: 'auto' }}>
               {campanias.map((k) => (
                 <button
@@ -281,7 +308,7 @@ export default function CampaniasPage() {
                   type="button"
                   className="w-full text-left p-2 rounded"
                   style={{ background: k.campaniaId === seleccionada ? 'var(--bg-soft)' : 'transparent', border: '1px solid var(--border)' }}
-                  onClick={() => seleccionar(k.campaniaId)}
+                  onClick={() => { seleccionar(k.campaniaId); setHistorialAbierto(false); }}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold">{k.nombre}</span>
@@ -294,7 +321,7 @@ export default function CampaniasPage() {
               ))}
               {!campanias.length && <p className="text-xs text-muted">Todavía no hay campañas. Creá la primera.</p>}
             </div>
-          </div>
+          </Modal>
         </div>
 
         <div className="lg:col-span-2">
