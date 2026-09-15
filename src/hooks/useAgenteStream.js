@@ -172,9 +172,13 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
       if (acumulado) {
         setMensajes((prev) => [...prev, { rol: 'agente', texto: acumulado, evaluacionId }]);
       } else if (!recibioAlgo) {
+        // El stream se cerro SIN UN SOLO evento util: no es "no hay resultados", es que la conexion
+        // se corto (el backend se reinicio, se cayo o se perdio la red). Decir "no obtuve resultados"
+        // hacia creer que el sistema busco y no encontro; aca el pedido no llego a cerrar, asi que
+        // tampoco quedo registrado. Se dice lo que paso y se ofrece la salida: reenviar.
         setMensajes((prev) => [...prev, {
           rol: 'agente',
-          texto: 'No obtuve resultados para ese pedido. Puedo intentarlo de nuevo si me das otro dato o lo reformulás.',
+          texto: '⚠️ Se cortó la conexión antes de que el turno respondiera (el servidor pudo reiniciarse). El pedido no llegó a registrarse: mandalo de nuevo.',
         }]);
       } else {
         setMensajes((prev) => [...prev, {

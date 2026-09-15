@@ -401,12 +401,24 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     if (textareaRef.current) textareaRef.current.focus();
   };
 
+  // Texto legible de un mensaje del agente para COPIAR o EXPORTAR. Un mensaje que solo trae el
+  // payload del evento (`resultado` sin texto) es un cierre de turno, no una respuesta: volcarlo
+  // como JSON crudo ensuciaba la conversacion copiada (el operario pegaba un JSON en el chat).
+  const textoParaCopiar = (m) => {
+    if (m.texto) return m.texto;
+    if (!m.resultado) return m.pregunta ? m.pregunta.texto : (m.nombre || '');
+    if (m.resultado.ruta === 'confirmacion') return 'Ejecutado con confirmacion';
+    const r = m.resultado.resultado;
+    if (r && r.data && !Array.isArray(r.data)) return 'Resultado de herramienta (ver el panel)';
+    return `Turno sin texto (ruta ${m.resultado.ruta || '?'})`;
+  };
+
   const copiarChat = async () => {
     const contenido = mensajes.map((m) => {
       if (m.rol === 'usuario') return `Vos: ${m.texto}`;
       if (m.rol === 'herramienta') return `🔧 ${m.nombre}`;
       if (m.rol === 'pregunta') return `Agente (${m.pregunta.tipo}): ${m.pregunta.texto || ''}`;
-      return `Agente: ${m.texto || (m.resultado ? JSON.stringify(m.resultado.resultado || m.resultado) : '')}`;
+      return `Agente: ${textoParaCopiar(m)}`;
     }).join('\n\n');
     try {
       await navigator.clipboard.writeText(contenido || 'Sin conversacion');
@@ -419,7 +431,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
   const exportarChat = () => {
     const filas = mensajes.map((m) => ({
       rol: m.rol === 'usuario' ? 'vos' : m.rol === 'herramienta' ? 'herramienta' : m.rol === 'pregunta' ? 'pregunta' : 'agente',
-      contenido: m.texto || (m.resultado ? JSON.stringify(m.resultado.resultado || m.resultado) : (m.pregunta ? m.pregunta.texto : (m.nombre || ''))),
+      contenido: m.rol === 'usuario' ? m.texto : textoParaCopiar(m),
     }));
     descargarCsv(`conversacion_${perfil}`, [{ titulo: 'rol', clave: 'rol' }, { titulo: 'contenido', clave: 'contenido' }], filas);
     setAviso('Conversacion exportada ✓');
