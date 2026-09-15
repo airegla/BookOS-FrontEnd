@@ -88,11 +88,11 @@ export default function MayoristaPage() {
   const [lote, setLote] = useState(null);
   const [verPedido, setVerPedido] = useState(null);
   const [conciliando, setConciliando] = useState(null);
-  const [sab, setSab] = useState({ cliente: null, observaciones: '' });
+  const [sab, setSab, limpiarSab, restSab] = usePersistentWork('mayorista_sabana', { cliente: null, observaciones: '' });
   const [previewSab, setPreviewSab] = useState(null);
   const [verSabana, setVerSabana] = useState(null);
-  const [aj, setAj] = useState({ cliente: null, tipoAjuste: 'DECREMENTO', depositoOrigenId: '', observaciones: '' });
-  const [itemsAj, setItemsAj] = useState([]);
+  const [aj, setAj, limpiarAj, restAj] = usePersistentWork('mayorista_ajuste', { cliente: null, tipoAjuste: 'DECREMENTO', depositoOrigenId: '', observaciones: '' });
+  const [itemsAj, setItemsAj, limpiarItemsAj, restItemsAj] = usePersistentWork('mayorista_ajuste_items', []);
   const [sabanaAj, setSabanaAj] = useState(null);
   const [verAjuste, setVerAjuste] = useState(null);
   const { setContextoActual, pedirConsulta } = useAppContext();
@@ -515,6 +515,7 @@ export default function MayoristaPage() {
       setMensaje(`Sábana ${d.numero} emitida ✓ (${d.totalEjemplares} ejemplares · $${Number(d.totalValorizado).toLocaleString('es-AR')})`);
       setSab({ cliente: null, observaciones: '' });
       setPreviewSab(null);
+      limpiarSab();
       cargarLista('sabanas');
       mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
     } catch (e) { setMensaje(`⚠️ ${e.message}`); }
@@ -573,6 +574,7 @@ export default function MayoristaPage() {
       setMensaje(`Ajuste ${d.numero} registrado ✓ (${aj.tipoAjuste === 'INCREMENTO' ? 'sumó a la sábana' : 'restó de la sábana'})${avisos}`);
       setAj({ cliente: null, tipoAjuste: 'DECREMENTO', depositoOrigenId: '', observaciones: '' });
       setItemsAj([]);
+      limpiarAj(); limpiarItemsAj();
       setSabanaAj(null);
       cargarLista('ajustes');
       mayoristaApi.resumen().then((r2) => setResumen(r2.data || null)).catch(() => null);
@@ -764,6 +766,8 @@ export default function MayoristaPage() {
     ventas: { visto: restFact || restItemsFact, limpiar: () => { limpiarFact(); limpiarItemsFact(); } },
     devoluciones: { visto: restDev || restItemsDev, limpiar: () => { limpiarDev(); limpiarItemsDev(); } },
     pedidos: { visto: restPed || restItemsPed || restModoPed, limpiar: () => { limpiarPed(); limpiarItemsPed(); limpiarModoPed(); } },
+    sabanas: { visto: restSab, limpiar: limpiarSab },
+    ajustes: { visto: restAj || restItemsAj, limpiar: () => { limpiarAj(); limpiarItemsAj(); } },
   }[tab];
 
   return (
