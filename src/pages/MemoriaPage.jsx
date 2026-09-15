@@ -44,9 +44,9 @@ export default function MemoriaPage({ esAdmin }) {
   };
 
   const exportar = () => {
-    const planas = filas.map((m) => ({ id: m.id, tipo: m.tipo, texto: m.texto, fecha: new Date(m.fecha).toLocaleString('es-AR') }));
+    const planas = filas.map((m) => ({ id: m.id, tipo: m.tipo, origen: m.origen || 'historica (sin firmar)', texto: m.texto, fecha: new Date(m.fecha).toLocaleString('es-AR') }));
     descargarCsv('memoria_secretario', [
-      { titulo: 'id', clave: 'id' }, { titulo: 'tipo', clave: 'tipo' }, { titulo: 'texto', clave: 'texto' }, { titulo: 'fecha', clave: 'fecha' },
+      { titulo: 'id', clave: 'id' }, { titulo: 'tipo', clave: 'tipo' }, { titulo: 'origen', clave: 'origen' }, { titulo: 'texto', clave: 'texto' }, { titulo: 'fecha', clave: 'fecha' },
     ], planas);
   };
 
@@ -57,6 +57,8 @@ export default function MemoriaPage({ esAdmin }) {
       <p className="text-sm text-muted mb-4">
         Memoria curada que entra al prompt del agente: notas, buenas prácticas y decisiones. El último
         trabajo se guarda solo; el resto lo escribe el operario (o el agente con <span className="font-mono">memoria_guardar</span>).
+        Cada entrada va <strong>firmada</strong> con su origen: sin eso una nota tuya y una generada por el
+        agente o el cron se leen igual. Las anteriores a la firma dicen <span className="font-mono">sin firmar</span>.
       </p>
       {aviso && <p className="text-sm mb-3">{aviso}</p>}
 
@@ -74,6 +76,7 @@ export default function MemoriaPage({ esAdmin }) {
         {filas.map((m) => (
           <div key={m.id} className="card p-2 flex items-center gap-2">
             <span className="agente-badge">{m.tipo}</span>
+            <span className="agente-badge" title="Quien escribio esta entrada">{m.origen || 'sin firmar'}</span>
             <span className="text-sm flex-1">{m.texto}</span>
             <span className="text-xs text-muted font-mono whitespace-nowrap">{new Date(m.fecha).toLocaleString('es-AR')}</span>
             {esAdmin && (
