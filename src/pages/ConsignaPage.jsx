@@ -21,6 +21,9 @@ import { descargarDesdeServidor } from '../utils/exportar';
 import { mapearFilas } from '../utils/csv';
 import { useAppContext } from '../AppContext';
 import BotonSecretario from '../ui/BotonSecretario';
+import BorradorRestaurado from '../ui/BorradorRestaurado';
+// Sesion de trabajo: el borrador de cada sub-forma sobrevive al refresco y al cierre.
+import usePersistentWork from '../hooks/usePersistentWork';
 
 const fmt = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
@@ -35,24 +38,33 @@ export default function ConsignaPage() {
 
   // liquidacion nueva
   const [liqAbierto, setLiqAbierto] = useState(false);
-  const [liqProveedor, setLiqProveedor] = useState('');
-  const [liqItems, setLiqItems] = useState([]);
-  const [liqDesc, setLiqDesc] = useState(0);
-  const [liqObs, setLiqObs] = useState('');
+  // BORRADOR PERSISTENTE por usuario: cabecera y renglones de la liquidacion sobreviven al refresco.
+  const [liq, setLiq, limpiarLiq, liqRestaurado] = usePersistentWork('consigna_liquidacion', { proveedor: '', items: [], desc: 0, obs: '' });
+  const { proveedor: liqProveedor, items: liqItems, desc: liqDesc, obs: liqObs } = liq;
+  const setLiqProveedor = (v) => setLiq((b) => ({ ...b, proveedor: v }));
+  const setLiqDesc = (v) => setLiq((b) => ({ ...b, desc: v }));
+  const setLiqObs = (v) => setLiq((b) => ({ ...b, obs: v }));
+  const setLiqItems = (v) => setLiq((b) => ({ ...b, items: typeof v === 'function' ? v(b.items) : v }));
 
   // conciliador
   const [concAbierto, setConcAbierto] = useState(false);
-  const [concProveedor, setConcProveedor] = useState('');
-  const [concTexto, setConcTexto] = useState('');
+  // La sabana pegada es trabajo del operario: se guarda mientras pega y mientras cruza.
+  const [conc, setConc, limpiarConc, concRestaurado] = usePersistentWork('consigna_conciliacion', { proveedor: '', texto: '' });
+  const { proveedor: concProveedor, texto: concTexto } = conc;
+  const setConcProveedor = (v) => setConc((b) => ({ ...b, proveedor: v }));
+  const setConcTexto = (v) => setConc((b) => ({ ...b, texto: v }));
   const [concPrev, setConcPrev] = useState(null);
   const [concAplicar, setConcAplicar] = useState(null); // preview del ajuste sugerido (A-3b)
   const [concAplicando, setConcAplicando] = useState(false);
 
   // devolucion nueva
   const [devAbierto, setDevAbierto] = useState(false);
-  const [devProveedor, setDevProveedor] = useState('');
-  const [devItems, setDevItems] = useState([]);
-  const [devMotivo, setDevMotivo] = useState('');
+  // Borrador persistente: la devolucion a medio armar no se pierde al navegar.
+  const [dev, setDev, limpiarDev, devRestaurado] = usePersistentWork('consigna_devolucion', { proveedor: '', items: [], motivo: '' });
+  const { proveedor: devProveedor, items: devItems, motivo: devMotivo } = dev;
+  const setDevProveedor = (v) => setDev((b) => ({ ...b, proveedor: v }));
+  const setDevMotivo = (v) => setDev((b) => ({ ...b, motivo: v }));
+  const setDevItems = (v) => setDev((b) => ({ ...b, items: typeof v === 'function' ? v(b.items) : v }));
 
   // facturar liquidacion
   const [facturar, setFacturar] = useState(null); // liquidacion
@@ -64,10 +76,13 @@ export default function ConsignaPage() {
 
   // preparado de devolucion (Keops PD): CSV del proveedor cruzado con el stock de cada local
   const [prepAbierto, setPrepAbierto] = useState(false);
-  const [prepProveedor, setPrepProveedor] = useState('');
-  const [prepFilas, setPrepFilas] = useState([]);
+  // Borrador persistente: el CSV del proveedor ya cruzado no se pierde (el cruce se recalcula).
+  const [prep, setPrep, limpiarPrep, prepRestaurado] = usePersistentWork('consigna_preparado', { proveedor: '', filas: [], obs: '' });
+  const { proveedor: prepProveedor, filas: prepFilas, obs: prepObs } = prep;
+  const setPrepProveedor = (v) => setPrep((b) => ({ ...b, proveedor: v }));
+  const setPrepFilas = (v) => setPrep((b) => ({ ...b, filas: typeof v === 'function' ? v(b.filas) : v }));
+  const setPrepObs = (v) => setPrep((b) => ({ ...b, obs: v }));
   const [prepCruce, setPrepCruce] = useState(null);
-  const [prepObs, setPrepObs] = useState('');
   const [prepDetalle, setPrepDetalle] = useState(null);
 
   const { setContextoActual, pedirConsulta } = useAppContext();
@@ -172,7 +187,8 @@ export default function ConsignaPage() {
         detalle: liqItems.map((i) => ({ ean13: i.ean13, titulo: i.titulo || i.ean13, cantidad: Number(i.cantidad), precioUnitario: Number(i.precioUnitario) || 0 })),
       });
       setMensaje('Liquidación creada ✓');
-      setLiqAbierto(false); setLiqItems([]); setLiqDesc(0); setLiqObs(''); setLiqProveedor('');
+      setLiqAbierto(false);
+      limpiarLiq();
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -211,7 +227,8 @@ export default function ConsignaPage() {
       }));
       await consignaApi.guardarConciliacion({ proveedorId: Number(concProveedor), detalle });
       setMensaje('Conciliación guardada ✓');
-      setConcAbierto(false); setConcPrev(null); setConcTexto(''); setConcProveedor('');
+      setConcAbierto(false); setConcPrev(null);
+      limpiarConc();
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -226,7 +243,8 @@ export default function ConsignaPage() {
         items: devItems.map((i) => ({ ean13: i.ean13, cantidad: Number(i.cantidad), tipoSolicitada: i.tipoSolicitada || 'AUTO' })),
       });
       setMensaje('Devolución registrada ✓');
-      setDevAbierto(false); setDevItems([]); setDevMotivo(''); setDevProveedor('');
+      setDevAbierto(false);
+      limpiarDev();
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -279,7 +297,8 @@ export default function ConsignaPage() {
     try {
       const res = await preparadosApi.crear({ proveedorId: Number(prepProveedor), filas: prepFilas, observaciones: prepObs || null });
       setMensaje(`Preparado ${res.data.numero} emitido (${res.data.items} renglones${res.data.faltantes ? `, ${res.data.faltantes} sin encontrar` : ''}) ✓`);
-      setPrepAbierto(false); setPrepFilas([]); setPrepCruce(null); setPrepObs(''); setPrepProveedor('');
+      setPrepAbierto(false);
+      limpiarPrep();
       cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -477,7 +496,8 @@ export default function ConsignaPage() {
           if (tab === 'liquidaciones') setLiqAbierto(true);
           if (tab === 'conciliador') setConcAbierto(true);
           if (tab === 'devoluciones') setDevAbierto(true);
-          if (tab === 'preparados') { setPrepFilas([]); setPrepCruce(null); setPrepObs(''); setPrepProveedor(''); setPrepAbierto(true); }
+          // El borrador NO se borra al abrir el modal: si hay uno restaurado, el operario sigue donde estaba.
+          if (tab === 'preparados') { setPrepAbierto(true); }
         }}>
           + {tab === 'liquidaciones' ? 'Liquidación' : tab === 'conciliador' ? 'Conciliación' : tab === 'devoluciones' ? 'Devolución' : 'Preparado'}
         </button>
@@ -528,6 +548,7 @@ export default function ConsignaPage() {
           </>
         }
       >
+        <BorradorRestaurado visible={liqRestaurado} onLimpiar={limpiarLiq} />
         <div className="grid grid-cols-3 gap-3 mb-3">
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
@@ -581,6 +602,7 @@ export default function ConsignaPage() {
         </div>
         <label className="block mb-3">
           <span className="block text-xs uppercase tracking-widest text-muted mb-1">Filas de la sábana (código;cantidad por línea)</span>
+          <BorradorRestaurado visible={concRestaurado} onLimpiar={limpiarConc} />
           <textarea className="input-os resize-none" rows={6} placeholder={'9789500431859;5\n9789500204378;2'} value={concTexto} onChange={(e) => setConcTexto(e.target.value)} />
         </label>
         {concPrev && (
@@ -651,6 +673,7 @@ export default function ConsignaPage() {
           </>
         }
       >
+        <BorradorRestaurado visible={prepRestaurado} onLimpiar={limpiarPrep} />
         <div className="grid grid-cols-2 gap-3 mb-3">
           <label className="block">
             <span className="block text-xs uppercase tracking-widest text-muted mb-1">Proveedor</span>
@@ -667,6 +690,7 @@ export default function ConsignaPage() {
             <input className="input-os" value={devMotivo} onChange={(e) => setDevMotivo(e.target.value)} />
           </label>
         </div>
+        <BorradorRestaurado visible={devRestaurado} onLimpiar={limpiarDev} />
         <ItemsEditorBlock items={devItems} onChange={setDevItems} onRemove={(i) => setDevItems(devItems.filter((_, idx) => idx !== i))} columnas={colDevItems} vacio="Agrega items con EAN + cantidad" />
         <div className="flex gap-2 mt-3">
           <button type="button" className="btn btn-ghost text-xs" onClick={() => setDevItems([...devItems, { ean13: '', titulo: '', cantidad: 1, tipoSolicitada: 'AUTO' }])}>+ Item</button>
