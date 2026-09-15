@@ -39,7 +39,7 @@ function etiquetaItem(item) {
   if (item == null) return '(sin dato)';
   if (typeof item !== 'object') return String(item);
   return item.comando || item.titulo || item.nombre || item.descripcion || item.label || item.clave
-    || item.herramienta || item.email || item.codigo || `#${item.id != null ? item.id : '?'}`;
+    || item.herramienta || item.email || item.codigo || item.tipo || `#${item.id != null ? item.id : '?'}`;
 }
 
 function detalleItem(item) {
@@ -50,7 +50,11 @@ function detalleItem(item) {
   if (item.precio != null || item.precioLista != null) partes.push(money(item.precioLista != null ? item.precioLista : item.precio));
   if (item.stock != null || item.stockFirme != null) partes.push(`stock ${item.stockFirme != null ? item.stockFirme : item.stock}`);
   if (item.cantidad != null) partes.push(`${item.cantidad} un.`);
+  if (item.unidades != null) partes.push(`${item.unidades} un.`);
+  if (item.comprobantes != null) partes.push(`${item.comprobantes} comp.`);
+  if (item.tickets != null) partes.push(`${item.tickets} tk`);
   if (item.total != null && item.precio == null) partes.push(money(item.total));
+  if (item.importe != null) partes.push(money(item.importe));
   if (item.saldo != null) partes.push(`saldo ${money(item.saldo)}`);
   if (item.clasificacion) partes.push(item.clasificacion);
   if (!partes.length) {
@@ -101,6 +105,40 @@ function ListaEnvelope({ lista, total, descarga }) {
   );
 }
 
+// Etiqueta legible de una clave (mismo criterio que el texto de los canales sin tarjeta):
+// porTipo -> "Por tipo". Las siglas quedan intactas.
+function etiquetaClave(clave) {
+  const t = String(clave || '')
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, (m, a, b) => `${a} ${b.toLowerCase()}`)
+    .trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+// Desgloses: las listas que NO son el listado principal (p. ej. `porTipo` del resumen de ventas:
+// comprobantes e importe por tipo de comprobante). Antes no se pintaban en ningun canal.
+function SubListas({ data, excluir }) {
+  const grupos = Object.entries(data).filter(([k, v]) => k !== excluir && Array.isArray(v) && v.length > 0
+    && typeof v[0] === 'object' && v[0] !== null);
+  if (!grupos.length) return null;
+  return (
+    <div className="text-xs mt-1 space-y-0.5">
+      {grupos.map(([clave, lista]) => (
+        <div key={clave}>
+          <div className="text-muted">{etiquetaClave(clave)}</div>
+          {lista.slice(0, 10).map((item, i) => (
+            <div key={i} className="flex justify-between gap-2">
+              <span className="truncate">{etiquetaItem(item)}</span>
+              <span className="font-mono whitespace-nowrap">{detalleItem(item)}</span>
+            </div>
+          ))}
+          {lista.length > 10 && <div className="text-muted">(...y {lista.length - 10} más)</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Render legible del envelope E5/E6: { ok, data, meta, avisos, descarga }.
 function BloqueEnvelope({ envelope }) {
   if (!envelope) return null;
@@ -116,7 +154,12 @@ function BloqueEnvelope({ envelope }) {
   // Modos de los marcadores del kernel (catalogo/filtrado) y listados genericos.
   const lista = primeraLista(data);
   if (lista && lista.lista.length > 0) {
-    return <ListaEnvelope lista={lista.lista} total={data.total} descarga={envelope.descarga} />;
+    return (
+      <>
+        <ListaEnvelope lista={lista.lista} total={data.total} descarga={envelope.descarga} />
+        <SubListas data={data} excluir={lista.clave} />
+      </>
+    );
   }
 
   // Resumen comparativo (archivo_comparar) u objetos de conteo.
@@ -146,6 +189,7 @@ function BloqueEnvelope({ envelope }) {
             <span className="font-mono">{typeof valor === 'number' ? valor.toLocaleString('es-AR') : String(valor == null ? '—' : valor)}</span>
           </div>
         ))}
+        <SubListas data={data} excluir={null} />
         {envelope.avisos && envelope.avisos.length > 0 && (
           <div className="text-muted pt-1">{envelope.avisos.map((a, i) => <div key={i}>ℹ️ {a}</div>)}</div>
         )}

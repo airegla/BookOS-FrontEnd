@@ -61,7 +61,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `BuscadorSemanticoBlock.jsx` — F7 — el buscador SEMANTICO del kernel como modal global, con las MISMAS tarjetas del asistente (titulo, score, autor/editorial, precio y stock) y sus acciones: agregar el renglon cuando se esta facturando y preguntarle al Secretario. Desde aca tambien se abre la pagina del Asistente de ventas. PERSISTENTE: cerrar no pierde nada (texto, resultados y consulta se conservan; una busqueda en curso sigue viva y al volver con F7 esta ahi). El boton Limpiar arranca de cero.
 - `BuscadorTecnicoBlock.jsx` — F6 — el buscador TECNICO del mostrador (la busqueda F7 del bookerp): modal global con la sintaxis T titulo / A autor / * codigo / X contiene contra /api/catalogo/f7. Es rapido y practico: LISTADO (no tarjetas), navegacion con flechas, Enter agrega el renglon cuando se esta facturando, y el resultado tecnico (EAN, precio, stock) siempre a la vista.
 - `CargarDocumentoBlock.jsx` — carga el contenido de un comprobante de otro modulo dentro del que se esta armando (patron bookerp): elegis un remito/pedido/compra recuperable y sus renglones se copian al borrador actual. Muestra preview antes de cargar.
-- `ChatAgente.jsx` — chat del agente, reutilizable por perfil. El Secretario (panel lateral) y el Asistente de ventas (pagina del CRM) comparten este componente: mismo motor, misma conversacion persistente y mismo render del envelope; cambia la semilla/tools del backend (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada.
+- `ChatAgente.jsx` — chat del agente, reutilizable por perfil. El Secretario (panel lateral) y el Asistente de ventas (pagina del CRM) comparten este componente: mismo motor, misma conversacion persistente y mismo render del envelope; cambia la semilla/tools del backend (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada. Bajo la respuesta viaja el voto del turno (pulgar + escala, plan-rediseno/11 E3): el operario manda sobre cualquier inferencia del evaluador.
 - `FormasPagoBlock.jsx` — sub-formas de pago (debito, credito 6 cuotas, promo semanal de Santa Fe...) vinculadas a un metodo de pago madre y a un operador, con su coeficiente y cuotas. Son las lineas que se eligen al cobrar (F10) y al registrar un recibo.
 - `ImportarCsvBlock.jsx` — importador CSV reutilizable. Dos destinos: 1) "Cargar en la vista": llama onCargar(filas) para meter las filas en el documento que se esta trabajando (items de venta, remito, liquidacion...). 2) "Procesar con el Secretario": adjunta el CSV al contexto y le pide al agente que lo procese con la herramienta que corresponda.
 - `ImportarDocumentoBlock.jsx` — modal "Importar documento" (bookerp: ImportarComprobanteModalBlock). Pestañas por módulo (pedidos, compras, remitos, liquidaciones, devoluciones), búsqueda, selección con vista previa y carga de los libros al trabajo actual.
@@ -106,6 +106,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `NewsletterPage.jsx` — suscriptores del newsletter (integrado al CRM). Altas/bajas manuales y listado exportable.
 - `ParametrosPage.jsx` — parametros del OS — metodos de pago (bookerp: tipos de pago) y categorias de caja (bookerp: categorias de los movimientos manuales).
 - `PedidosPage.jsx` — pedidos de clientes del CRM (doc 06): alta, filtros por estado y busqueda, paginado server-side, cambio de estado por fila y export CSV. Los estados son los 6 del ciclo de vida (Pendiente -> Solicitado -> Ingresado -> Notificado | Agotado | Cancelado).
+- `PerfilesPage.jsx` — "Ver perfiles" del Kernel (plan-rediseno/11, E7). Un perfil de usuario por fila con su informacion empatica reunida para ANALISIS RAPIDO: como viene el trato (score contra su target y su tendencia), consentimiento y pausa, cuantos intercambios evaluados tiene, que senales se repiten, el animo, los votos humanos y el APRENDIZAJE que hoy entra al prompt. Al abrir una fila se ve el detalle (las ultimas evaluaciones con la razon del score y la historia de lo que conto el operario) y las acciones de privacidad: pausar, revocar, exportar y dar de baja. El score es informacion INTERNA: vive aca, no en la conversacion con el operario.
 - `PesosPage.jsx` — panel de Pesos del kernel. Edita los pesos vigentes (admin), guardarlos crea una version nueva que pasa a gobernar el ranking; cualquier version anterior puede reactivarse (rollback). El banco de pruebas mide antes/despues con la serie fija.
 - `PlantillasMailPage.jsx` — editor de los mails que manda el sistema (CRM > Plantillas mail). Lista de plantillas con asunto y cuerpo editables, variables que se insertan en el cursor, vista previa en vivo con datos de ejemplo, envio de prueba real y el manual de variables.
 - `PropuestasPage.jsx` — panel de Propuestas. La reflexion y el calibrador dejan aca lo que proponen (marcadores, pesos, reglas) con su detalle y observacion; aprobar una propuesta la aplica de verdad (marcador o version de pesos). Solo el admin aprueba o rechaza.
@@ -318,6 +319,19 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - **Borradores persistentes (15-Sep)**: ademas de Facturar, Caja, Compras, Remitos, Inventario,
   Consigna (4) y Mayorista (6), ahora persisten el **alta rapida de cliente** (F2) -que ademas ya no
   se borra al cerrar el modal- y el formulario de **Transportes/depositos**.
+
+## La tarjeta del chat y el texto de los canales sin tarjeta (15-Sep-2026)
+
+- **Desglose por tipo en la tarjeta**: cuando el resultado trae sus numeros abiertos (por ejemplo
+  `$resumen_ventas` con comprobantes por tipo), `blocks/ChatAgente` los muestra como una **sub-lista
+  debajo de la lista principal** (`SubListas`), con la etiqueta de la clave en palabras
+  (`etiquetaClave`: `porTipo` → "Por tipo"). Los items traen su **tipo** (`FACTURA_B`, `NC_X`), que es
+  lo que da sentido al renglon; antes la etiqueta salia como `#?`.
+- **El mismo dato en los canales sin tarjeta**: Telegram, la agenda y el mail no tienen tarjeta y
+  reciben **texto**: desde el 15-Sep lo arma `envelopeTexto.service` en el backend (`CLAVES_LISTA` es
+  el contrato compartido con esta pantalla). Si un dato solo viviera en la tarjeta, esos canales
+  mostrarian una respuesta vacia; el instrumento `scripts/verificar-texto-canales.js` (backend) lo
+  mide de punta a punta, incluido el desglose por tipo.
 - **Chat: id de conversacion muerto (15-Sep)**: el interceptor de `axiosClient` **conserva el status**
   del error (antes solo sobrevivia el texto) y el hook descarta el id guardado cuando el backend
   responde 404, en vez de reintentar y fallar en silencio en cada carga.
