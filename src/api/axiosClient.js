@@ -28,7 +28,11 @@ axiosClient.interceptors.response.use(
     const message = err.response && err.response.data && err.response.data.message
       ? err.response.data.message
       : err.message;
-    return Promise.reject(new Error(message));
+    // El STATUS viaja con el error (antes se perdia: solo quedaba el texto y ningun llamador podia
+    // distinguir un 404 "ya no existe" de una caida de red). Un solo lugar decide esto, no cada page.
+    const fallo = new Error(message);
+    fallo.status = err.response ? err.response.status : null;
+    return Promise.reject(fallo);
   }
 );
 

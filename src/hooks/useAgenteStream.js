@@ -64,7 +64,18 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
         /* modo privado */
       }
       return true;
-    } catch (_) {
+    } catch (err) {
+      // El id guardado puede apuntar a una conversacion que ya no existe (hilo borrado o base
+      // restaurada): se DESCARTA para no pedirla en cada carga (era el 404 repetido del chat).
+      // Otro error (red, permisos) NO borra el id: se avisa, porque un catch vacio esconde el
+      // defecto real y deja al operario sin saber por que no se reabrio su hilo.
+      const status = (err && (err.status || (err.response && err.response.status))) || null;
+      if (status === 404) {
+        try { localStorage.removeItem('bookos_conversacion_id'); } catch (_) { /* modo privado */ }
+        setConversacionId(null);
+      } else {
+        console.warn('[agente] no se pudo reabrir la conversacion', id, err && err.message);
+      }
       return false;
     }
   }, []);
