@@ -13,7 +13,7 @@ const TIPOS_REMITO = [
   { valor: 'TRASLADO_INTERNO', etiqueta: 'Traslado interno (entre depósitos nuestros)' },
 ];
 
-export default function MayoristaCabeceraBlock({ valor, onCambio, depositos = [], tipoRemito = true }) {
+export default function MayoristaCabeceraBlock({ valor, onCambio, depositos = [], tipoRemito = true, consignaHabilitada = true }) {
   const cambio = (campo) => (e) => onCambio(campo, e && e.target ? e.target.value : e);
 
   const elegirCliente = (item) => {
@@ -57,8 +57,18 @@ export default function MayoristaCabeceraBlock({ valor, onCambio, depositos = []
         <label className="block">
           <span className="field-label">Tipo de operación</span>
           <select className="input-os" value={valor.tipoRemito} onChange={cambio('tipoRemito')}>
-            {TIPOS_REMITO.map((t) => <option key={t.valor} value={t.valor}>{t.etiqueta}</option>)}
+            {TIPOS_REMITO.map((t) => (
+              <option key={t.valor} value={t.valor} disabled={t.valor === 'CONSIGNA' && !consignaHabilitada}>
+                {t.etiqueta}{t.valor === 'CONSIGNA' && !consignaHabilitada ? ' — apagada en Sistema ▾ Config' : ''}
+              </option>
+            ))}
           </select>
+          {!consignaHabilitada && (
+            <span className="text-xs text-muted">
+              La modalidad consigna del mayorista está apagada: no se emiten remitos CONSIGNA nuevos.
+              Lo ya consignado se sigue facturando, devolviendo, sabanando y ajustando.
+            </span>
+          )}
         </label>
       )}
 

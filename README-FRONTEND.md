@@ -168,6 +168,10 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
   default). Una clave nueva del backend aparece sola en la pantalla, y los 7 proveedores de
   sinopsis, el descuento de costo y la bandeja de precios dejaron de ser inalcanzables desde el
   front.
+- **Modalidad consigna del mayorista**: si el toggle `usa_consignacion` (Sistema ▾ Config) esta
+  apagado, la pantalla Mayorista deshabilita el tipo CONSIGNA con el motivo a la vista y el
+  formulario arranca en FIRME. El bloqueo real es del backend, no depende de la UI: lo ya consignado
+  se sigue facturando, devolviendo, sabanando y ajustando.
 - **El stock no se edita desde el catalogo**: el modal de articulos NO manda campos de stock
   (el backend rechaza el payload si vienen); el stock se ajusta por inventario/transferencia
   (ledger) y en el modal solo se informa el firme actual. `Ver` abre el kardex de movimientos.

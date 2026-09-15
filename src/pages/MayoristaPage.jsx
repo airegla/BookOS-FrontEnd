@@ -18,7 +18,7 @@ import MayoristaCabeceraBlock from '../blocks/MayoristaCabeceraBlock';
 import MayoristaTablaBlock from '../blocks/MayoristaTablaBlock';
 import ImportarCsvBlock from '../blocks/ImportarCsvBlock';
 import CargarDocumentoBlock from '../blocks/CargarDocumentoBlock';
-import { mayoristaApi, depositosApi, observacionesApi } from '../api/api';
+import { mayoristaApi, depositosApi, observacionesApi, configApi } from '../api/api';
 import { buscarMayoristas } from '../utils/selectores';
 import { descargarDesdeServidor } from '../utils/exportar';
 import { useAppContext } from '../AppContext';
@@ -66,6 +66,7 @@ export default function MayoristaPage() {
   const timers = useRef({});
   const [verRemito, setVerRemito] = useState(null);
   const [cab, setCab] = useState(CABECERA_VACIA);
+  const [consignaHabilitada, setConsignaHabilitada] = useState(true);
   const [items, setItems] = useState([]);
   const [fact, setFact] = useState(FACTURA_VACIA);
   const [itemsFact, setItemsFact] = useState([]);
@@ -130,6 +131,17 @@ export default function MayoristaPage() {
     if (r.status === 'fulfilled') setResumen(r.value.data || null);
     if (d.status === 'fulfilled') setDepositos(d.value.data || []);
     if (r.status === 'rejected' || d.status === 'rejected') setMensaje('⚠️ El módulo mayorista respondió con errores: revisá el backend');
+    // Modalidad consigna del mayorista (toggle usa_consignacion, Sistema ▾ Config): apagada no se
+    // emiten remitos CONSIGNA nuevos. El backend lo bloquea igual; aca se evita ofrecer lo que va a
+    // fallar y se explica por qué.
+    configApi.obtener()
+      .then((cfg) => {
+        const t = (cfg.data.catalogo || []).find((c) => c.clave === 'usa_consignacion');
+        const habilitada = Boolean(t) && !(t.valor === false || t.valor === 'false' || t.valor === '0' || t.valor === '');
+        setConsignaHabilitada(habilitada);
+        if (!habilitada) setCab((c) => (c.tipoRemito === 'CONSIGNA' ? { ...c, tipoRemito: 'FIRME' } : c));
+      })
+      .catch(() => {});
     ['remitos', 'ventas', 'devoluciones', 'pedidos', 'sabanas', 'ajustes'].forEach(cargarLista);
   };
 
@@ -207,6 +219,10 @@ export default function MayoristaPage() {
 
   const crearRemito = async () => {
     const destino = destinoDelRemito();
+    if (cab.tipoRemito === 'CONSIGNA' && !consignaHabilitada) {
+      setMensaje('⚠️ La modalidad CONSIGNA del mayorista está apagada (Sistema ▾ Config): no se emiten remitos CONSIGNA nuevos. Lo ya consignado se sigue facturando, devolviendo, sabanando y ajustando.');
+      return;
+    }
     if (cab.tipoRemito !== 'TRASLADO_INTERNO' && !cab.cliente) { setMensaje('⚠️ Elegí el cliente mayorista'); return; }
     if (cab.tipoRemito !== 'TRASLADO_INTERNO' && cab.cliente && !cab.cliente.deposito) { setMensaje('⚠️ Ese cliente no tiene depósito espejo: marcalo como mayorista en su ficha'); return; }
     if (!cab.depositoOrigenId) { setMensaje('⚠️ Elegí el depósito de origen'); return; }
@@ -780,7 +796,7 @@ export default function MayoristaPage() {
         <>
           <div className="card p-3 mb-4">
             <h3 className="text-sm uppercase tracking-widest text-muted mb-2">Nuevo remito</h3>
-            <MayoristaCabeceraBlock valor={cab} onCambio={setCampo} depositos={depositos} />
+            <MayoristaCabeceraBlock valor={cab} onCambio={setCampo} depositos={depositos} consignaHabilitada={consignaHabilitada} />
             <div className="mt-3">
               <MayoristaTablaBlock items={items} onItems={setItems} />
             </div>
