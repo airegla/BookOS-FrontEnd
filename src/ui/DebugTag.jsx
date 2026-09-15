@@ -1,7 +1,10 @@
 // BookOS - DebugTag.jsx
 // ruta: bookos/frontend/src/ui/DebugTag.jsx
-// descripcion: marca de identificacion de componente cuando debug_mode esta
-//   activo (VITE_DEBUG_MODE). debug_mode=false -> no renderiza nada.
+// descripcion: marca de identificacion de componente cuando debug_mode esta activo. Dos fuentes y
+//   alcanza con una: VITE_DEBUG_MODE (build) y el toggle debug_mode del OS (runtime, Sistema ▾
+//   Config). Estado REACTIVO unico (useSyncExternalStore) compartido con el shell: el toggle se ve
+//   al instante, sin recargar, y VITE_DEBUG_MODE=true sigue siendo el piso. debug_mode=false -> no
+//   renderiza nada.
 
 import { useSyncExternalStore } from 'react';
 
