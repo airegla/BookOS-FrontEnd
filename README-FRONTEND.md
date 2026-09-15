@@ -125,7 +125,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 
 **src/ui/**
 
-- `DebugTag.jsx` — marca de identificacion de componente cuando debug_mode esta activo (VITE_DEBUG_MODE). debug_mode=false -> no renderiza nada.
+- `DebugTag.jsx` — marca de identificacion de componente cuando debug_mode esta activo. Dos fuentes y alcanza con una: VITE_DEBUG_MODE (build) y el toggle debug_mode del OS (runtime, Sistema ▾ Config). Estado REACTIVO unico (useSyncExternalStore) compartido con el shell: el toggle se ve al instante, sin recargar, y VITE_DEBUG_MODE=true sigue siendo el piso. debug_mode=false -> no renderiza nada.
 - `Input.jsx` — input estandarizado del OS (clase .input-os).
 - `MermaidDiagram.jsx` — renderiza un diagrama Mermaid (texto) como SVG dentro del manual.
 - `Modal.jsx` — modal base del OS. Todo lo que crea/edita pasa por aca para no perder trabajo al navegar. Cierra con ESC.
@@ -159,7 +159,15 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
   (`.agente-input-wrap`). En <=1024px el panel se abre a pantalla completa con el boton flotante.
 - **Modal con pie visible**: `Modal.jsx` usa `modal-header` / `modal-body` / `modal-footer`;
   scrollea solo el cuerpo, el titulo y los botones (Guardar/Cancelar) quedan siempre a la vista.
-- **debug_mode**: `VITE_DEBUG_MODE=true` muestra marca de agua y DebugTag por componente.
+- **debug_mode**: hay dos caminos y alcanza con uno. `VITE_DEBUG_MODE=true` (build) o el toggle
+  `debug_mode` del OS en Sistema ▾ Config, que esta CABLEADO: enciende la marca de agua y los
+  `<DebugTag />` al instante, sin recompilar. El build es el piso: si la variable esta en true, el
+  toggle no lo apaga.
+- **Interruptores del OS desde el catalogo**: `ConfigPage` ya no tiene lista propia de toggles:
+  renderiza el grupo `sistema` del catalogo del backend (con descripcion y valor efectivo DB >
+  default). Una clave nueva del backend aparece sola en la pantalla, y los 7 proveedores de
+  sinopsis, el descuento de costo y la bandeja de precios dejaron de ser inalcanzables desde el
+  front.
 - **El stock no se edita desde el catalogo**: el modal de articulos NO manda campos de stock
   (el backend rechaza el payload si vienen); el stock se ajusta por inventario/transferencia
   (ledger) y en el modal solo se informa el firme actual. `Ver` abre el kardex de movimientos.

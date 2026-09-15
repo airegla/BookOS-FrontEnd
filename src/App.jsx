@@ -45,7 +45,8 @@ import AsistenteVentasPage from './pages/AsistenteVentasPage';
 import ConfigCrmPage from './pages/ConfigCrmPage';
 import PlantillasMailPage from './pages/PlantillasMailPage';
 import ImportadorPage from './pages/ImportadorPage';
-import { authApi } from './api/api';
+import { authApi, configApi } from './api/api';
+import { activarDebug, useDebugActivo } from './ui/DebugTag';
 import { useAppContext } from './AppContext';
 
 function Login({ onLogin }) {
@@ -97,7 +98,7 @@ export default function App() {
   const [vista, setVista] = useState('Catalogo');
   const [cargando, setCargando] = useState(true);
   const { setContextoActual, emitirInstruccion } = useAppContext();
-  const debug = import.meta.env.VITE_DEBUG_MODE === 'true';
+  const debug = useDebugActivo();
 
   useEffect(() => {
     const token = localStorage.getItem('bookos_token');
@@ -109,6 +110,15 @@ export default function App() {
       .then((res) => setUsuario(res.data))
       .catch(() => localStorage.removeItem('bookos_token'))
       .finally(() => setCargando(false));
+    // Marcas de debug: el toggle debug_mode del OS manda en caliente (Sistema > Config), sin
+    // recompilar el front. VITE_DEBUG_MODE sigue siendo el piso: si esta en true, no lo apaga.
+    configApi.obtener()
+      .then((res) => {
+        const t = (res.data.catalogo || []).find((c) => c.clave === 'debug_mode');
+        const encendido = Boolean(t) && !(t.valor === false || t.valor === 'false' || t.valor === '0' || t.valor === '');
+        activarDebug(encendido);
+      })
+      .catch(() => {});
   }, []);
 
   const cambiarVista = (nueva) => {

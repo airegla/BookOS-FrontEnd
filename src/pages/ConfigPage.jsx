@@ -6,15 +6,14 @@
 
 import { useEffect, useState } from 'react';
 import Toggle from '../ui/Toggle';
-import DebugTag from '../ui/DebugTag';
+import DebugTag, { activarDebug } from '../ui/DebugTag';
 import ModeloChicoBlock from '../blocks/ModeloChicoBlock';
 import { configApi, propuestasApi, auditoriaApi, kernelApi } from '../api/api';
 
-const TOGGLES = ['usa_consignacion', 'usa_deposito', 'debug_mode', 'LLM_ENABLED'];
-
 export default function ConfigPage({ esAdmin }) {
-  const [toggles, setToggles] = useState({});
-  const [agente, setAgente] = useState(null);
+  // Los interruptores del OS salen del CATALOGO del backend (grupo 'sistema'). Antes eran una lista
+  // hardcodeada aca y una clave nueva del backend no aparecia nunca en la pantalla.
+  const [catalogo, setCatalogo] = useState([]);
   const [propuestas, setPropuestas] = useState([]);
   const [ranking, setRanking] = useState([]);
   const [workers, setWorkers] = useState({});
@@ -23,8 +22,7 @@ export default function ConfigPage({ esAdmin }) {
   const cargar = async () => {
     try {
       const res = await configApi.obtener();
-      setToggles(res.data.toggles || {});
-      setAgente(res.data.agente || null);
+      setCatalogo((res.data.catalogo || []).filter((t) => t.grupo === 'sistema'));
       if (esAdmin) {
         const props = await propuestasApi.listar(false);
         setPropuestas(props.data || []);
@@ -38,16 +36,22 @@ export default function ConfigPage({ esAdmin }) {
 
   useEffect(() => { cargar(); }, []); // eslint-disable-line
 
-  // Valor efectivo de un toggle: lo guardado manda; LLM_ENABLED cae al estado efectivo del agente.
-  const valorToggle = (clave) => {
-    const v = toggles[clave];
-    if (v === undefined || v === null || v === '') return clave === 'LLM_ENABLED' ? Boolean(agente && agente.llmEnabled) : false;
-    return !(v === false || v === 'false' || v === '0');
-  };
+  // El catalogo ya trae el valor EFECTIVO (DB > default). Adivinar el default en el front era el
+  // bug: LLM_ENABLED se veia apagado sin estarlo, porque su default es true y no habia fila.
+  const activoDe = (t) => !(t.valor === false || t.valor === 'false' || t.valor === '0' || t.valor === '');
 
   const cambiarToggle = async (clave, valor) => {
     await configApi.setToggle(clave, valor);
+    // debug_mode es del FRONT: se aplica al instante y sin recargar. Los demas son del backend y
+    // rigen en la proxima operacion que los consulte.
+    if (clave === 'debug_mode') activarDebug(valor);
     setMensaje(`Toggle ${clave} → ${valor ? 'activo' : 'apagado'}`);
+    cargar();
+  };
+
+  const cambiarNumero = async (clave, valor) => {
+    await configApi.setToggle(clave, valor);
+    setMensaje(`Toggle ${clave} → ${valor}`);
     cargar();
   };
 
@@ -87,16 +91,41 @@ export default function ConfigPage({ esAdmin }) {
       </div>
 
       <div className="card p-4 mb-4">
-        <h3 className="font-semibold mb-3">Toggles del OS</h3>
-        {TOGGLES.map((clave) => (
-          <div key={clave} className="flex justify-between items-center py-2">
-            <span className="text-sm">{clave}</span>
-            <Toggle activo={valorToggle(clave)} onChange={(v) => cambiarToggle(clave, v)} />
-          </div>
-        ))}
-        <p className="text-xs text-muted mt-2">
-          Editables en caliente (runtimeConfig). <span className="font-mono">LLM_ENABLED</span> apaga la redacción
-          del agente sin frenar kernel, marcadores ni planificador.
+        <h3 className="font-semibold mb-3">Interruptores del OS</h3>
+        <div className="space-y-3">
+          {catalogo.map((t) => (
+            <div key={t.clave}>
+              <div className="flex items-center gap-3">
+                {t.tipo === 'bool' ? (
+                  <>
+                    <Toggle activo={activoDe(t)} onChange={(v) => cambiarToggle(t.clave, v)} />
+                    <span className="text-sm font-mono">{t.clave}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm font-mono">{t.clave}</span>
+                    <input
+                      type="number"
+                      className="input-os"
+                      style={{ maxWidth: 120 }}
+                      defaultValue={t.valor}
+                      onBlur={(e) => {
+                        const v = e.target.value;
+                        if (String(v) !== String(t.valor)) cambiarNumero(t.clave, v);
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+              <p className="text-xs text-muted mt-1">{t.descripcion}</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-muted mt-3">
+          Editables en caliente (runtimeConfig) y leidos del catalogo del backend (grupo
+          <span className="font-mono"> sistema</span>): una clave nueva del backend aparece sola.
+          Los del <strong>agente</strong> viven en Kernel ▾ → Agente y los del <strong>CRM</strong> en
+          CRM ▾ → Config CRM.
         </p>
       </div>
 

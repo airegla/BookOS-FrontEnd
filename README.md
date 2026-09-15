@@ -41,7 +41,7 @@ Chat lateral persistente conectado por **SSE** al agente del backend:
 - **Sin router**: la navegación es estado de React (`App.jsx`), con navbar agrupada por flujo
 - **SSE** para el streaming del chat y cliente HTTP propio (`src/api/`) con JWT y envelope
 - Identidad visual en un solo lugar: `src/styles/globals.css` (`app.css` solo ajustes mobile)
-- `VITE_DEBUG_MODE=true` activa la marca de agua y los `<DebugTag />` por componente
+- `VITE_DEBUG_MODE=true` (build) o el toggle `debug_mode` del OS (Sistema ▾ Config, en caliente) activan la marca de agua y los `<DebugTag />` por componente
 
 ## Arranque en desarrollo
 
