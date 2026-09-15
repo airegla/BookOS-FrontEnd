@@ -302,6 +302,25 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
   (`utils/formasPago.js`, espejo de la formula del backend para verlo antes de confirmar).
 - **Multi-pago**: el "+" agrega una linea con **lo que falta** para cancelar el total, y cambiar el
   metodo de una linea borra su sub-forma (cada sub-forma pertenece a un metodo madre).
+- **Numero de cheque y de transaccion (15-Sep)**: en el cobro (F10) cada linea pide el **nro de
+  cheque** cuando el metodo es CHEQUE (obligatorio) y el **nro de transaccion** cuando es TARJETA
+  (opcional, del ticket); el recibo de cuenta corriente hace lo mismo y el detalle de la venta suma
+  la columna **Nro**. Una venta de un solo pago con cheque ahora manda su desglose (antes el numero
+  se perdia si no habia sub-forma).
+- **Campanas (15-Sep)**: el **historial paso a modal** (como los otros historiales) y el segmento
+  **Por clientes puntuales** ya no se tipea con ids: se eligen con el **buscador de clientes** y
+  quedan como fichas con ✕. El formulario de campana nueva (con el segmento elegido) persiste como
+  borrador.
+- **Liquidacion de consigna por corte (15-Sep)**: el modal de liquidacion trae el **corte automatico**
+  (diferencia de stock o ventas del periodo, con desde/hasta), un boton **Traer corte** que previsualiza
+  el corte del motor y avisa antes de reemplazar lo ya cargado, y un **buscador de articulos** para
+  armar los renglones a mano. El modo y el rango quedan registrados en la liquidacion.
+- **Borradores persistentes (15-Sep)**: ademas de Facturar, Caja, Compras, Remitos, Inventario,
+  Consigna (4) y Mayorista (6), ahora persisten el **alta rapida de cliente** (F2) -que ademas ya no
+  se borra al cerrar el modal- y el formulario de **Transportes/depositos**.
+- **Chat: id de conversacion muerto (15-Sep)**: el interceptor de `axiosClient` **conserva el status**
+  del error (antes solo sobrevivia el texto) y el hook descarta el id guardado cuando el backend
+  responde 404, en vez de reintentar y fallar en silencio en cada carga.
   deshabilitado; el detalle vacio ya no muestra un `null`. El agente suma `materias_proponer`
   (propone materia para titulos sin materia por vecinos semanticos, exportable a CSV) y
   `materias_asignar` (asignacion en lote con preview y confirmacion).
