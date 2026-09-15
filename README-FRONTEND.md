@@ -359,3 +359,11 @@ Notificar ingresos, Notificar agotados, Despachar con mail de control). Ambas so
   quedó registrado"; si el POST falla se avisa sin romper la conversación. Lo dibuja `VotoTurno` en
   `ChatAgente.jsx`; el `evaluacionId` llega en el evento `resultado` del SSE y lo propaga
   `useAgenteStream`; el POST vive en `agenteApi.feedback` (`api/api.js`).
+- **"Ver perfiles" en el Kernel (ruta empatica, E7)**: `PerfilesPage` (`Kernel ▾ → Perfiles`) muestra
+  **un perfil de usuario por fila** con su información empática reunida para análisis rápido — cómo
+  viene el trato (score contra su target y tendencia), consentimiento y pausa, cuántos intercambios
+  evaluados, señales, ánimo, votos y el **aprendizaje que hoy entra al prompt** — y al abrir la fila
+  el detalle: las últimas evaluaciones con la **razón del score**, la historia de lo que contó el
+  operario, y las acciones de privacidad (pausar, revocar, **exportar JSON y CSV**, dar de baja).
+  Arriba hay **Correr retención** (admin): reemplaza la prosa vieja por un resumen del LLM sin borrar
+  filas. El score es información **interna**: vive acá, no en la conversación con el operario.

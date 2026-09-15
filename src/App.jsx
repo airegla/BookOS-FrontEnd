@@ -31,6 +31,7 @@ import EmpresaPage from './pages/EmpresaPage';
 import UsuariosPage from './pages/UsuariosPage';
 import DesarrolloPage from './pages/DesarrolloPage';
 import SaludPage from './pages/SaludPage';
+import PerfilesPage from './pages/PerfilesPage';
 import PropuestasPage from './pages/PropuestasPage';
 import PesosPage from './pages/PesosPage';
 import LogsPage from './pages/LogsPage';
@@ -201,6 +202,7 @@ export default function App() {
           {vista === 'Desarrollo' && <DesarrolloPage esAdmin={esAdmin} />}
           {vista === 'Salud' && <SaludPage esAdmin={esAdmin} />}
           {vista === 'Agente' && <AgentePage esAdmin={esAdmin} />}
+          {vista === 'Perfiles' && <PerfilesPage esAdmin={esAdmin} />}
           {vista === 'Propuestas Kernel' && <PropuestasPage esAdmin={esAdmin} />}
           {vista === 'Pesos' && <PesosPage esAdmin={esAdmin} />}
           {vista === 'Logs' && <LogsPage />}

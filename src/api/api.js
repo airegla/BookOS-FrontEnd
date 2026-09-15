@@ -403,6 +403,16 @@ export const agenteApi = {
   confirmar: (herramienta, argumentos, conversacionId = null) => axiosClient.post('/agente/confirmar', { herramienta, argumentos, conversacionId: conversacionId || null }),
   // Feedback empatico del turno (D13): pulgar (+1/-1) y/o escala 1-5. No gasta LLM.
   feedback: (evaluacionId, { pulgar = null, score = null } = {}) => axiosClient.post('/agente/feedback', { evaluacionId, pulgar, score }),
+  // Perfiles del operario (plan 11 E7): el panel "Ver perfiles" y la privacidad.
+  // El propio operario: su estado y sus acciones (pausar, reanudar, revocar, aceptar).
+  operarioEstado: () => axiosClient.get('/agente/operario/estado'),
+  operarioAccion: (accion, id = null) => (id ? axiosClient.post(`/agente/operarios/${id}/${accion}`) : axiosClient.post(`/agente/operario/${accion}`)),
+  // Panel del admin: listado, detalle, export, borrado y retencion.
+  operarios: (params = {}) => axiosClient.get('/agente/operarios', { params }),
+  operarioDetalle: (id, params = {}) => axiosClient.get(`/agente/operarios/${id}`, { params }),
+  operarioExport: (id) => axiosClient.get(`/agente/operarios/${id}/export`),
+  operarioBorrar: (id) => axiosClient.delete(`/agente/operarios/${id}`),
+  operarioRetencion: (payload = {}) => axiosClient.post('/agente/operarios/retencion', payload),
   metricas: (dias = 30) => axiosClient.get('/agente/metricas', { params: { dias } }),
   memoria: (params = {}) => axiosClient.get('/agente/memoria', { params }),
   memoriaEliminar: (id) => axiosClient.delete(`/agente/memoria/${id}`),
