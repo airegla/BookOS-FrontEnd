@@ -34,6 +34,8 @@ import SaludPage from './pages/SaludPage';
 import PerfilesPage from './pages/PerfilesPage';
 import PropuestasPage from './pages/PropuestasPage';
 import PesosPage from './pages/PesosPage';
+import BancoPruebasPage from './pages/BancoPruebasPage';
+import ModeloLocalPage from './pages/ModeloLocalPage';
 import LogsPage from './pages/LogsPage';
 import ColaPage from './pages/ColaPage';
 import MemoriaPage from './pages/MemoriaPage';
@@ -205,6 +207,8 @@ export default function App() {
           {vista === 'Perfiles' && <PerfilesPage esAdmin={esAdmin} />}
           {vista === 'Propuestas Kernel' && <PropuestasPage esAdmin={esAdmin} />}
           {vista === 'Pesos' && <PesosPage esAdmin={esAdmin} />}
+          {vista === 'Banco de pruebas' && <BancoPruebasPage esAdmin={esAdmin} />}
+          {vista === 'Modelo local' && <ModeloLocalPage esAdmin={esAdmin} />}
           {vista === 'Logs' && <LogsPage />}
           {vista === 'Cola' && <ColaPage />}
           {vista === 'Memoria' && <MemoriaPage esAdmin={esAdmin} />}

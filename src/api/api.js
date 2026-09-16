@@ -178,6 +178,11 @@ export const kernelApi = {
   pesosActivar: (id) => axiosClient.post(`/kernel/pesos/${id}/activar`),
   banco: () => axiosClient.get('/kernel/banco'),
   bancoCorrer: (payload = {}) => axiosClient.post('/kernel/banco/correr', payload),
+  // Banco del MODELO CHICO LOCAL: estado (series, consultas y contrato vivo) y corrida de la serie.
+  // La corrida es LARGA (medido: ~12 s por consulta; la serie normal ~2,5 min), muy por encima del
+  // timeout del cliente, asi que solo esta llamada lo sube: 15 min.
+  bancoChicoEstado: () => axiosClient.get('/kernel/chico/banco'),
+  bancoChico: (payload = {}) => axiosClient.post('/kernel/chico/banco', payload, { timeout: 900000 }),
   cola: () => axiosClient.get('/kernel/cola'),
   logs: (params = {}) => axiosClient.get('/kernel/logs', { params }),
   registro: (params = {}) => axiosClient.get('/kernel/registro', { params }),

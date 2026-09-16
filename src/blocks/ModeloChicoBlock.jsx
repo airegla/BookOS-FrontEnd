@@ -1,9 +1,11 @@
 // BookOS - ModeloChicoBlock.jsx
 // ruta: bookos/frontend/src/blocks/ModeloChicoBlock.jsx
 // descripcion: panel del modelo chico local CON HERRAMIENTAS (laboratorio). Muestra su estado y el
-//   de su worker, sus topes editables en caliente, el indice compacto de las 33 herramientas para
+//   de su worker, sus interruptores y topes editables en caliente (los del grupo 'chico' del
+//   catalogo del backend, no una lista escrita aca), el indice compacto de las herramientas para
 //   ajustarlo a mano (descripcion por modulo; las acciones salen del contrato y no se editan desde
 //   aca), la semilla corta y el prompt final que recibe el modelo.
+//   Lo monta la pantalla Kernel > Modelo local.
 //   Regla del laboratorio: lo que el motor usa tiene que poder verse y tocarse desde el front; si
 //   algo no esta en esta pantalla, el vectorHumano no puede accederlo.
 
@@ -11,9 +13,23 @@ import { useEffect, useState } from 'react';
 import Toggle from '../ui/Toggle';
 import { configApi, kernelApi } from '../api/api';
 
-const CLAVE_ACTIVO = 'LLM_CHICO_TOOLS_ENABLED';
-const CLAVE_PASOS = 'LLM_CHICO_TOOLS_PASOS';
-const CLAVE_CHARS = 'LLM_CHICO_TOOLS_MAX_CHARS';
+// El GRUPO del catalogo que esta pantalla edita. No se listan las claves a mano: se dibujan las que
+// el backend declare con `grupo: 'chico'`, asi una clave nueva de ese grupo aparece sola (antes
+// estaban las cuatro clavadas aca y una quinta quedaba invisible sin que nada lo dijera).
+const GRUPO = 'chico';
+// Las dos claves que el ENCABEZADO necesita entender (no solo mostrar): ENCENDIDO es el modelo en
+// uso y el que hace el override del LLM pago; MODO lo pone a trabajar con herramientas y REQUIERE el
+// encendido. El resto de la fila se dibuja sola desde el catalogo.
+const CLAVE_ENCENDIDO = 'LLM_CHICO_ENABLED';
+const CLAVE_MODO = 'LLM_CHICO_TOOLS_ENABLED';
+// Etiqueta corta para las claves conocidas; una clave nueva del grupo cae en la descripcion larga
+// del catalogo (se muestra igual, solo mas verbosa).
+const AYUDA = {
+  [CLAVE_ENCENDIDO]: 'enciende el modelo local y hace el override del LLM pago',
+  [CLAVE_MODO]: 'modo: loop con herramientas',
+  LLM_CHICO_TOOLS_PASOS: 'pasos de herramienta por turno',
+  LLM_CHICO_TOOLS_MAX_CHARS: 'chars por resultado de herramienta',
+};
 
 // Valor efectivo de un toggle guardado (misma normalizacion que el resto del OS).
 const activoDe = (v) => !(v === false || v === 'false' || v === '0' || v === '' || v === undefined || v === null);
@@ -89,14 +105,21 @@ export default function ModeloChicoBlock() {
 
   const indice = (estado && estado.indice) || null;
   const worker = (estado && estado.worker) || null;
-  const activo = activoDe(toggles[CLAVE_ACTIVO]);
-  // Valor EFECTIVO del tope: lo guardado manda; si nunca se toco, el catalogo trae el default que
-  // el motor esta usando. Mostrar el input vacio hacia creer que el motor no tenia tope.
-  const efectivo = (clave) => {
-    const guardado = toggles[clave];
-    if (guardado !== undefined && guardado !== null && guardado !== '') return guardado;
+  // Las filas del panel salen del CATALOGO (grupo 'chico'), no de una lista escrita aca. El valor de
+  // cada una es el EFECTIVO (el catalogo ya combina lo guardado con el default del .env): mostrar el
+  // input vacio hacia creer que el motor no tenia tope.
+  const filasToggles = catalogo.filter((t) => t.grupo === GRUPO);
+  const valorDe = (clave) => {
     const def = catalogo.find((c) => c.clave === clave);
-    return def && def.valor !== undefined && def.valor !== null ? def.valor : '';
+    return def ? def.valor : undefined;
+  };
+  const encendido = activoDe(valorDe(CLAVE_ENCENDIDO));
+  const modo = activoDe(valorDe(CLAVE_MODO));
+  const activo = encendido && modo;          // el chat lo usa solo con los dos puestos
+  // Mientras se escribe un numero manda el borrador local; al salir del campo se guarda.
+  const enEdicion = (clave, valorEfectivo) => {
+    const borrador = toggles[clave];
+    return borrador !== undefined && borrador !== null && borrador !== '' ? borrador : valorEfectivo;
   };
 
   return (
@@ -104,13 +127,17 @@ export default function ModeloChicoBlock() {
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="font-semibold">Modelo chico con herramientas</h3>
         <span className="agente-badge" style={{ color: activo ? '#15803d' : 'var(--danger)' }}>
-          {activo ? 'EL CHAT LO USA' : 'apagado (el chat usa el LLM pago)'}
+          {activo
+            ? 'ENCENDIDO + MODO: el chat usa el chico (override del LLM pago)'
+            : (encendido ? 'ENCENDIDO sin modo: solo frasea sobre la plantilla' : 'APAGADO: el chat usa el LLM pago')}
         </span>
       </div>
       <p className="text-sm text-muted mb-3">
         Modelo local (Qwen2.5-0.5B) con el mismo loop de herramientas que el LLM pago, pero con un contrato
-        propio: indice compacto en vez del manual completo y menos pasos. Encendido, el chat lo usa en lugar
-        del LLM pago. Requiere el worker levantado (abajo) y ~1,6 GB de RAM libres.
+        propio: indice compacto en vez del manual completo y menos pasos. Son DOS interruptores: el de
+        ENCENDIDO es el que hace el override del LLM pago, y el de MODO lo pone a trabajar con herramientas
+        (con el encendido apagado, el modo no hace nada). Requiere el worker levantado (abajo) y
+        ~1,7-2,4 GB de RAM libres (medido en el i5).
       </p>
 
       {aviso && <p className="text-sm mb-3">{aviso}</p>}
@@ -132,32 +159,43 @@ export default function ModeloChicoBlock() {
       )}
 
       <div className="mb-3">
-        <div className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-          <span className="text-sm">{CLAVE_ACTIVO}</span>
-          <Toggle activo={activo} onChange={(v) => cambiarToggle(CLAVE_ACTIVO, v)} />
-        </div>
-        <div className="flex justify-between items-center py-2 gap-3" style={{ borderBottom: '1px solid var(--border)' }}>
-          <span className="text-sm">{CLAVE_PASOS} <span className="text-xs text-muted">(pasos por turno)</span></span>
-          <input
-            type="number"
-            className="input text-sm"
-            style={{ width: 90 }}
-            value={efectivo(CLAVE_PASOS)}
-            onChange={(e) => setToggles((p) => ({ ...p, [CLAVE_PASOS]: e.target.value }))}
-            onBlur={(e) => cambiarToggle(CLAVE_PASOS, Number(e.target.value))}
-          />
-        </div>
-        <div className="flex justify-between items-center py-2 gap-3">
-          <span className="text-sm">{CLAVE_CHARS} <span className="text-xs text-muted">(chars por resultado)</span></span>
-          <input
-            type="number"
-            className="input text-sm"
-            style={{ width: 90 }}
-            value={efectivo(CLAVE_CHARS)}
-            onChange={(e) => setToggles((p) => ({ ...p, [CLAVE_CHARS]: e.target.value }))}
-            onBlur={(e) => cambiarToggle(CLAVE_CHARS, Number(e.target.value))}
-          />
-        </div>
+        {filasToggles.length === 0 && (
+          <p className="text-sm text-muted">
+            El catalogo del backend no tiene ninguna clave con <span className="font-mono">grupo: '{GRUPO}'</span>.
+          </p>
+        )}
+        {filasToggles.map((t) => {
+          // El MODO se apaga visualmente cuando el encendido esta en off: es la unica dependencia
+          // entre dos toggles de este grupo y hay que verla, no deducirla.
+          const requiereEncendido = t.clave === CLAVE_MODO;
+          const etiqueta = AYUDA[t.clave] || t.descripcion;
+          return (
+            <div
+              key={t.clave}
+              className="flex justify-between items-center py-2 gap-3"
+              style={{ borderBottom: '1px solid var(--border)', opacity: requiereEncendido && !encendido ? 0.55 : 1 }}
+            >
+              <span className="text-sm">
+                {t.clave}
+                <span className="text-xs text-muted">
+                  {' — '}{etiqueta}{requiereEncendido && !encendido ? ' (requiere el toggle de encendido)' : ''}
+                </span>
+              </span>
+              {t.tipo === 'bool' ? (
+                <Toggle activo={activoDe(t.valor)} onChange={(v) => cambiarToggle(t.clave, v)} />
+              ) : (
+                <input
+                  type="number"
+                  className="input text-sm"
+                  style={{ width: 90 }}
+                  value={enEdicion(t.clave, t.valor)}
+                  onChange={(e) => setToggles((p) => ({ ...p, [t.clave]: e.target.value }))}
+                  onBlur={(e) => cambiarToggle(t.clave, Number(e.target.value))}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <details className="mb-3">

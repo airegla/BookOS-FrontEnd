@@ -4,6 +4,8 @@
 //   motor). Muestra su estado (LLM, modelo, pasos, presupuesto), sus toggles (prompt completo o
 //   hibrido, cuantas herramientas con manual completo, pasos del loop, techo de contexto) y el
 //   inventario de herramientas con el uso real (la automejora: lo calibra la reflexion).
+//   El MODELO CHICO LOCAL no se ajusta aca: sus toggles, su semilla y su indice viven en
+//   Kernel > Modelo local, y su medicion en Kernel > Banco de pruebas.
 
 import { useEffect, useState } from 'react';
 import Toggle from '../ui/Toggle';
@@ -21,6 +23,9 @@ export default function AgentePage({ esAdmin }) {
     try {
       const res = await configApi.obtener();
       setAgente(res.data.agente || null);
+      // Solo el grupo 'agente'. Los toggles del MODELO CHICO tienen su propio grupo ('chico') y su
+      // pantalla (Kernel > Modelo local): antes se pintaban aca tambien, y la misma clave quedaba en
+      // dos lugares con dos relatos distintos.
       setCatalogo((res.data.catalogo || []).filter((c) => c.grupo === 'agente'));
       const inv = await kernelApi.herramientas();
       setInventario(inv.data || null);
@@ -98,6 +103,11 @@ export default function AgentePage({ esAdmin }) {
 
       <div className="card p-4 mb-4">
         <h3 className="font-semibold mb-3">Prompt y loop</h3>
+        <p className="text-xs text-muted mb-3">
+          Estos son los toggles del <strong>LLM pago</strong>. El modelo chico local tiene los suyos
+          (encendido, modo con herramientas, pasos y chars por resultado) en
+          <strong> Kernel ▾ Modelo local</strong>, con su semilla y su índice.
+        </p>
         <div className="space-y-3">
           {catalogo.map((t) => (
             <div key={t.clave} className="py-1" style={{ borderBottom: '1px solid var(--border)' }}>

@@ -26,10 +26,11 @@ src/
   AppContext.jsx     contexto de pantalla inyectado al agente
   api/               axiosClient (JWT + envelope) + modulos por dominio
   blocks/            AgenteChatBlock · ManualBlock · CargarDocumentoBlock · BuscadorArticuloBlock
-  pages/             25 paginas: Catalogo, Referencias, Ventas (POS/historial/periodo), Compras,
+  pages/             27 paginas: Catalogo, Referencias, Ventas (POS/historial/periodo), Compras,
                      Remitos, Caja, CtaCte, Consigna, Inventario, Clientes, Proveedores,
                      Transportes, Mayorista, Newsletter, Usuarios, Parametros, Empresa, Config,
-                     Desarrollo y el grupo Kernel (Salud, Propuestas, Pesos, Logs, Cola, Memoria)
+                     Desarrollo y el grupo Kernel (Salud, Agente, Perfiles, Modelo local, Pesos,
+                     Banco de pruebas, Propuestas Kernel, Logs, Cola, Memoria)
   ui/                Modal, Table, Paginador, Toggle, Input, DebugTag, Navbar, MermaidDiagram
   hooks/             useAgenteStream (SSE) · usePersistentWork (borradores)
   styles/globals.css UNICO lugar para modificar la identidad visual
@@ -83,8 +84,9 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 
 **src/pages/**
 
-- `AgentePage.jsx` — el agente en el Kernel (es uno solo: Secretario y Asistente de ventas comparten motor). Muestra su estado (LLM, modelo, pasos, presupuesto), sus toggles (prompt completo o hibrido, cuantas herramientas con manual completo, pasos del loop, techo de contexto) y el inventario de herramientas con el uso real (la automejora: lo calibra la reflexion).
+- `AgentePage.jsx` — el agente en el Kernel (es uno solo: Secretario y Asistente de ventas comparten motor). Muestra su estado (LLM, modelo, pasos, presupuesto), sus toggles (prompt completo o hibrido, cuantas herramientas con manual completo, pasos del loop, techo de contexto) y el inventario de herramientas con el uso real (la automejora: lo calibra la reflexion). El MODELO CHICO LOCAL no se ajusta aca: sus toggles, su semilla y su indice viven en Kernel > Modelo local, y su medicion en Kernel > Banco de pruebas.
 - `AsistenteVentasPage.jsx` — la pagina del ASISTENTE DE VENTAS (perfil 'ventas' del agente). No es un chat generico duplicado: es el mostrador. Encabezado propio, acciones rapidas de libreria, los marcadores a la vista y el cliente activo como contexto, con el chat de ventas adentro. El panel del Secretario viene cerrado en esta vista (se abre desde su boton).
+- `BancoPruebasPage.jsx` — pantalla del BANCO DE PRUEBAS del kernel (Kernel > Banco de pruebas). Reune las dos series que hoy existen: la del RANKING, que corre la serie fija de consultas contra el kernel y la puntua con el LLM pago (antes vivia dentro de Pesos), y la del MODELO CHICO LOCAL, que mide que herramienta elige el chico para cada consulta de la misma serie. Las dos son instrumentos de MEDICION: ninguna activa nada por si sola. La del ranking, si encuentra mejora, deja una propuesta para aprobar; la del chico solo deja el reporte.
 - `CajaPage.jsx` — arqueo de caja y cierre Z (reglas de bookerp). Estado del turno, movimientos manuales, cierre con diferencia y historial. Integrado al Secretario (contexto de caja).
 - `CampaniasPage.jsx` — campañas del CRM (doc 06 D7). Historial de campañas con su configuración y estado, alta (brief + cantidad de títulos + segmento + vigencia), generación de los borradores por lotes (el asistente arma un mail por cliente con títulos en stock), revisión práctica (aprobar / rechazar de a una o todas) y envío de lo aprobado, respetando el MODO PRUEBA.
 - `CatalogoPage.jsx` — catalogo enriquecido. Listado paginado + busqueda hibrida semantica + modal de alta/edicion (todo en modal, nada borra trabajo).
@@ -92,7 +94,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `ColaPage.jsx` — panel de Cola del enriquecimiento (E4/E7): estados de la cola, pendientes por prioridad, cobertura del stock activo, breakers de las fuentes externas y presupuesto LLM del dia. Descarga del estado en CSV.
 - `ComprasPage.jsx` — ingreso de compras a proveedores (candado FIFE firme/consigna), historial/anulacion + pedido a proveedor (bookerp) en modal. El pedido no afecta stock hasta confirmarse (al confirmar genera la compra).
 - `ConfigCrmPage.jsx` — configuracion del CRM (doc 06): mail (SMTP con prueba de envio real), Telegram (bot con prueba) y los toggles del modulo (grupo 'crm' del catalogo: notificaciones, radar, intentos de pedido, envio a proveedor). El password/token nunca vuelven de la API.
-- `ConfigPage.jsx` — configuracion del OS: estado del agente (LLM activo, modelo, presupuesto), toggles en caliente (runtimeConfig) y propuestas del Secretario (cristalizacion v2). Los pesos del ranking viven en Kernel > Pesos (versionados con rollback).
+- `ConfigPage.jsx` — configuracion del OS: estado del agente (LLM activo, modelo, presupuesto), toggles en caliente (runtimeConfig) y propuestas del Secretario (cristalizacion v2). Las pantallas del nucleo NO viven aca: los pesos del ranking estan en Kernel > Pesos y > Banco de pruebas, y el panel del modelo chico con sus workers en Kernel > Modelo local.
 - `ConsignaPage.jsx` — flujo de consignacion: liquidaciones, conciliador de sabanas, devoluciones (motor FIFE) y preparado de devolucion (CSV del proveedor cruzado con el stock de cada local, con descarga general o por sucursal). Interconectado con el Secretario (contexto + consulta + observaciones LLM de cada documento).
 - `CrmEnConstruccion.jsx` — placeholder honesto de las paginas del CRM que llegan en etapas posteriores (doc 06): dice que es, para que sirve y en que etapa del plan se construye.
 - `CtaCtePage.jsx` — cuenta corriente unificada (clientes y proveedores comparten la misma tabla). Estado de cuenta, recibos, anulacion y observacion de comportamiento del Secretario (LLM estudia los movimientos y se semanticiza).
@@ -103,11 +105,12 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `LogsPage.jsx` — panel de Logs. Dos vistas ordenadas (mas nuevo primero): actividad del LLM y del agente (llm_audit_log) y pipeline de enriquecimiento (enriquecimiento_intento). Filtros por modulo/ruta/proveedor/etapa y descarga CSV.
 - `MayoristaPage.jsx` — modulo mayorista (F-12). Patron de 3 bloques (cabecera / tabla / chat del Secretario). Estado: E7 — remitos; E8 — facturación (firme / genérica / baja de consigna / NC); E9 — devoluciones (consigna con tope de sábana / firme con NC) + acuse; E10 — pedidos de devolución (individual, lote por CSV, aprobar/enviar/conciliar/acuse); E11 — sábanas (previsualización valorizada + emisión numerada + envío/reenvío + borrado) y ajustes de consignación (INCREMENTO/DECREMENTO con ledger, motivo obligatorio y anulación). Todos los historiales con Ver/CSV/PDF/Mail/Anular/🧠, paginador server-side y buscador con debounce.
 - `MemoriaPage.jsx` — panel de Memoria del Secretario. Muestra lo que quedo guardado por tipo (nota, buena_practica, decision, ultimo_trabajo), permite filtrar, descargar y (admin) eliminar entradas. La memoria entra al prompt del agente en cada turno.
+- `ModeloLocalPage.jsx` — pantalla del MODELO LOCAL (Kernel > Modelo local). Reune lo que antes estaba repartido entre Sistema > Config y Kernel > Agente: el panel del modelo chico con herramientas (toggles de encendido y modo, topes, semilla, indice y prompt exacto) y el control de los workers locales, que son los dos procesos de modelo que corren en la maquina. Regla del laboratorio: lo que el motor usa tiene que poder verse y tocarse desde el front; si algo no esta en una pantalla, el vectorHumano no puede accederlo.
 - `NewsletterPage.jsx` — suscriptores del newsletter (integrado al CRM). Altas/bajas manuales y listado exportable.
 - `ParametrosPage.jsx` — parametros del OS — metodos de pago (bookerp: tipos de pago) y categorias de caja (bookerp: categorias de los movimientos manuales).
 - `PedidosPage.jsx` — pedidos de clientes del CRM (doc 06): alta, filtros por estado y busqueda, paginado server-side, cambio de estado por fila y export CSV. Los estados son los 6 del ciclo de vida (Pendiente -> Solicitado -> Ingresado -> Notificado | Agotado | Cancelado).
 - `PerfilesPage.jsx` — "Ver perfiles" del Kernel (plan-rediseno/11, E7). Un perfil de usuario por fila con su informacion empatica reunida para ANALISIS RAPIDO: como viene el trato (score contra su target y su tendencia), consentimiento y pausa, cuantos intercambios evaluados tiene, que senales se repiten, el animo, los votos humanos y el APRENDIZAJE que hoy entra al prompt. Al abrir una fila se ve el detalle (las ultimas evaluaciones con la razon del score y la historia de lo que conto el operario) y las acciones de privacidad: pausar, revocar, exportar y dar de baja. El score es informacion INTERNA: vive aca, no en la conversacion con el operario.
-- `PesosPage.jsx` — panel de Pesos del kernel. Edita los pesos vigentes (admin), guardarlos crea una version nueva que pasa a gobernar el ranking; cualquier version anterior puede reactivarse (rollback). El banco de pruebas mide antes/despues con la serie fija.
+- `PesosPage.jsx` — panel de Pesos del kernel. Edita los pesos vigentes (admin), guardarlos crea una version nueva que pasa a gobernar el ranking; cualquier version anterior puede reactivarse (rollback). La medicion (banco de pruebas) vive en Kernel > Banco de pruebas.
 - `PlantillasMailPage.jsx` — editor de los mails que manda el sistema (CRM > Plantillas mail). Lista de plantillas con asunto y cuerpo editables, variables que se insertan en el cursor, vista previa en vivo con datos de ejemplo, envio de prueba real y el manual de variables.
 - `PropuestasPage.jsx` — panel de Propuestas. La reflexion y el calibrador dejan aca lo que proponen (marcadores, pesos, reglas) con su detalle y observacion; aprobar una propuesta la aplica de verdad (marcador o version de pesos). Solo el admin aprueba o rechaza.
 - `PropuestasVentaPage.jsx` — propuestas de lectura del CRM (doc 06 P5/D6): el operario elige cliente, cantidad y una aclaracion, el asistente arma la propuesta (tematicas + afinidad + stock, seleccion y motivos por LLM) y queda en BORRADOR para revisarla antes de mandarla por mail. P7: si la propuesta ya se envio, se puede medir el outcome (que titulos compro el cliente) y queda a la vista en la columna Resultado.
@@ -381,3 +384,15 @@ Notificar ingresos, Notificar agotados, Despachar con mail de control). Ambas so
   operario, y las acciones de privacidad (pausar, revocar, **exportar JSON y CSV**, dar de baja).
   Arriba hay **Correr retención** (admin): reemplaza la prosa vieja por un resumen del LLM sin borrar
   filas. El score es información **interna**: vive acá, no en la conversación con el operario.
+- **Núcleo ordenado en el Kernel (2026-09-15)**: el ajuste del modelo local estaba **duplicado**
+  (`LLM_CHICO_ENABLED`, `LLM_CHICO_TOOLS_ENABLED`, `..._PASOS` y `..._MAX_CHARS` se dibujaban en
+  Sistema ▾ Config *y* en Kernel ▾ Agente, porque `AgentePage` pintaba el grupo `agente` entero).
+  Ahora hay **un solo hogar** para cada cosa: **Kernel ▾ Modelo local** (nuevo: `ModeloLocalPage`) =
+  panel del modelo chico + **workers locales** (el del 3011 y el de embeddings del 3010, que antes
+  solo se tocaban desde Config); **Kernel ▾ Banco de pruebas** (nuevo: `BancoPruebasPage`) = la serie
+  del **ranking** (movida de Pesos) + la serie del **modelo chico**, que mide qué herramienta elige
+  el modelo local sobre las mismas consultas (endpoint `POST /kernel/chico/banco`; la corrida tarda
+  ~12 s por consulta y por eso esa llamada sola sube su timeout a 15 min). `AgentePage` dejó de
+  pintar las claves `LLM_CHICO_*`, `ConfigPage` perdió el panel del chico y los workers, y
+  `PesosPage` perdió el banco (ahora explica dónde se mide). Ninguno de los dos bancos activa nada:
+  el del ranking deja propuesta, el del chico deja reporte en `logs/chico-banco-<fecha>.json`.

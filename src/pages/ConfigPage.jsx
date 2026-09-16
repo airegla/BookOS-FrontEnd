@@ -2,13 +2,13 @@
 // ruta: bookos/frontend/src/pages/ConfigPage.jsx
 // descripcion: configuracion del OS: estado del agente (LLM activo, modelo, presupuesto),
 //   toggles en caliente (runtimeConfig) y propuestas del Secretario (cristalizacion v2).
-//   Los pesos del ranking viven en Kernel > Pesos (versionados con rollback).
+//   Las pantallas del nucleo NO viven aca: los pesos del ranking estan en Kernel > Pesos y > Banco
+//   de pruebas, y el panel del modelo chico con sus workers en Kernel > Modelo local.
 
 import { useEffect, useState } from 'react';
 import Toggle from '../ui/Toggle';
 import DebugTag, { activarDebug } from '../ui/DebugTag';
-import ModeloChicoBlock from '../blocks/ModeloChicoBlock';
-import { configApi, propuestasApi, auditoriaApi, kernelApi } from '../api/api';
+import { configApi, propuestasApi, auditoriaApi } from '../api/api';
 
 export default function ConfigPage({ esAdmin }) {
   // Los interruptores del OS salen del CATALOGO del backend (grupo 'sistema'). Antes eran una lista
@@ -16,7 +16,6 @@ export default function ConfigPage({ esAdmin }) {
   const [catalogo, setCatalogo] = useState([]);
   const [propuestas, setPropuestas] = useState([]);
   const [ranking, setRanking] = useState([]);
-  const [workers, setWorkers] = useState({});
   const [mensaje, setMensaje] = useState('');
 
   const cargar = async () => {
@@ -28,8 +27,6 @@ export default function ConfigPage({ esAdmin }) {
         setPropuestas(props.data || []);
         const rank = await auditoriaApi.ranking(10);
         setRanking(rank.data || []);
-        const ws = await kernelApi.workersEstado();
-        setWorkers(ws.data && ws.data.workers ? ws.data.workers : ws.data || {});
       }
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
@@ -61,15 +58,6 @@ export default function ConfigPage({ esAdmin }) {
       const r = res.data && res.data.resultado ? res.data.resultado : res.data;
       setMensaje(`Propuesta ${id} ${accion === 'aprobar' ? 'aprobada' : 'rechazada'}${r && r.aplicada === false ? ` (${r.motivo})` : r && r.marcador ? ` → ${r.marcador}` : ''}`);
       cargar();
-    } catch (err) { setMensaje(`⚠️ ${err.message}`); }
-  };
-
-  const controlarWorker = async (tipo, accion) => {
-    try {
-      const res = await kernelApi.workersControl(tipo, accion);
-      const data = res.data && res.data.resultado ? res.data.resultado : res.data;
-      setMensaje(`${tipo} ${accion} → ${data && data.ok !== false ? 'ok' : 'error'}`);
-      await cargar();
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
@@ -129,39 +117,14 @@ export default function ConfigPage({ esAdmin }) {
         </p>
       </div>
 
-      {esAdmin && (
-        <div className="card p-4 mb-4">
-          <h3 className="font-semibold mb-3">Workers del kernel</h3>
-          <div className="grid gap-2">
-            {(['embeddings', 'llmChico']).map((tipo) => {
-              const estado = workers[tipo] || {};
-              const nombre = tipo === 'embeddings' ? 'Embeddings' : 'LLM chico';
-              const rowEstado = estado.ok === true || estado.activo === true ? 'activo' : 'apagado';
-              return (
-                <div key={tipo} className="flex justify-between items-center gap-3 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">{nombre}</div>
-                    <div className="text-xs text-muted">{rowEstado} · puerto {estado.puerto || '—'} · pid {estado.pid || '—'}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" className="btn btn-ghost text-xs" onClick={() => controlarWorker(tipo, 'levantar')}>Levantar</button>
-                    <button type="button" className="btn btn-ghost text-xs" onClick={() => controlarWorker(tipo, 'reiniciar')}>Reiniciar</button>
-                    <button type="button" className="btn btn-ghost text-xs" onClick={() => controlarWorker(tipo, 'parar')}>Parar</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {esAdmin && <ModeloChicoBlock />}
-
       <div className="card p-4 mb-4">
-        <h3 className="font-semibold mb-2">Pesos del ranking</h3>
+        <h3 className="font-semibold mb-2">Núcleo (kernel)</h3>
         <p className="text-sm text-muted">
-          Versionados y editables en <strong>Kernel ▾ → Pesos</strong> (banco de pruebas y rollback incluidos).
-          Cada aprobación de pesos crea una versión nueva; la anterior queda reactivable.
+          Todo lo del núcleo semántico vive en el menú <strong>Kernel ▾</strong>: <strong>Pesos</strong> (el
+          ranking y su rollback), <strong>Banco de pruebas</strong> (ranking y modelo chico),
+          <strong> Modelo local</strong> (el modelo chico con herramientas, su semilla, su índice y los
+          workers locales), <strong>Memoria</strong>, <strong>Salud</strong>, <strong>Cola</strong> y
+          <strong> Logs</strong>.
         </p>
       </div>
 

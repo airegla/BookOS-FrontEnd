@@ -2,7 +2,7 @@
 // ruta: bookos/frontend/src/pages/PesosPage.jsx
 // descripcion: panel de Pesos del kernel. Edita los pesos vigentes (admin), guardarlos crea
 //   una version nueva que pasa a gobernar el ranking; cualquier version anterior puede
-//   reactivarse (rollback). El banco de pruebas mide antes/despues con la serie fija.
+//   reactivarse (rollback). La medicion (banco de pruebas) vive en Kernel > Banco de pruebas.
 
 import { useCallback, useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
@@ -44,8 +44,6 @@ export default function PesosPage({ esAdmin }) {
   const [data, setData] = useState(null);
   const [form, setForm] = useState(null);
   const [aviso, setAviso] = useState('');
-  const [corriendo, setCorriendo] = useState(false);
-  const [observacion, setObservacion] = useState('');
 
   const cargar = useCallback(async () => {
     try {
@@ -87,24 +85,6 @@ export default function PesosPage({ esAdmin }) {
     }
   };
 
-  const correrBanco = async () => {
-    setCorriendo(true);
-    setAviso('Corriendo el banco de pruebas (serie fija + evaluación LLM, hasta 3 ciclos)…');
-    try {
-      const res = await kernelApi.bancoCorrer({ observacion: observacion || null });
-      const r = res.data || {};
-      setAviso(r.ok === false
-        ? `Banco: ${r.motivo}`
-        : `Banco: métrica ${r.base} → ${r.mejor} (mejora ${r.mejora}, ciclos ${r.ciclos}, ${r.llamadasLlm} llamadas)${r.propuestaId ? ` · propuesta #${r.propuestaId} creada` : ' · sin mejora: no se propone nada'}`);
-      await cargar();
-    } catch (err) {
-      const msg = err.response && err.response.data ? err.response.data.message : err.message;
-      setAviso(`⚠️ ${msg}`);
-    } finally {
-      setCorriendo(false);
-    }
-  };
-
   if (!form || !data) {
     return <div><DebugTag nombre="PesosPage" /><p className="text-sm text-muted">Cargando pesos… {aviso}</p></div>;
   }
@@ -125,7 +105,7 @@ export default function PesosPage({ esAdmin }) {
       </div>
       <p className="text-sm text-muted mb-4">
         score = α·sem + β·sparse + γ·grafo + δ·negocio + ε·flujo + ζ·empatía. Guardar crea una versión nueva
-        (la anterior queda para rollback); el banco de pruebas mide antes/después con la serie fija.
+        (la anterior queda para rollback); la medición antes/después se corre en Kernel ▾ Banco de pruebas.
       </p>
       {aviso && <p className="text-sm mb-3">{aviso}</p>}
 
@@ -171,34 +151,13 @@ export default function PesosPage({ esAdmin }) {
       </div>
 
       <div className="card p-4 mb-4">
-        <div className="text-sm font-medium mb-2">Banco de pruebas (doc 01 §7.4)</div>
-        <p className="text-xs text-muted mb-2">
-          Serie fija de consultas reales · evaluación con LLM (1–5) · hasta 3 ciclos de ajuste · presupuesto
-          de llamadas por corrida. Si encuentra mejora, deja una propuesta en el panel de Propuestas.
+        <div className="text-sm font-medium mb-2">Cómo se mide un cambio de pesos</div>
+        <p className="text-xs text-muted">
+          El banco de pruebas (serie fija + evaluación con LLM, hasta 3 ciclos) y su historial de
+          corridas viven en <strong>Kernel ▾ Banco de pruebas</strong>. Ahí también está la serie del
+          modelo chico local. Guardar acá una versión nueva la activa; el banco mide después, y la
+          versión anterior queda para rollback.
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {esAdmin && (
-            <>
-              <input className="input-os" style={{ maxWidth: 360 }} placeholder="Observación para la corrida (ej. campaña de navidad)"
-                value={observacion} onChange={(e) => setObservacion(e.target.value)} />
-              <button type="button" className="btn btn-primary text-sm" onClick={correrBanco} disabled={corriendo}>
-                {corriendo ? 'Midiendo…' : 'Correr banco de pruebas'}
-              </button>
-            </>
-          )}
-        </div>
-        {data.corridas.length > 0 && (
-          <div className="mt-3">
-            {data.corridas.map((c) => (
-              <div key={c.id} className="flex items-center justify-between text-xs py-0.5">
-                <span className="font-mono">{new Date(c.fecha).toLocaleString('es-AR')} · v{c.versionPesos} · {c.ciclos} ciclos · {c.llamadasLlm} llamadas</span>
-                <span>
-                  métrica {Number(c.metrica)} {c.propuestaId ? `· propuesta #${c.propuestaId}` : '· sin propuesta'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="card p-4">
