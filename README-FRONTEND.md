@@ -71,7 +71,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `ManualBlock.jsx` — el manual vivo de BookOS en un modal con una solapa por tema (uso tecnico, CRM, el Secretario, el Kernel, los flujos y las herramientas). Renderiza el markdown simple del backend (secciones, listas, tablas, notas) y los diagramas Mermaid como graficos.
 - `MayoristaCabeceraBlock.jsx` — cabecera de una operacion del mayorista (F-12 §4.4): cliente (con su descuento y plazo), deposito de origen, tipo de operacion, fecha y observaciones. El deposito de destino es SIEMPRE el espejo del cliente elegido (su sabana): se muestra, no se elige.
 - `MayoristaTablaBlock.jsx` — renglones de una operacion del mayorista (F-12 §4.4): buscador asincronico de articulos + cantidad + tipo de stock por linea (consigna/firme) + importacion de CSV. Es el mismo bloque para remitos, facturas y devoluciones: cambia lo que la pagina hace con los items. Con conPrecio (facturas) muestra precio, descuento por linea y subtotal; con sabana (baja de consigna) muestra el disponible real del cliente por titulo y avisa si se factura de mas. La lista de renglones se pagina de a 20 (los documentos largos, p. ej. una liquidacion importada, no rompen la pantalla); los indices que editan son siempre los globales.
-- `ModeloChicoBlock.jsx` — panel del modelo chico local CON HERRAMIENTAS (laboratorio). Muestra su estado y el de su worker, sus topes editables en caliente, el indice compacto de las 33 herramientas para ajustarlo a mano (descripcion por modulo; las acciones salen del contrato y no se editan desde aca), la semilla corta y el prompt final que recibe el modelo. Regla del laboratorio: lo que el motor usa tiene que poder verse y tocarse desde el front; si algo no esta en esta pantalla, el vectorHumano no puede accederlo.
+- `ModeloChicoBlock.jsx` — panel del modelo chico local CON HERRAMIENTAS (laboratorio). Muestra su estado y el de su worker, sus interruptores y topes editables en caliente (los del grupo 'chico' del catalogo del backend, no una lista escrita aca), el indice compacto de las herramientas para ajustarlo a mano (descripcion por modulo; las acciones salen del contrato y no se editan desde aca), la semilla corta y el prompt final que recibe el modelo. Lo monta la pantalla Kernel > Modelo local. Regla del laboratorio: lo que el motor usa tiene que poder verse y tocarse desde el front; si algo no esta en esta pantalla, el vectorHumano no puede accederlo.
 - `OperadoresPagoBlock.jsx` — mantenimiento de operadores/pasarelas de pago (posnet de Payway, pos de MercadoPago, Fiserv...) con su porcentaje estimado de costo. Es la tabla madre de las sub-formas de pago: cada sub-forma cuelga de un operador.
 
 **src/hooks/**
@@ -396,3 +396,21 @@ Notificar ingresos, Notificar agotados, Despachar con mail de control). Ambas so
   pintar las claves `LLM_CHICO_*`, `ConfigPage` perdió el panel del chico y los workers, y
   `PesosPage` perdió el banco (ahora explica dónde se mide). Ninguno de los dos bancos activa nada:
   el del ranking deja propuesta, el del chico deja reporte en `logs/chico-banco-<fecha>.json`.
+- **Toggles que no mienten (16-Sep-2026)**: un interruptor que ningún código lee ya **no se dibuja con
+  interruptor**. El catálogo del backend marca esas claves con `cableada: false` y Sistema ▾ Config
+  las muestra con la marca "sin cablear" y su motivo, en vez de ofrecer un control que no hace nada
+  (peor que no tenerlo: el operario no puede distinguirlo de uno que sí obra). Son hoy
+  `LEGACY_FALLBACK_ENABLED`, `STOCK_STALE_MS`, `STOCK_SYNC_ENABLED` y `usa_deposito`. En el mismo
+  criterio, `LLM_ENABLED` (el encendido del LLM pago) **se mudó a Kernel ▾ Agente**: es del motor del
+  agente, no del OS, y al lado viven sus topes (`LLM_SIN_TOPE`, `AGENTE_LLM_MAX_DIA`). Y las
+  descripciones dejaron de prometer lo que no se sostiene: el panel del chico ya no dice
+  "~1,7-2,4 GB de RAM" (medido: 1,5 GB al cargar y un RSS de proceso que crece hasta ~5,4 GB y no
+  baja al liberar el modelo) ni nombra un modelo fijo, que lo declara `LLM_CHICO_MODELO`.
+- **La copia del chat ya no inventa texto (16-Sep-2026)**: cada turno empujaba al estado un mensaje con
+  el payload del evento `resultado`, que en pantalla era una **burbuja vacía** (sin tarjeta, sin
+  marcador, sin sugerencias) y que al copiar salía como `Turno sin texto (ruta X)` — una línea que el
+  vectorHumano **nunca leyó en el chat** (lo confirmó: "no vi escrito eso, salió al pegar"). Ahora el
+  evento solo se agrega si trae algo visible, y `textoParaCopiar` devuelve vacío para un cierre sin
+  nada que mostrar: **la copia es lo que el operario vio**, no el cierre interno del turno. Queda sin
+  explicar por qué esa línea imprimía `ruta llm` cuando la base registra `llm_chico`; con el fix la
+  línea deja de existir.

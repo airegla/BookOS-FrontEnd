@@ -454,7 +454,10 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     if (m.resultado.ruta === 'confirmacion') return 'Ejecutado con confirmacion';
     const r = m.resultado.resultado;
     if (r && r.data && !Array.isArray(r.data)) return 'Resultado de herramienta (ver el panel)';
-    return `Turno sin texto (ruta ${m.resultado.ruta || '?'})`;
+    // Nada que copiar como texto: el turno ya viaja en su propio mensaje (o mostro una tarjeta que no
+    // es texto). Antes caia aca un rotulo "Turno sin texto (ruta X)" que el operario NUNCA vio en el
+    // chat: la copia tiene que ser lo que se leyo, no el cierre interno del turno.
+    return '';
   };
 
   const copiarChat = async () => {
@@ -462,8 +465,9 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
       if (m.rol === 'usuario') return `Vos: ${m.texto}`;
       if (m.rol === 'herramienta') return `🔧 ${m.nombre}`;
       if (m.rol === 'pregunta') return `Agente (${m.pregunta.tipo}): ${m.pregunta.texto || ''}`;
-      return `Agente: ${textoParaCopiar(m)}`;
-    }).join('\n\n');
+      const texto = textoParaCopiar(m);
+      return texto ? `Agente: ${texto}` : '';
+    }).filter(Boolean).join('\n\n');
     try {
       await navigator.clipboard.writeText(contenido || 'Sin conversacion');
       setAviso('Conversacion copiada ✓');

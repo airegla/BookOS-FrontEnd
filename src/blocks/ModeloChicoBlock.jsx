@@ -133,11 +133,13 @@ export default function ModeloChicoBlock() {
         </span>
       </div>
       <p className="text-sm text-muted mb-3">
-        Modelo local (Qwen2.5-0.5B) con el mismo loop de herramientas que el LLM pago, pero con un contrato
-        propio: indice compacto en vez del manual completo y menos pasos. Son DOS interruptores: el de
+        Modelo local con el mismo loop de herramientas que el LLM pago, pero con un contrato propio:
+        indice compacto en vez del manual completo y menos pasos. Son DOS interruptores: el de
         ENCENDIDO es el que hace el override del LLM pago, y el de MODO lo pone a trabajar con herramientas
-        (con el encendido apagado, el modo no hace nada). Requiere el worker levantado (abajo) y
-        ~1,7-2,4 GB de RAM libres (medido en el i5).
+        (con el encendido apagado, el modo no hace nada). Requiere el worker levantado (abajo). Ocupa RAM
+        mientras esta cargado: medido en este i5 el 15-Sep-2026, 1,5 GB al cargar y un RSS de proceso que
+        crece con el uso hasta ~5,4 GB (el modelo NO se libera al soltarlo: el proceso no devuelve esa
+        memoria al sistema).
       </p>
 
       {aviso && <p className="text-sm mb-3">{aviso}</p>}

@@ -12,14 +12,17 @@ import { useCallback, useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
 import { kernelApi } from '../api/api';
 
-// Costo medido del banco del chico en el i5 (15-Sep-2026): ~12 s por consulta. Se declara en la
-// pantalla porque la corrida BLOQUEA la peticion: el usuario tiene que saber cuanto va a esperar.
+// Costo medido por consulta del modelo chico. Se declara en la pantalla porque la corrida BLOQUEA la
+// peticion: el usuario tiene que saber cuanto va a esperar. El numero es el del 0.5B medido en el i5
+// (15-Sep-2026); el 1.5B tarda ~2,4x, y por eso el aviso dice "estimado".
 const MS_POR_CONSULTA_CHICO = 12000;
 
-const NOMBRE_SERIE = {
-  normal: 'normal (12 consultas de catalogo)',
-  memoria: 'memoria (25 consultas de memoria)',
-  todas: 'todas (37 consultas)',
+// Rotulo de las series conocidas. La LISTA y su tamano salen del backend (`consultasPorSerie`):
+// agregar una serie alla no obliga a tocar esta pantalla.
+const ROTULO_SERIE = {
+  normal: 'consultas de busqueda del banco de ranking',
+  memoria: 'consultas de memoria',
+  pedidos: 'PEDIDOS reales del operario',
 };
 
 export default function BancoPruebasPage({ esAdmin }) {
@@ -74,7 +77,7 @@ export default function BancoPruebasPage({ esAdmin }) {
   const correrChico = async () => {
     setCorriendoChico(true);
     setReporte(null);
-    setAviso(`Midiendo el modelo chico (${NOMBRE_SERIE[serie] || serie})… no cierres la pantalla.`);
+    setAviso(`Midiendo el modelo chico (serie ${serie})… no cierres la pantalla.`);
     try {
       const res = await kernelApi.bancoChico({ serie, limite: Number(limite) || 0 });
       const r = res.data || {};
@@ -87,10 +90,13 @@ export default function BancoPruebasPage({ esAdmin }) {
     }
   };
 
+  // Tamano de cada serie segun lo que declara el backend.
+  const tamanos = (chico && chico.consultasPorSerie) || {};
+  const totalSerie = (s) => (s === 'todas'
+    ? Object.values(tamanos).reduce((acc, lista) => acc + lista.length, 0)
+    : (tamanos[s] || []).length);
   const consultasDeSerie = () => {
-    if (!chico) return 0;
-    const n = (serie === 'normal' || serie === 'todas' ? chico.normal.length : 0)
-      + (serie === 'memoria' || serie === 'todas' ? chico.memoria.length : 0);
+    const n = totalSerie(serie);
     const l = Number(limite) || 0;
     return l > 0 ? Math.min(l, n) : n;
   };
@@ -157,8 +163,10 @@ export default function BancoPruebasPage({ esAdmin }) {
         <div className="flex flex-wrap items-center gap-2">
           {esAdmin && (
             <>
-              <select className="input-os" style={{ maxWidth: 320 }} value={serie} onChange={(e) => setSerie(e.target.value)}>
-                {Object.keys(NOMBRE_SERIE).map((s) => <option key={s} value={s}>{NOMBRE_SERIE[s]}</option>)}
+              <select className="input-os" style={{ maxWidth: 380 }} value={serie} onChange={(e) => setSerie(e.target.value)}>
+                {((chico && chico.series) || ['normal']).map((s) => (
+                  <option key={s} value={s}>{`${s} (${totalSerie(s)}${ROTULO_SERIE[s] ? ` — ${ROTULO_SERIE[s]}` : ''})`}</option>
+                ))}
               </select>
               <input type="number" min="0" className="input-os" style={{ maxWidth: 140 }} placeholder="límite (0 = toda)"
                 value={limite} onChange={(e) => setLimite(e.target.value)} />
@@ -173,8 +181,10 @@ export default function BancoPruebasPage({ esAdmin }) {
         </div>
         <p className="text-xs text-muted mt-2">
           LÍMITES declarados: una llamada por consulta (no simula el resultado de la herramienta, así
-          que no mide el loop completo ni la respuesta final del turno) y no mide el efecto de la
-          memoria ni del bloque empático, porque el motor chico hoy no los recibe.
+          que no mide el loop completo ni la respuesta final del turno) y mide con el prompt del motor
+          <strong> sin los bloques del turno</strong> (memoria, bloque del operario e hilo): es a
+          propósito, para que la serie quede comparable entre corridas. Cambiar de modelo cambia todo
+          el resultado: la serie mide la dupla índice + semilla + modelo.
         </p>
 
         {reporte && reporte.ok === false && (
@@ -195,7 +205,10 @@ export default function BancoPruebasPage({ esAdmin }) {
             <div style={{ maxHeight: 360, overflow: 'auto' }}>
               {reporte.filas.map((f, i) => (
                 <div key={`${f.consulta}-${i}`} className="flex items-center justify-between text-xs py-0.5" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <span className="truncate" style={{ maxWidth: 420 }} title={f.consulta}>{f.consulta}</span>
+                  <span className="truncate" style={{ maxWidth: 380 }} title={[f.consulta, f.porque ? `esperado: ${f.porque}` : ''].filter(Boolean).join('\n')}>
+                    {f.consulta}
+                    {f.porque && <span className="text-muted"> → {Array.isArray(f.esperado) ? f.esperado.join(' / ') : f.esperado}</span>}
+                  </span>
                   <span className="flex items-center gap-2">
                     <span className="font-mono text-muted">{f.ms} ms</span>
                     <span className="font-mono">

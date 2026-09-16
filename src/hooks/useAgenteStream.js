@@ -154,7 +154,14 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
                   /* modo privado */
                 }
               }
-              setMensajes((prev) => [...prev, { rol: 'agente', resultado: payload }]);
+              // La tarjeta del resultado se agrega solo si hay ALGO que mostrar. Un cierre de turno sin
+              // envelope, sin marcador, sin confirmacion y sin sugerencias dejaba en el chat una
+              // burbuja VACIA y, al copiar, una linea "Turno sin texto (ruta X)" que el operario no
+              // habia leido en pantalla. El texto del turno viaja en su propio mensaje, asi que no se
+              // pierde nada: la conversacion queda siendo lo que el operario vio.
+              const tieneAlgoVisible = Boolean(payload.marcador || payload.confirmacion || payload.resultado
+                || (Array.isArray(payload.siguientes) && payload.siguientes.length));
+              if (tieneAlgoVisible) setMensajes((prev) => [...prev, { rol: 'agente', resultado: payload }]);
             } else if (evento === 'herramienta') {
               recibioAlgo = true;
               setMensajes((prev) => [...prev, { rol: 'herramienta', nombre: payload.nombre, ok: payload.ok }]);

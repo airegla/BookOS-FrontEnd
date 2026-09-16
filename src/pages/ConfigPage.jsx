@@ -81,17 +81,20 @@ export default function ConfigPage({ esAdmin }) {
       <div className="card p-4 mb-4">
         <h3 className="font-semibold mb-3">Interruptores del OS</h3>
         <div className="space-y-3">
-          {catalogo.map((t) => (
-            <div key={t.clave}>
-              <div className="flex items-center gap-3">
-                {t.tipo === 'bool' ? (
-                  <>
+          {catalogo.map((t) => {
+            // Una clave SIN CABLEAR (ningun codigo la lee) NO se dibuja con interruptor: ofrecer un
+            // control que no hace nada es peor que no tenerlo, porque el operario no puede
+            // distinguirlo de uno que si obra. Queda visible con su motivo, que es informacion.
+            const cableada = t.cableada !== false;
+            return (
+              <div key={t.clave}>
+                <div className="flex items-center gap-3">
+                  {!cableada && <span className="agente-badge" style={{ color: 'var(--danger)' }}>sin cablear</span>}
+                  {cableada && t.tipo === 'bool' && (
                     <Toggle activo={activoDe(t)} onChange={(v) => cambiarToggle(t.clave, v)} />
-                    <span className="text-sm font-mono">{t.clave}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm font-mono">{t.clave}</span>
+                  )}
+                  <span className="text-sm font-mono">{t.clave}</span>
+                  {cableada && t.tipo !== 'bool' && (
                     <input
                       type="number"
                       className="input-os"
@@ -102,17 +105,18 @@ export default function ConfigPage({ esAdmin }) {
                         if (String(v) !== String(t.valor)) cambiarNumero(t.clave, v);
                       }}
                     />
-                  </>
-                )}
+                  )}
+                </div>
+                <p className="text-xs text-muted mt-1">{t.descripcion}</p>
               </div>
-              <p className="text-xs text-muted mt-1">{t.descripcion}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <p className="text-xs text-muted mt-3">
           Editables en caliente (runtimeConfig) y leidos del catalogo del backend (grupo
           <span className="font-mono"> sistema</span>): una clave nueva del backend aparece sola.
-          Los del <strong>agente</strong> viven en Kernel ▾ → Agente y los del <strong>CRM</strong> en
+          Los del <strong>agente</strong> viven en Kernel ▾ → Agente, los del <strong>chico</strong>
+          en Kernel ▾ → Modelo local y los del <strong>CRM</strong> en
           CRM ▾ → Config CRM.
         </p>
       </div>
