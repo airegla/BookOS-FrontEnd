@@ -22,6 +22,10 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
     }
   });
   const abortRef = useRef(null);
+  // Texto final del ultimo turno cerrado. Lo usa el chat para leer la respuesta en voz alta cuando el
+  // pedido vino por micro: la respuesta tiene que ser la del turno que se acaba de cerrar, no la que
+  // el estado todavia no termino de pintar.
+  const ultimaRespuestaRef = useRef('');
 
   const agregarMensaje = useCallback((mensaje) => {
     setMensajes((prev) => [...prev, mensaje]);
@@ -101,6 +105,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
     setEstado('Analizando...');
     setCandidatos([]);
     setTextoActual('');
+    ultimaRespuestaRef.current = '';
     setMensajes((prev) => [...prev, { rol: 'usuario', texto, adjunto: adjunto ? adjunto.nombre : null }]);
 
     try {
@@ -177,6 +182,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
       }
 
       if (acumulado) {
+        ultimaRespuestaRef.current = acumulado;
         setMensajes((prev) => [...prev, { rol: 'agente', texto: acumulado, evaluacionId }]);
       } else if (!recibioAlgo) {
         // El stream se cerro SIN UN SOLO evento util: no es "no hay resultados", es que la conexion
@@ -203,5 +209,5 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
     }
   }, [cargando, onHerramienta, conversacionId, perfil]);
 
-  return { mensajes, estado, candidatos, textoActual, cargando, enviar, agregarMensaje, conversacionId, nuevaConversacion, cargarConversacion };
+  return { mensajes, estado, candidatos, textoActual, cargando, enviar, agregarMensaje, conversacionId, nuevaConversacion, cargarConversacion, ultimaRespuestaRef };
 }

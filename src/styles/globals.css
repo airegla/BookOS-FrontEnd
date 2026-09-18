@@ -196,6 +196,12 @@ body {
   flex-shrink: 0;
   border-top: 1px solid var(--border);
 }
+/* Micro en escucha: el estado tiene que VERSE. Sin esta marca el operario no sabe si el navegador lo
+   esta oyendo ni por que su pedido no aparece en el cuadro. */
+.agente-mic-escuchando {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 /* En pantallas chicas el panel queda oculto detras de un boton flotante y se abre
    a pantalla completa (overlay). En desktop es siempre visible. */

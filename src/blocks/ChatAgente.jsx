@@ -6,9 +6,15 @@
 //   (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada.
 //   Bajo la respuesta viaja el voto del turno (pulgar + escala, plan-rediseno/11 E3): el operario
 //   manda sobre cualquier inferencia del evaluador.
+//   18-Sep-2026: (a) el scroll SIGUE al agente —cada mensaje y cada pedazo de texto en streaming
+//   se ven sin tocar nada— salvo que el operario haya subido a leer algo: ahi no se lo arrastra;
+//   (b) VOZ con lo nativo del navegador (hooks/useVoz.js): micro para dictar el pedido y lectura en
+//   voz alta, que se activa sola SOLO si el pedido vino por micro (mas un boton 🔊 por respuesta);
+//   (c) IMAGENES: se pueden adjuntar fotos y capturas (el modelo las mira, ver agente.service).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useAgenteStream from '../hooks/useAgenteStream';
+import useVoz from '../hooks/useVoz';
 import { useAppContext } from '../AppContext';
 import { descargarDesdeServidor, descargarCsv } from '../utils/exportar';
 import { agenteApi } from '../api/api';
@@ -309,6 +315,33 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
   const [adjunto, setAdjunto] = useState(null);
   const [resueltas, setResueltas] = useState({});
 
+  // Autoscroll: el scroll sigue al agente mientras el operario este abajo. Si subio a leer algo, NO se
+  // lo arrastra (el ref se recalcula con su propio scroll): volver a bajar lo reengancha.
+  const mensajesRef = useRef(null);
+  const pegadoAlFondo = useRef(true);
+  const alScrollear = () => {
+    const caja = mensajesRef.current;
+    if (!caja) return;
+    pegadoAlFondo.current = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 48;
+  };
+
+  // Voz: dictado al cuadro de texto y lectura en voz alta. `textoAntesDeDictar` guarda lo que ya estaba
+  // escrito para no pisarlo cuando el micro empieza a transcribir.
+  const textoAntesDeDictar = useRef('');
+  const vinoDeVoz = useRef(false);
+  const { soportaDictado, soportaLectura, escuchando, hablando, alternarDictado, hablar, detener } = useVoz({
+    alDictar: (r) => {
+      if (r.error) {
+        setAviso(r.error === 'not-allowed' ? 'El navegador no dio permiso para usar el micrófono.' : `No pude escuchar (${r.error}).`);
+        return;
+      }
+      const base = textoAntesDeDictar.current ? `${textoAntesDeDictar.current} ` : '';
+      setTexto(`${base}${r.texto}`.trim());
+      vinoDeVoz.current = true;
+      setAviso('');
+    },
+  });
+
   // La vista activa se refresca cuando el agente escribe sobre su dominio.
   const onHerramienta = useCallback((resultado, nombre) => {
     const env = resultado || {};
@@ -320,7 +353,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     }
   }, []);
 
-  const { mensajes, estado, candidatos, textoActual, cargando, enviar, agregarMensaje, conversacionId, nuevaConversacion, cargarConversacion } = useAgenteStream(onHerramienta, perfil);
+  const { mensajes, estado, candidatos, textoActual, cargando, enviar, agregarMensaje, conversacionId, nuevaConversacion, cargarConversacion, ultimaRespuestaRef } = useAgenteStream(onHerramienta, perfil);
   const [panelConvs, setPanelConvs] = useState(false);
   const [listaConvs, setListaConvs] = useState([]);
 
@@ -387,6 +420,11 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     const consulta = texto;
     const adj = adjunto || adjuntoDesdeContexto();
     if (!consulta.trim() && !adj) return;
+    // Si el pedido vino por micro, la respuesta se lee en voz alta (pedido del vectorHumano): no habla
+    // en cada turno escrito, que seria insoportable.
+    const dichoPorVoz = vinoDeVoz.current;
+    if (escuchando) alternarDictado();
+    textoAntesDeDictar.current = '';
     // Si el turno anterior sigue en curso el mensaje NO se descarta: se avisa en el chat y el
     // texto queda en el cuadro para reenviarlo cuando termine.
     const enviado = await enviar(consulta.trim() || 'Analizá el archivo adjunto y contame qué tenés.', contextoActual, adj);
@@ -397,15 +435,19 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
       if (candidatos.length > 0) {
         setUltimosRecomendados(candidatos.map((c) => c.ean13));
       }
+      if (dichoPorVoz && soportaLectura && ultimaRespuestaRef.current) hablar(ultimaRespuestaRef.current);
     }
+    vinoDeVoz.current = false;
   };
 
-  // Adjuntos: CSV/TXT como texto (2MB) y Excel/PDF como binario en base64 (6MB). Los binarios
-  // viajan ~33% mas pesados; el limite de la ruta del chat lo contempla.
+  // Adjuntos: CSV/TXT como texto (2MB), imagenes y binarios (Excel/PDF) como base64 (6MB). Los
+  // binarios viajan ~33% mas pesados; el limite de la ruta del chat (10mb) lo contempla. La IMAGEN
+  // tiene que viajar como binario SI o SI: leida como texto llegaria rota.
   const alAdjuntar = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const binario = /\.(xlsx|xls|pdf)$/i.test(file.name) || /excel|spreadsheet|pdf/i.test(file.type || '');
+    const esImagen = /^image\//i.test(file.type || '') || /\.(png|jpe?g|webp|gif)$/i.test(file.name);
+    const binario = esImagen || /\.(xlsx|xls|pdf)$/i.test(file.name) || /excel|spreadsheet|pdf/i.test(file.type || '');
     const limite = binario ? 6 * 1024 * 1024 : 2 * 1024 * 1024;
     if (file.size > limite) {
       setAviso(`El archivo supera ${binario ? '6MB' : '2MB'}. Probá con uno más chico.`);
@@ -417,7 +459,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
       if (binario) {
         const texto = String(reader.result || '');
         const b64 = texto.includes(',') ? texto.slice(texto.indexOf(',') + 1) : texto;
-        setAdjunto({ nombre: file.name, contenido: b64, base64: true, mime: file.type || '' });
+        setAdjunto({ nombre: file.name, contenido: b64, base64: true, mime: file.type || (esImagen ? 'image/png' : '') });
       } else {
         setAdjunto({ nombre: file.name, contenido: String(reader.result || '') });
       }
@@ -487,6 +529,14 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
 
   const adjuntoPendiente = adjunto || (csvAdjunto ? { nombre: csvAdjunto.nombre || 'sabana.csv' } : null);
 
+  // El scroll sigue al agente: se reengancha con cada mensaje, con cada pedazo de texto en streaming y
+  // con los candidatos. Solo actua si el operario esta abajo (si subio a leer, no se lo arrastra).
+  useEffect(() => {
+    const caja = mensajesRef.current;
+    if (!caja || !pegadoAlFondo.current) return;
+    caja.scrollTop = caja.scrollHeight;
+  }, [mensajes, textoActual, candidatos, cargando]);
+
   return (
     <div className="flex flex-col" style={{ height: '100%', minHeight: 0 }}>
       <div className="agente-header px-4 py-3 flex items-center gap-2">
@@ -533,7 +583,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
         </div>
       )}
 
-      <div className="agente-mensajes px-4 py-3 space-y-3">
+      <div className="agente-mensajes px-4 py-3 space-y-3" ref={mensajesRef} onScroll={alScrollear}>
         {mensajes.length === 0 && (
           <div className="text-xs text-muted leading-relaxed">
             {AYUDA_VACIA[perfil] || AYUDA_VACIA.secretario}
@@ -606,6 +656,16 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
                 ) : m.texto}
               </div>
               {m.evaluacionId && <VotoTurno evaluacionId={m.evaluacionId} />}
+              {soportaLectura && textoParaCopiar(m) && (
+                <button
+                  type="button"
+                  className="btn btn-ghost text-xs px-1 ml-1 align-top"
+                  onClick={() => (hablando ? detener() : hablar(textoParaCopiar(m)))}
+                  title={hablando ? 'Parar de leer' : 'Escuchar la respuesta'}
+                >
+                  {hablando ? '⏹' : '🔊'}
+                </button>
+              )}
             </div>
           );
         })}
@@ -657,8 +717,24 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
           </div>
         )}
         <div className="flex items-center gap-1 mb-2 flex-wrap">
-          <input ref={inputFileRef} type="file" accept=".csv,.txt,.xlsx,.xls,.pdf,text/csv,text/plain,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }} onChange={alAdjuntar} />
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => inputFileRef.current && inputFileRef.current.click()} title="Adjuntar archivo (CSV, Excel o PDF)">📎 Adjuntar</button>
+          <input ref={inputFileRef} type="file" accept=".csv,.txt,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp,.gif,text/csv,text/plain,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={alAdjuntar} />
+          <button type="button" className="btn btn-ghost text-xs" onClick={() => inputFileRef.current && inputFileRef.current.click()} title="Adjuntar archivo o imagen (CSV, Excel, PDF, foto)">📎 Adjuntar</button>
+          {soportaDictado && (
+            <button
+              type="button"
+              className={`btn btn-ghost text-xs ${escuchando ? 'agente-mic-escuchando' : ''}`}
+              onClick={() => {
+                if (!escuchando) textoAntesDeDictar.current = texto;
+                alternarDictado();
+              }}
+              title={escuchando ? 'Estoy escuchando: tocá de nuevo para cortar' : 'Dictar el pedido por micrófono'}
+            >
+              {escuchando ? '🎙 Escuchando…' : '🎙 Hablar'}
+            </button>
+          )}
+          {hablando && (
+            <button type="button" className="btn btn-ghost text-xs" onClick={detener} title="Parar de leer">⏹ Parar</button>
+          )}
           <button type="button" className="btn btn-ghost text-xs" onClick={copiarChat} title="Copiar conversacion">📋 Copiar</button>
           <button type="button" className="btn btn-ghost text-xs" onClick={exportarChat} title="Exportar conversacion a CSV">⬇ Exportar</button>
           {adjunto && <button type="button" className="btn btn-ghost text-xs text-muted" onClick={() => setAdjunto(null)}>Quitar adjunto</button>}
