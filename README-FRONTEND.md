@@ -414,3 +414,16 @@ Notificar ingresos, Notificar agotados, Despachar con mail de control). Ambas so
   nada que mostrar: **la copia es lo que el operario vio**, no el cierre interno del turno. Queda sin
   explicar por qué esa línea imprimía `ruta llm` cuando la base registra `llm_chico`; con el fix la
   línea deja de existir.
+## Build para el VPS (18-Sep-2026)
+
+El frontend del VPS se sirve en `http://tecnozenit.elmalteslibros.com.ar/tecnozenit/bookos/` y se
+compila **en el VPS** (`npm ci && npm run build`): el `dist/` queda justo donde apunta el `Alias` del
+vhost (`.../tecnozenit/bookos/frontend/dist`, asi que no hay que copiar nada).
+
+**`VITE_API_URL` tiene que ser `/tecnozenit/bookos/api`**, no el `/api` del repo: el `ProxyPass` de
+BookOS vive en esa subcarpeta, y `/tecnozenit/api/` (el otro del vhost) apunta a la app vieja en
+`localhost:3001`. El `.env` del VPS lo declara; el resto del build es igual que en desarrollo.
+
+Verificado abriendo la URL publica: el login entra, el catalogo lista articulos reales de la base del
+VPS y las acciones (Ver/Editar/Baja) se dibujan â€” se conto lo que el navegador RENDERIZA, no lo que
+devuelve la API.
