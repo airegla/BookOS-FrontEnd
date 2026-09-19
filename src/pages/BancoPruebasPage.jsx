@@ -1,12 +1,14 @@
 // BookOS - BancoPruebasPage.jsx
 // ruta: bookos/frontend/src/pages/BancoPruebasPage.jsx
-// descripcion: pantalla del BANCO DE PRUEBAS del kernel (Kernel > Banco de pruebas). Reune las dos
+// descripcion: pantalla del BANCO DE PRUEBAS del kernel (Kernel > Banco de pruebas). Reune las TRES
 //   series que hoy existen: la del RANKING, que corre la serie fija de consultas contra el kernel y
-//   la puntua con el LLM pago (antes vivia dentro de Pesos), y la del MODELO CHICO LOCAL, que mide
-//   que herramienta elige el chico para cada consulta de la misma serie.
+//   la puntua con el LLM pago (antes vivia dentro de Pesos); la del MODELO CHICO LOCAL, que mide
+//   que herramienta elige el chico para cada consulta de la misma serie; y la de RUTAS, que mide el
+//   ROUTER DE INTENCION sobre el banco de pedidos reales con su ruta esperada (que contesta el
+//   camino sin LLM, que se contestaria mal y que se va al modelo).
 //
-//   Las dos son instrumentos de MEDICION: ninguna activa nada por si sola. La del ranking, si
-//   encuentra mejora, deja una propuesta para aprobar; la del chico solo deja el reporte.
+//   Las tres son instrumentos de MEDICION: ninguna activa nada por si sola. La del ranking, si
+//   encuentra mejora, deja una propuesta para aprobar; las otras dos solo dejan el reporte.
 
 import { useCallback, useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
@@ -40,6 +42,11 @@ export default function BancoPruebasPage({ esAdmin }) {
   const [corriendoChico, setCorriendoChico] = useState(false);
   const [reporte, setReporte] = useState(null);
 
+  // --- Banco del router de intencion (serie "Rutas") ---
+  const [rutas, setRutas] = useState(null);
+  const [corriendoRutas, setCorriendoRutas] = useState(false);
+  const [reporteRutas, setReporteRutas] = useState(null);
+
   const cargar = useCallback(async () => {
     try {
       const b = await kernelApi.banco();
@@ -52,6 +59,12 @@ export default function BancoPruebasPage({ esAdmin }) {
       setChico(c.data || null);
     } catch (err) {
       setAviso(`⚠️ no se pudo leer el estado del banco del chico: ${err.message}`);
+    }
+    try {
+      const r = await kernelApi.rutasBanco();
+      setRutas(r.data || null);
+    } catch (err) {
+      setAviso(`⚠️ no se pudo leer el banco de rutas: ${err.message}`);
     }
   }, []);
 
@@ -90,6 +103,22 @@ export default function BancoPruebasPage({ esAdmin }) {
     }
   };
 
+  const correrRutas = async () => {
+    setCorriendoRutas(true);
+    setReporteRutas(null);
+    setAviso('Midiendo el router de intenciones sobre el banco de pedidos… (una consulta por caso)' );
+    try {
+      const res = await kernelApi.rutasBancoCorrer();
+      const r = res.data || {};
+      setReporteRutas(r);
+      setAviso(`Router de intenciones: ${r.veredicto}${r.motivos && r.motivos.length ? ` — ${r.motivos.join(' · ')}` : ''}`);
+    } catch (err) {
+      setAviso(`⚠️ ${err.message}`);
+    } finally {
+      setCorriendoRutas(false);
+    }
+  };
+
   // Tamano de cada serie segun lo que declara el backend.
   const tamanos = (chico && chico.consultasPorSerie) || {};
   const totalSerie = (s) => (s === 'todas'
@@ -108,10 +137,11 @@ export default function BancoPruebasPage({ esAdmin }) {
       <DebugTag nombre="BancoPruebasPage" />
       <h2 className="text-lg font-semibold mb-1">Banco de pruebas</h2>
       <p className="text-sm text-muted mb-4">
-        Los dos instrumentos miden sobre la misma serie de consultas reales. El del ranking mide la
-        búsqueda semántica con el LLM pago y, si encuentra mejora, deja una propuesta en
-        <strong> Kernel ▾ Propuestas Kernel</strong>; el del modelo chico mide qué herramienta elige
-        el modelo local. Ninguno activa nada por sí solo.
+        Los tres instrumentos miden sobre series reales y ninguno activa nada por sí solo. El del
+        ranking mide la búsqueda semántica con el LLM pago y, si encuentra mejora, deja una propuesta
+        en <strong>Kernel ▾ Propuestas Kernel</strong>; el del modelo chico mide qué herramienta elige
+        el modelo local; el de <strong>rutas</strong> mide qué hace el turno con cada pedido del banco de
+        intenciones (plantilla sin LLM, planificador determinista y la decisión del selector).
       </p>
       {aviso && <p className="text-sm mb-3">{aviso}</p>}
 
@@ -220,6 +250,89 @@ export default function BancoPruebasPage({ esAdmin }) {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card p-4 mb-4">
+        <div className="text-sm font-medium mb-2">Rutas (decisión de camino del turno)</div>
+        <p className="text-xs text-muted mb-2">
+          Mide, sobre el <strong>banco de pedidos con su ruta esperada</strong>, qué hace el turno con
+          cada uno: si lo contesta el camino sin LLM de la plantilla (y si acierta), si el
+          <strong> planificador</strong> lo atrapa con la herramienta correcta, y si el
+          <strong> selector</strong> respaldaría esa decisión. <strong>No ejecuta herramientas</strong>:
+          el planificador solo propone. Es también el instrumento que dice si un cambio en los diales
+          del selector (<strong>Kernel ▾ Pesos</strong>) mejoró o empeoró: se corre antes y después.
+        </p>
+        {rutas && (
+          <p className="text-xs text-muted mb-2">
+            banco <span className="font-mono">{rutas.banco.archivo}</span> ·{' '}
+            <span className="font-mono">{rutas.banco.casos}</span> casos sobre{' '}
+            <span className="font-mono">{rutas.banco.rutas}</span> rutas · diales v<span className="font-mono">{rutas.diales.version}</span>:
+            técnica <span className="font-mono">{rutas.diales.ranking.tecnica}</span>,
+            ejemplo <span className="font-mono">{rutas.diales.ranking.ejemplo}</span>,
+            acuerdo <span className="font-mono">{rutas.diales.ranking.acuerdo}</span>,
+            corte <span className="font-mono">{rutas.diales.ranking.corte === null ? 'no pondera' : rutas.diales.ranking.corte}</span>
+            {' '}· compuerta margen <span className="font-mono">{rutas.diales.compuerta.margen}</span>
+            {rutas.diales.compuerta.exigirAcuerdo ? ' exigiendo acuerdo' : ' sin exigir acuerdo'}
+            {' '}· la plantilla sabe contestar <span className="font-mono">{(rutas.rutasConPlantilla || []).join(' · ')}</span>
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {esAdmin && (
+            <button type="button" className="btn btn-primary text-sm" onClick={correrRutas} disabled={corriendoRutas}>
+              {corriendoRutas ? 'Midiendo…' : 'Correr banco de rutas'}
+            </button>
+          )}
+          <span className="text-xs text-muted">
+            {rutas ? `${rutas.banco.casos} pedidos` : 'banco de pedidos'} · una consulta por caso, sin modelo pago
+          </span>
+        </div>
+        <p className="text-xs text-muted mt-2">
+          LÍMITES declarados: mide la DECISIÓN, no la respuesta final (la plantilla todavía exige que la
+          búsqueda del kernel junte el umbral de resultados), y es una COTA SUPERIOR de ahorro —el
+          marcador y las rutas deterministas corren antes y no se evalúan acá—. El banco tiene UNA ruta
+          esperada por caso: si otra ruta también resolvería el pedido, se cuenta igual como error.
+        </p>
+
+        {reporteRutas && (
+          <div className="mt-3">
+            <div className="text-xs mb-2">
+              veredicto <span className="font-mono">{reporteRutas.veredicto}</span> · camino sin LLM:{' '}
+              <span className="font-mono">{reporteRutas.resumen.caminoSelector.decide}</span> por el camino barato
+              (<span className="font-mono">{reporteRutas.resumen.caminoSelector.gratis}</span> gratis ·{' '}
+              <span className="font-mono">{reporteRutas.resumen.caminoSelector.misroute}</span> mal) contra{' '}
+              <span className="font-mono">{reporteRutas.resumen.caminoTexto.decide}</span> de la regla de texto anterior
+              (<span className="font-mono">{reporteRutas.resumen.caminoTexto.misroute}</span> mal) ·
+              planificador: atrapa <span className="font-mono">{reporteRutas.resumen.planificador.atrapa}</span>,
+              con el gate pasan <span className="font-mono">{reporteRutas.resumen.planificador.pasan}</span> y se frenan{' '}
+              <span className="font-mono">{reporteRutas.resumen.planificador.frenados}</span>
+            </div>
+            <div style={{ maxHeight: 360, overflow: 'auto' }}>
+              {reporteRutas.filas
+                .filter((f) => f.camino.selector.decide || f.plan)
+                .map((f, i) => (
+                  <div key={`${f.texto}-${i}`} className="flex items-center justify-between text-xs py-0.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <span className="truncate" style={{ maxWidth: 420 }} title={`${f.texto}\nesperaba ${f.esperada}`}>
+                      {f.texto}
+                      <span className="text-muted"> → {f.esperada}</span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      {f.camino.selector.decide && (f.camino.selector.gratis
+                        ? <span className="agente-badge">gratis</span>
+                        : <span className="agente-badge" style={{ color: 'var(--danger)' }}>se contesta mal</span>)}
+                      {f.plan && (
+                        <span className="font-mono">
+                          plan {f.plan.ruta}{f.plan.escribe ? ' (escribe)' : ''}
+                          {f.plan.respaldado
+                            ? (f.plan.conLaEsperada ? ' · pasa' : ' · PASA EQUIVOCADO')
+                            : (f.plan.conLaEsperada ? ' · frenado' : ' · frenado (bien)')}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
             </div>
           </div>
         )}

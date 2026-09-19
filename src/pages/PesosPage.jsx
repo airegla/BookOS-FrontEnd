@@ -23,6 +23,14 @@ function aFormulario(pesos) {
     delta: String(pesos.delta), epsilon: String(pesos.epsilon),
     epsilonCoocurrencia: String(pesos.epsilonCoocurrencia), zeta: String(pesos.zeta),
     recallPorCampo: String(pesos.umbrales.recallPorCampo), recallTotal: String(pesos.umbrales.recallTotal),
+    // Diales del SELECTOR DE RUTAS. `corte` vacio = ese grupo no pondera en el ranking (hoy es asi).
+    rutas: {
+      tecnica: String(pesos.rutas.ranking.tecnica), ejemplo: String(pesos.rutas.ranking.ejemplo),
+      acuerdo: String(pesos.rutas.ranking.acuerdo),
+      corte: pesos.rutas.ranking.corte === null ? '' : String(pesos.rutas.ranking.corte),
+      fuenteTurno: String((pesos.rutas.ranking.fuentes && pesos.rutas.ranking.fuentes.turno) || 1),
+      margen: String(pesos.rutas.compuerta.margen), exigirAcuerdo: pesos.rutas.compuerta.exigirAcuerdo === true,
+    },
   };
 }
 
@@ -37,6 +45,16 @@ function aPayload(form) {
     alfa: num(form.alfa), beta: num(form.beta), gamma: num(form.gamma), delta: num(form.delta),
     epsilon: num(form.epsilon), epsilonCoocurrencia: num(form.epsilonCoocurrencia), zeta: num(form.zeta),
     umbrales: { recallPorCampo: num(form.recallPorCampo), recallTotal: num(form.recallTotal) },
+    rutas: {
+      ranking: {
+        tecnica: num(form.rutas.tecnica), ejemplo: num(form.rutas.ejemplo), acuerdo: num(form.rutas.acuerdo),
+        corte: String(form.rutas.corte).trim() === '' ? null : num(form.rutas.corte),
+        // Solo el peso de la fuente `turno` (trafico real): es el unico que se toca a mano hoy. Las
+        // demas fuentes siguen con su valor por defecto (el backend completa lo que no se declara).
+        fuentes: { turno: num(form.rutas.fuenteTurno) },
+      },
+      compuerta: { margen: num(form.rutas.margen), exigirAcuerdo: form.rutas.exigirAcuerdo === true },
+    },
   };
 }
 
@@ -60,6 +78,8 @@ export default function PesosPage({ esAdmin }) {
   const set = (clave, valor) => setForm((f) => ({ ...f, [clave]: valor }));
   const setSem = (intencion, componente, valor) =>
     setForm((f) => ({ ...f, sem: { ...f.sem, [intencion]: { ...f.sem[intencion], [componente]: valor } } }));
+
+  const setRuta = (clave, valor) => setForm((f) => ({ ...f, rutas: { ...f.rutas, [clave]: valor } }));
 
   const guardar = async () => {
     if (!window.confirm('Guardar estos pesos como versión nueva y activarla. ¿Confirmás?')) return;
@@ -151,12 +171,57 @@ export default function PesosPage({ esAdmin }) {
       </div>
 
       <div className="card p-4 mb-4">
+        <div className="text-sm font-medium mb-2">Selector de rutas (con qué se elige la herramienta)</div>
+        <p className="text-xs text-muted mb-3">
+          Pesan en el selector que decide, por semejanza con los pedidos anteriores, a qué ruta va cada
+          pedido del turno (y si el camino sin LLM de la plantilla puede usarse). <strong>corte</strong> vacío
+          significa que la ficha diferencial no entra al ranking. <strong>acuerdo</strong> es cuánto suma la
+          segunda evidencia cuando coinciden; el <strong>margen</strong> y exigir el acuerdo son el criterio
+          para <em>delegar</em> una decisión al selector. Todo esto se mide en Kernel ▾ Banco de pruebas,
+          serie <strong>Rutas</strong>.
+        </p>
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+          <label className="block" title="cuánto pesa la descripción técnica de cada herramienta">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">técnica</span>
+            <input className="input-os" type="number" step={0.1} min={0} value={form.rutas.tecnica} onChange={(e) => setRuta('tecnica', e.target.value)} />
+          </label>
+          <label className="block" title="cuánto pesa cada forma de pedir ya registrada">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">ejemplo</span>
+            <input className="input-os" type="number" step={0.1} min={0} value={form.rutas.ejemplo} onChange={(e) => setRuta('ejemplo', e.target.value)} />
+          </label>
+          <label className="block" title="cuánto suma que la forma y la descripción apunten al mismo lado">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">acuerdo</span>
+            <input className="input-os" type="number" step={0.1} min={0} value={form.rutas.acuerdo} onChange={(e) => setRuta('acuerdo', e.target.value)} />
+          </label>
+          <label className="block" title="ficha diferencial: vacío = no pondera en el ranking">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">corte</span>
+            <input className="input-os" type="number" step={0.05} min={0} placeholder="no pondera" value={form.rutas.corte} onChange={(e) => setRuta('corte', e.target.value)} />
+          </label>
+          <label className="block" title="cuánto pesa una forma que VINO DE UN TURNO REAL contra una sembrada">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">peso turno real</span>
+            <input className="input-os" type="number" step={0.1} min={0} value={form.rutas.fuenteTurno} onChange={(e) => setRuta('fuenteTurno', e.target.value)} />
+          </label>
+          <label className="block" title="despegue mínimo entre la primera y la segunda candidata para decidir solo">
+            <span className="block text-xs uppercase tracking-widest text-muted mb-1">margen compuerta</span>
+            <input className="input-os" type="number" step={0.01} min={0} max={1} value={form.rutas.margen} onChange={(e) => setRuta('margen', e.target.value)} />
+          </label>
+          <label className="flex items-center gap-2 mt-4" title="exige que las dos evidencias apunten a la misma ruta">
+            <input type="checkbox" checked={form.rutas.exigirAcuerdo} onChange={(e) => setRuta('exigirAcuerdo', e.target.checked)} />
+            <span className="text-xs text-muted">exigir acuerdo</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="card p-4 mb-4">
         <div className="text-sm font-medium mb-2">Cómo se mide un cambio de pesos</div>
         <p className="text-xs text-muted">
           El banco de pruebas (serie fija + evaluación con LLM, hasta 3 ciclos) y su historial de
-          corridas viven en <strong>Kernel ▾ Banco de pruebas</strong>. Ahí también está la serie del
-          modelo chico local. Guardar acá una versión nueva la activa; el banco mide después, y la
-          versión anterior queda para rollback.
+          corridas viven en <strong>Kernel ▾ Banco de pruebas</strong>. Ahí también están la serie del
+          modelo chico local y la serie <strong>Rutas</strong>, que mide el selector con el banco de
+          pedidos (162 casos con su ruta esperada) y dice cuántos se contestan gratis, cuántos se
+          contestarían mal y cuántos se van al modelo. Cambiar los pesos de arriba sin volver a correrla
+          es cambiar el dial sin medir. Guardar acá una versión nueva la activa; la anterior queda para
+          rollback.
         </p>
       </div>
 

@@ -183,6 +183,11 @@ export const kernelApi = {
   // timeout del cliente, asi que solo esta llamada lo sube: 15 min.
   bancoChicoEstado: () => axiosClient.get('/kernel/chico/banco'),
   bancoChico: (payload = {}) => axiosClient.post('/kernel/chico/banco', payload, { timeout: 900000 }),
+  // Banco del ROUTER DE INTENCION (serie "Rutas"): el banco de pedidos con su ruta esperada y los
+  // diales vigentes del selector, y su corrida. La corrida embebe 162 pedidos contra el worker local
+  // (~1-2 min medido): no es instantanea, pero no gasta modelo pago ni manda nada afuera.
+  rutasBanco: () => axiosClient.get('/kernel/rutas/banco'),
+  rutasBancoCorrer: () => axiosClient.post('/kernel/rutas/banco/correr', {}, { timeout: 600000 }),
   cola: () => axiosClient.get('/kernel/cola'),
   logs: (params = {}) => axiosClient.get('/kernel/logs', { params }),
   registro: (params = {}) => axiosClient.get('/kernel/registro', { params }),
