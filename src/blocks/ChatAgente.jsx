@@ -1,7 +1,7 @@
 // BookOS - ChatAgente.jsx
 // ruta: bookos/frontend/src/blocks/ChatAgente.jsx
 // descripcion: chat del agente, reutilizable por perfil. El Secretario (panel lateral) y el
-//   Asistente de ventas (pagina del CRM) comparten este componente: mismo motor, misma
+//   Asistente de ventas (la ventana izquierda del Vendedor) comparten este componente: mismo motor, misma
 //   conversacion persistente y mismo render del envelope; cambia la semilla/tools del backend
 //   (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada.
 //   Bajo la respuesta viaja el voto del turno (pulgar + escala, plan-rediseno/11 E3): el operario

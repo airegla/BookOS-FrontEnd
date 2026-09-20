@@ -54,7 +54,7 @@ body {
 }
 .bookos-layout {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 380px 1fr 360px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -214,9 +214,27 @@ body {
 .agente-panel.descarga-aviso {
   border-left: 1px solid var(--border);
 }
-/* Panel plegable: cerrado, la vista ocupa todo el ancho y queda el boton para reabrirlo. */
-.bookos-layout.agente-cerrado {
-  grid-template-columns: 1fr;
+/* Dos ventanas plegables, una por lado: el Vendedor (izquierda, 380px) y el Secretario
+   (derecha, 360px). Cada una se cierra sola y la vista se queda con el ancho que sobra. */
+.bookos-layout.asistente-cerrado { grid-template-columns: 1fr 360px; }
+.bookos-layout.agente-cerrado { grid-template-columns: 380px 1fr; }
+.bookos-layout.asistente-cerrado.agente-cerrado { grid-template-columns: 1fr; }
+/* Variante IZQUIERDA (Vendedor): el borde va del lado que da al contenido. */
+.agente-panel.izquierda {
+  border-left: none;
+  border-right: 1px solid var(--border);
+}
+/* La ventana del Vendedor replica el boton flotante del Secretario, del otro lado. */
+.asistente-toggle { display: none; }
+.asistente-reabrir {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 70;
+  box-shadow: var(--shadow-card);
+}
+@media (max-width: 1024px) {
+  .asistente-reabrir { display: none; }
 }
 .agente-reabrir {
   position: fixed;
@@ -577,5 +595,13 @@ body {
   /* Los flotantes suben arriba de la barra para no taparse. */
   .agente-toggle { bottom: 84px; }
   .agente-reabrir { bottom: 84px; }
+  .asistente-toggle {
+    display: inline-flex;
+    position: fixed;
+    left: 16px;
+    bottom: 84px;
+    z-index: 70;
+    box-shadow: var(--shadow-card);
+  }
   .debug-watermark::after { bottom: 84px; }
 }

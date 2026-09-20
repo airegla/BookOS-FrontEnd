@@ -45,7 +45,7 @@ import PedidosPage from './pages/PedidosPage';
 import RadarPage from './pages/RadarPage';
 import PropuestasVentaPage from './pages/PropuestasVentaPage';
 import CampaniasPage from './pages/CampaniasPage';
-import AsistenteVentasPage from './pages/AsistenteVentasPage';
+import AsistenteVentasBlock from './blocks/AsistenteVentasBlock';
 import ConfigCrmPage from './pages/ConfigCrmPage';
 import PlantillasMailPage from './pages/PlantillasMailPage';
 import ImportadorPage from './pages/ImportadorPage';
@@ -139,14 +139,14 @@ export default function App() {
   };
 
   // Teclas del OS (doc 06 D9): F2 = alta rapida de cliente, F6 = busqueda tecnica del mostrador,
-  // F7 = busqueda semantica + asistente. El panel del Secretario arranca cerrado en la pagina del
-  // Asistente (ahi el protagonista es el asistente de ventas) y abierto en el resto.
+  // F7 = busqueda semantica. Dos VENTANAS de chat, una por lado: el Secretario (derecha) y el
+  // Vendedor (izquierda: el asistente de ventas que antes era pagina del CRM). Cada una se abre
+  // y se cierra con su boton y no se pisan entre si.
   const [panelAbierto, setPanelAbierto] = useState(true);
+  const [asistenteAbierto, setAsistenteAbierto] = useState(false);
   const [buscadorTecnico, setBuscadorTecnico] = useState(false);
   const [buscadorSemantico, setBuscadorSemantico] = useState(false);
   const [altaCliente, setAltaCliente] = useState(false);
-
-  useEffect(() => { setPanelAbierto(vista !== 'Asistente'); }, [vista]);
 
   const alternarTecnico = useCallback(() => {
     setBuscadorTecnico((v) => !v);
@@ -178,8 +178,16 @@ export default function App() {
 
   return (
     <div className={`bookos-app${debug ? ' debug-watermark' : ''}`}>
-      <Navbar vista={vista} onCambiarVista={cambiarVista} usuario={usuario} onLogout={salir} />
-      <div className={`bookos-layout${panelAbierto ? '' : ' agente-cerrado'}`}>
+      <Navbar
+        vista={vista}
+        onCambiarVista={cambiarVista}
+        usuario={usuario}
+        onLogout={salir}
+        asistenteAbierto={asistenteAbierto}
+        onAlternarAsistente={() => setAsistenteAbierto((v) => !v)}
+      />
+      <div className={`bookos-layout${panelAbierto ? '' : ' agente-cerrado'}${asistenteAbierto ? '' : ' asistente-cerrado'}`}>
+        <AsistenteVentasBlock abierto={asistenteAbierto} onAlternar={() => setAsistenteAbierto((v) => !v)} />
         <main className="bookos-main p-6">
           {vista === 'Catalogo' && <CatalogoPage />}
           {vista === 'Facturar' && <VentasPage />}
@@ -217,7 +225,6 @@ export default function App() {
           {vista === 'Logs' && <LogsPage />}
           {vista === 'Cola' && <ColaPage />}
           {vista === 'Memoria' && <MemoriaPage esAdmin={esAdmin} />}
-          {vista === 'Asistente' && <AsistenteVentasPage />}
           {vista === 'Pedidos' && <PedidosPage />}
           {vista === 'Radar' && <RadarPage />}
           {vista === 'Propuestas' && <PropuestasVentaPage />}
@@ -237,7 +244,7 @@ export default function App() {
         abierto={buscadorSemantico}
         onCerrar={() => setBuscadorSemantico(false)}
         enFacturar={vista === 'Facturar'}
-        onAbrirAsistente={() => cambiarVista('Asistente')}
+        onAbrirAsistente={() => setAsistenteAbierto(true)}
       />
       {/* F2 desde cualquier vista. El cliente creado se anuncia por el bus de instrucciones (una
           sola vez): la vista que sepa tomarlo lo elige (la factura minorista y los pedidos). */}

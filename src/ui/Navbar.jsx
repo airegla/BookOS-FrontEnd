@@ -17,7 +17,7 @@ const GRUPOS = [
   { nombre: 'Compras', items: ['Compras', 'Remitos', 'Proveedores', 'Cuenta corriente proveedor', 'Consigna'] },
   { nombre: 'Stock', items: ['Inventario', 'Transportes', 'Mayorista'] },
   { nombre: 'Catalogo', items: ['Catalogo', 'Referencias'] },
-  { nombre: 'CRM', items: ['Asistente', 'Pedidos', 'Radar', 'Propuestas', 'Campañas', 'Config CRM', 'Plantillas mail'] },
+  { nombre: 'CRM', items: ['Pedidos', 'Radar', 'Propuestas', 'Campañas', 'Config CRM', 'Plantillas mail'] },
   {
     // Core agrupa los cuatro modulos portables (pedido del vectorHumano, 2026-09-20): kernel,
     // router, agent y llm, en espejo de `backend/src/core/`. `directos` = lo que se EXIME de los
@@ -43,7 +43,7 @@ const PINNADOS = [
   { vista: 'Catalogo', label: 'Catálogo', icono: '📚' },
 ];
 
-export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
+export default function Navbar({ vista, onCambiarVista, usuario, onLogout, asistenteAbierto = false, onAlternarAsistente = null }) {
   const [abierto, setAbierto] = useState(null);
   const [subAbierto, setSubAbierto] = useState(null);
   const ref = useRef(null);
@@ -159,6 +159,16 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
       </nav>
 
       <span className="text-xs text-muted hidden md:block">{usuario ? usuario.nombre : ''}</span>
+      {typeof onAlternarAsistente === 'function' && (
+        <button
+          type="button"
+          className={`btn ${asistenteAbierto ? 'btn-primary' : 'btn-ghost'} hidden md:inline-flex`}
+          onClick={onAlternarAsistente}
+          title={asistenteAbierto ? 'Cerrar el Vendedor' : 'Abrir el Vendedor (asistente de ventas, ventana izquierda)'}
+        >
+          💬 Vendedor
+        </button>
+      )}
       <button type="button" className="btn btn-ghost" onClick={abrirManual}>Manual</button>
       <button type="button" className="btn btn-ghost text-muted" onClick={onLogout}>Salir</button>
 

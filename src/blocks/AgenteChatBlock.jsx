@@ -1,26 +1,33 @@
 // BookOS - AgenteChatBlock.jsx
 // ruta: bookos/frontend/src/blocks/AgenteChatBlock.jsx
-// descripcion: El Secretario. Panel lateral del layout, plegable: en la mayoria de las vistas
-//   arranca abierto y se puede cerrar (queda el boton flotante para volver); la pagina del
-//   Asistente de ventas lo arranca CERRADO porque ahi el protagonista es el asistente. En
-//   pantallas chicas el panel se abre a pantalla completa desde el boton flotante. El chat en si
-//   (estado, SSE, render del envelope) vive en blocks/ChatAgente.jsx y es compartido con el
-//   Asistente de ventas (perfil 'ventas').
+// descripcion: VENTANA de chat del agente, reutilizable por LADO y PERFIL. El Secretario (perfil
+//   'secretario', lado derecho) y el Vendedor (perfil 'ventas', lado izquierdo: ex pagina del CRM)
+//   son la MISMA pieza: en escritorio el aside es una columna del layout; en pantallas chicas se
+//   abre a pantalla completa desde su boton flotante.
 
 import { useState } from 'react';
 import ChatAgente from './ChatAgente';
 import DebugTag from '../ui/DebugTag';
 
-export default function AgenteChatBlock({ abierto = true, onAlternar = null }) {
+export default function AgenteChatBlock({
+  abierto = true,
+  onAlternar = null,
+  perfil = 'secretario',
+  titulo = 'El Secretario',
+  lado = 'der',
+  etiquetaBoton = '💬 Secretario',
+  extras = null,
+}) {
   const [abiertoMobile, setAbiertoMobile] = useState(false);
   const plegable = typeof onAlternar === 'function';
+  const visible = abierto || abiertoMobile;
+  const claseLado = lado === 'izq' ? ' izquierda' : '';
+  const claseBoton = lado === 'izq' ? 'asistente' : 'agente';
 
   // En pantallas chicas el panel se muestra como CHAT a pantalla completa: `abiertoMobile` es la
   // puerta propia del telefono, porque el estado de escritorio (`abierto`) puede estar en false
   // (el layout ocupa todo el ancho) y antes el boton flotante no hacia nada en ese caso: el
-  // operario tocaba "💬 Secretario" y el panel no volvia a aparecer (se sentia colgado).
-  const visible = abierto || abiertoMobile;
-
+  // operario tocaba el boton y el panel no volvia a aparecer (se sentia colgado).
   const cerrar = () => {
     setAbiertoMobile(false);
     if (plegable && abierto) onAlternar();
@@ -33,18 +40,19 @@ export default function AgenteChatBlock({ abierto = true, onAlternar = null }) {
 
   return (
     <>
-      <button type="button" className="btn btn-primary agente-toggle" onClick={abrirMobile} title="Abrir el Secretario">
-        💬 Secretario
+      <button type="button" className={`btn btn-primary ${claseBoton}-toggle`} onClick={abrirMobile} title={`Abrir ${titulo}`}>
+        {etiquetaBoton}
       </button>
       {!abierto && !abiertoMobile && plegable && (
-        <button type="button" className="btn agente-reabrir" onClick={onAlternar} title="Abrir el Secretario">
-          💬 Secretario
+        <button type="button" className={`btn ${claseBoton}-reabrir`} onClick={onAlternar} title={`Abrir ${titulo}`}>
+          {etiquetaBoton}
         </button>
       )}
       {visible && (
-        <aside className={`agente-panel ${plegable ? 'plegable' : ''} ${abiertoMobile ? 'agente-abierto' : ''}`}>
-          <DebugTag nombre="AgenteChatBlock" />
-          <ChatAgente perfil="secretario" titulo="El Secretario" onCerrarMobile={cerrar} />
+        <aside className={`agente-panel${claseLado} ${plegable ? 'plegable' : ''} ${abiertoMobile ? 'agente-abierto' : ''}`}>
+          <DebugTag nombre={lado === 'izq' ? 'AsistenteVentasBlock' : 'AgenteChatBlock'} />
+          {extras}
+          <ChatAgente perfil={perfil} titulo={titulo} onCerrarMobile={cerrar} />
         </aside>
       )}
     </>

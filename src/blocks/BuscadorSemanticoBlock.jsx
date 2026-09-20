@@ -3,7 +3,7 @@
 // descripcion: F7 — el buscador SEMANTICO del kernel como modal global, con las MISMAS tarjetas
 //   del asistente (titulo, score, autor/editorial, precio y stock) y sus acciones: agregar el
 //   renglon cuando se esta facturando y preguntarle al Secretario. Desde aca tambien se abre la
-//   pagina del Asistente de ventas. PERSISTENTE: cerrar no pierde nada (texto, resultados y
+//   pagina del Asistente de ventas (hoy: la ventana izquierda del Vendedor). PERSISTENTE: cerrar no pierde nada (texto, resultados y
 //   consulta se conservan; una busqueda en curso sigue viva y al volver con F7 esta ahi). El
 //   boton Limpiar arranca de cero.
 
