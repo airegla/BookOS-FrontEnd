@@ -391,7 +391,7 @@ export default function ConfigCrmPage() {
           ))}
         </div>
         <p className="text-xs text-muted mt-3">
-          Los interruptores del <strong>agente</strong> (prompt, pasos, manuales de herramientas) viven en Kernel ▾ → Agente.
+          Los interruptores del <strong>agente</strong> (prompt, pasos, manuales de herramientas) viven en Core ▾ Agent ▾ Agente.
         </p>
       </div>
     </div>

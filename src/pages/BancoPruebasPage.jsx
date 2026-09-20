@@ -1,13 +1,13 @@
 // BookOS - BancoPruebasPage.jsx
 // ruta: bookos/frontend/src/pages/BancoPruebasPage.jsx
-// descripcion: pantalla del BANCO DE PRUEBAS del kernel (Kernel > Banco de pruebas). Reune las TRES
-//   series que hoy existen: la del RANKING, que corre la serie fija de consultas contra el kernel y
-//   la puntua con el LLM pago (antes vivia dentro de Pesos); la del MODELO CHICO LOCAL, que mide
-//   que herramienta elige el chico para cada consulta de la misma serie; y la de RUTAS, que mide el
-//   ROUTER DE INTENCION sobre el banco de pedidos reales con su ruta esperada (que contesta el
-//   camino sin LLM, que se contestaria mal y que se va al modelo).
+// descripcion: pantalla del BANCO DE PRUEBAS con TRES duenos en pestanas: el BUSCADOR (serie fija
+//   de consultas evaluada con el LLM pago; antes vivia dentro de Pesos), el ROUTER (banco de
+//   pedidos con ruta esperada: plantilla sin LLM, planificador y selector) y el MODELO CHICO
+//   (que herramienta elige el chico para cada consulta de la serie). El foco entra por prop desde
+//   el menu (Core > Kernel > Banco del buscador / Router > Banco del router / LLM > Banco del
+//   modelo chico).
 //
-//   Las tres son instrumentos de MEDICION: ninguna activa nada por si sola. La del ranking, si
+//   Las tres son instrumentos de MEDICION: ninguna activa nada por si sola. La del buscador, si
 //   encuentra mejora, deja una propuesta para aprobar; las otras dos solo dejan el reporte.
 
 import { useCallback, useEffect, useState } from 'react';
@@ -27,8 +27,42 @@ const ROTULO_SERIE = {
   pedidos: 'PEDIDOS reales del operario',
 };
 
-export default function BancoPruebasPage({ esAdmin }) {
+// Encabezado de cada pestana: la pantalla tiene TRES duenos y la pestana dice QUE mide cada uno
+// (antes las tres series compartian una sola pantalla con un texto que prometia las tres juntas).
+const TITULOS = { sem: 'Banco del buscador semántico', router: 'Banco del router', chico: 'Banco del modelo chico' };
+const INTROS = {
+  sem: (
+    <>
+      Serie fija de consultas reales evaluada con el <strong>LLM pago</strong> (1–5) durante hasta 3
+      ciclos de ajuste. Si encuentra mejora deja una propuesta en <strong>Core ▾ Kernel ▾ Propuestas
+      Kernel</strong>; no activa nada por sí solo. Es el instrumento para comparar los pesos del
+      buscador (<strong>Core ▾ Kernel ▾ Pesos del buscador</strong>) antes y después.
+    </>
+  ),
+  router: (
+    <>
+      Mide, sobre el <strong>banco de pedidos con su ruta esperada</strong>, qué hace el turno con
+      cada uno: si lo contesta la plantilla sin LLM (y si acierta), si el planificador lo atrapa con
+      la herramienta correcta, y si el selector respaldaría esa decisión. <strong>No ejecuta
+      herramientas</strong>: el planificador solo propone. Sirve para comparar los diales de
+      <strong> Core ▾ Router ▾ Pesos del router</strong> antes y después.
+    </>
+  ),
+  chico: (
+    <>
+      Corre la serie de consultas contra el worker del modelo chico, una llamada por consulta, con
+      el prompt real del motor. Mide qué herramienta elige y si existe en el contrato vigente.
+      <strong> No ejecuta ninguna herramienta</strong>: no toca datos.
+    </>
+  ),
+};
+
+export default function BancoPruebasPage({ esAdmin, foco = 'sem' }) {
   const [aviso, setAviso] = useState('');
+  // Pestana activa: la trae el menu (Core ▾ Kernel / Router / LLM) y se puede cambiar aca sin
+  // volver al menu. Las tres series se cargan igual (el estado se lee una vez).
+  const [seccion, setSeccion] = useState(foco);
+  useEffect(() => { setSeccion(foco); }, [foco]);
 
   // --- Banco del ranking ---
   const [ranking, setRanking] = useState(null);
@@ -135,16 +169,23 @@ export default function BancoPruebasPage({ esAdmin }) {
   return (
     <div>
       <DebugTag nombre="BancoPruebasPage" />
-      <h2 className="text-lg font-semibold mb-1">Banco de pruebas</h2>
-      <p className="text-sm text-muted mb-4">
-        Los tres instrumentos miden sobre series reales y ninguno activa nada por sí solo. El del
-        ranking mide la búsqueda semántica con el LLM pago y, si encuentra mejora, deja una propuesta
-        en <strong>Kernel ▾ Propuestas Kernel</strong>; el del modelo chico mide qué herramienta elige
-        el modelo local; el de <strong>rutas</strong> mide qué hace el turno con cada pedido del banco de
-        intenciones (plantilla sin LLM, planificador determinista y la decisión del selector).
-      </p>
+      <h2 className="text-lg font-semibold mb-1">{TITULOS[seccion] || TITULOS.sem}</h2>
+      <p className="text-sm text-muted mb-4">{INTROS[seccion] || INTROS.sem}</p>
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {[['sem', 'Buscador semántico'], ['router', 'Router'], ['chico', 'Modelo chico']].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={`btn text-sm ${seccion === id ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setSeccion(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {aviso && <p className="text-sm mb-3">{aviso}</p>}
 
+      {seccion === 'sem' && (
       <div className="card p-4 mb-4">
         <div className="text-sm font-medium mb-2">Ranking (serie fija · evaluación con LLM)</div>
         <p className="text-xs text-muted mb-2">
@@ -173,7 +214,9 @@ export default function BancoPruebasPage({ esAdmin }) {
           </div>
         )}
       </div>
+      )}
 
+      {seccion === 'chico' && (
       <div className="card p-4 mb-4">
         <div className="text-sm font-medium mb-2">Modelo chico local (elección de herramienta)</div>
         <p className="text-xs text-muted mb-2">
@@ -254,7 +297,9 @@ export default function BancoPruebasPage({ esAdmin }) {
           </div>
         )}
       </div>
+      )}
 
+      {seccion === 'router' && (
       <div className="card p-4 mb-4">
         <div className="text-sm font-medium mb-2">Rutas (decisión de camino del turno)</div>
         <p className="text-xs text-muted mb-2">
@@ -263,7 +308,7 @@ export default function BancoPruebasPage({ esAdmin }) {
           <strong> planificador</strong> lo atrapa con la herramienta correcta, y si el
           <strong> selector</strong> respaldaría esa decisión. <strong>No ejecuta herramientas</strong>:
           el planificador solo propone. Es también el instrumento que dice si un cambio en los diales
-          del selector (<strong>Kernel ▾ Pesos</strong>) mejoró o empeoró: se corre antes y después.
+          del selector (<strong>Core ▾ Router ▾ Pesos del router</strong>) mejoró o empeoró: se corre antes y después.
         </p>
         {rutas && (
           <p className="text-xs text-muted mb-2">
@@ -337,6 +382,7 @@ export default function BancoPruebasPage({ esAdmin }) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

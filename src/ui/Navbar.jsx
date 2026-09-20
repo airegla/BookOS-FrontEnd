@@ -1,8 +1,9 @@
 // BookOS - Navbar.jsx
 // ruta: bookos/frontend/src/ui/Navbar.jsx
-// descripcion: navegacion del OS agrupada en bloques semanticos. Cada grupo es un
-//   desplegable; el grupo que contiene la vista actual queda resaltado. Cambiar de
-//   pagina NO borra trabajo (estado en React).
+// descripcion: navegacion del OS agrupada en bloques semanticos. En escritorio cada grupo es un
+//   desplegable (el grupo que contiene la vista actual queda resaltado); en pantallas chicas la
+//   navegacion se muda a una BARRA INFERIOR estilo SO (KDE): lanzador "Menú" + accesos fijos, y
+//   el menu completo se abre como panel agrupado por modulos. Cambiar de pagina NO borra trabajo.
 
 import { useEffect, useRef, useState } from 'react';
 import ManualBlock from '../blocks/ManualBlock';
@@ -25,14 +26,21 @@ const GRUPOS = [
     nombre: 'Core',
     directos: [{ vista: 'Salud', label: 'Salud (exenta)' }],
     submenus: [
-      { nombre: 'Kernel', items: [{ vista: 'Pesos' }, { vista: 'Banco de pruebas' }, { vista: 'Propuestas Kernel' }, { vista: 'Cola' }, { vista: 'Memoria' }] },
-      { nombre: 'Router', items: [{ vista: 'Pesos', label: 'Diales y compuerta (Pesos)' }, { vista: 'Banco de pruebas', label: 'Banco de rutas' }] },
+      { nombre: 'Kernel', items: [{ vista: 'Pesos del buscador' }, { vista: 'Banco del buscador' }, { vista: 'Enriquecimiento' }, { vista: 'Propuestas Kernel' }, { vista: 'Cola' }, { vista: 'Memoria' }] },
+      { nombre: 'Router', items: [{ vista: 'Pesos del router' }, { vista: 'Banco del router' }] },
       { nombre: 'Agent', items: [{ vista: 'Agente' }, { vista: 'Perfiles' }] },
-      { nombre: 'LLM', items: [{ vista: 'Modelo local' }] },
+      { nombre: 'LLM', items: [{ vista: 'Modelo local' }, { vista: 'Banco del modelo chico' }] },
       { nombre: 'Logs', items: [{ vista: 'Logs', label: 'Logs del core' }] },
     ],
   },
   { nombre: 'Sistema', items: ['Config', 'Empresa', 'Usuarios', 'Parametros', 'Importador', 'Desarrollo'] },
+];
+
+// Accesos fijos de la barra movil (los que se usan en el mostrador). El resto vive en el lanzador.
+const PINNADOS = [
+  { vista: 'Facturar', label: 'Facturar', icono: '🧾' },
+  { vista: 'Caja', label: 'Caja', icono: '💵' },
+  { vista: 'Catalogo', label: 'Catálogo', icono: '📚' },
 ];
 
 export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
@@ -40,10 +48,12 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
   const [subAbierto, setSubAbierto] = useState(null);
   const ref = useRef(null);
   const [manualAbierto, setManualAbierto] = useState(false);
+  // Barra movil (estilo SO): el lanzador abre el menu completo agrupado por modulos.
+  const [sheetAbierto, setSheetAbierto] = useState(false);
 
   useEffect(() => {
     const alClicFuera = (e) => { if (ref.current && !ref.current.contains(e.target)) { setAbierto(null); setSubAbierto(null); } };
-    const alEscape = (e) => { if (e.key === 'Escape') { setAbierto(null); setSubAbierto(null); } };
+    const alEscape = (e) => { if (e.key === 'Escape') { setAbierto(null); setSubAbierto(null); setSheetAbierto(false); } };
     document.addEventListener('mousedown', alClicFuera);
     document.addEventListener('keydown', alEscape);
     return () => {
@@ -52,11 +62,12 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
     };
   }, []);
 
-  const elegir = (item) => { onCambiarVista(item); setAbierto(null); setSubAbierto(null); };
+  const elegir = (item) => { onCambiarVista(item); setAbierto(null); setSubAbierto(null); setSheetAbierto(false); };
 
   const abrirManual = () => setManualAbierto(true);
 
   return (
+    <>
     <header
       ref={ref}
       className="relative flex items-center gap-1 px-4 py-3"
@@ -64,7 +75,7 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
     >
       <span className="font-black tracking-tight mr-4">Book<span style={{ color: 'var(--accent)' }}>OS</span></span>
 
-      <nav className="flex gap-1 flex-1 flex-wrap">
+      <nav className="nav-escritorio flex gap-1 flex-1 flex-wrap">
         {GRUPOS.map((grupo) => {
           const itemsDe = (g) => (g.submenus ? [...(g.directos || []), ...g.submenus.flatMap((s) => s.items)] : g.items.map((i) => ({ vista: i, label: i })));
           const activo = itemsDe(grupo).some((it) => it.vista === vista);
@@ -153,5 +164,92 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout }) {
 
       <ManualBlock abierto={manualAbierto} onClose={() => setManualAbierto(false)} />
     </header>
+
+    {/* Barra inferior movil (estilo SO): lanzador + accesos fijos, al alcance del pulgar. */}
+    <nav className="nav-movil">
+      <button
+        type="button"
+        className={`nav-movil-btn${sheetAbierto ? ' activo' : ''}`}
+        onClick={() => setSheetAbierto((v) => !v)}
+      >
+        <span className="nav-movil-icono">☰</span>
+        <span>Menú</span>
+      </button>
+      {PINNADOS.map((fijo) => (
+        <button
+          key={fijo.vista}
+          type="button"
+          className={`nav-movil-btn${vista === fijo.vista ? ' activo' : ''}`}
+          onClick={() => elegir(fijo.vista)}
+        >
+          <span className="nav-movil-icono">{fijo.icono}</span>
+          <span>{fijo.label}</span>
+        </button>
+      ))}
+    </nav>
+
+    {sheetAbierto && (
+      <>
+        <div className="nav-sheet-overlay" onClick={() => setSheetAbierto(false)} />
+        <section className="nav-sheet" aria-label="Menú de aplicaciones">
+          <div className="nav-sheet-header">
+            <span>Menú</span>
+            <button type="button" className="btn btn-ghost text-xs" onClick={() => setSheetAbierto(false)}>✕</button>
+          </div>
+          <div className="nav-sheet-grupos">
+            {GRUPOS.map((grupo) => (
+              <div key={grupo.nombre} className="nav-sheet-grupo">
+                <div className="nav-sheet-titulo">{grupo.nombre}</div>
+                {grupo.submenus ? (
+                  <>
+                    {(grupo.directos || []).map((it) => (
+                      <button
+                        key={`m-${it.vista}`}
+                        type="button"
+                        className={`nav-sheet-item${vista === it.vista ? ' activo' : ''}`}
+                        onClick={() => elegir(it.vista)}
+                      >
+                        {it.label || it.vista}
+                      </button>
+                    ))}
+                    {grupo.submenus.map((sub) => (
+                      <div key={sub.nombre} className="nav-sheet-sub">
+                        <div className="nav-sheet-subtitulo">{sub.nombre}</div>
+                        <div className="nav-sheet-items">
+                          {sub.items.map((it) => (
+                            <button
+                              key={`m-${sub.nombre}-${it.vista}-${it.label || ''}`}
+                              type="button"
+                              className={`nav-sheet-item${vista === it.vista ? ' activo' : ''}`}
+                              onClick={() => elegir(it.vista)}
+                            >
+                              {it.label || it.vista}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div className="nav-sheet-items">
+                    {grupo.items.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className={`nav-sheet-item${vista === item ? ' activo' : ''}`}
+                        onClick={() => elegir(item)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      </>
+    )}
+    </>
   );
 }

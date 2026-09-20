@@ -14,6 +14,7 @@ import { descargarCsv, descargarDesdeServidor } from '../utils/exportar';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
+import ConfigTogglesBlock from '../blocks/ConfigTogglesBlock';
 
 const LOTE = 1000;
 const LIMITE_HISTORIAL = 20;
@@ -849,6 +850,12 @@ export default function ImportadorPage({ esAdmin = false }) {
               </div>
             </div>
           </div>
+
+          <ConfigTogglesBlock
+            grupo="importador"
+            titulo="Procesamiento automático de la bandeja"
+            nota="Con el modo automático apagado, cada documento queda como ACTUALIZACIÓN PENDIENTE para aprobar o anular desde acá."
+          />
 
           <div className="card p-3">
             <h4 className="font-semibold text-sm mb-2">Actualizaciones pendientes ({(bandeja.pendientes || []).length})</h4>

@@ -15,22 +15,33 @@ export default function AgenteChatBlock({ abierto = true, onAlternar = null }) {
   const [abiertoMobile, setAbiertoMobile] = useState(false);
   const plegable = typeof onAlternar === 'function';
 
+  // En pantallas chicas el panel se muestra como CHAT a pantalla completa: `abiertoMobile` es la
+  // puerta propia del telefono, porque el estado de escritorio (`abierto`) puede estar en false
+  // (el layout ocupa todo el ancho) y antes el boton flotante no hacia nada en ese caso: el
+  // operario tocaba "💬 Secretario" y el panel no volvia a aparecer (se sentia colgado).
+  const visible = abierto || abiertoMobile;
+
   const cerrar = () => {
     setAbiertoMobile(false);
     if (plegable && abierto) onAlternar();
   };
 
+  const abrirMobile = () => {
+    setAbiertoMobile(true);
+    if (plegable && !abierto) onAlternar();
+  };
+
   return (
     <>
-      <button type="button" className="btn btn-primary agente-toggle" onClick={() => setAbiertoMobile(true)} title="Abrir el Secretario">
+      <button type="button" className="btn btn-primary agente-toggle" onClick={abrirMobile} title="Abrir el Secretario">
         💬 Secretario
       </button>
-      {!abierto && plegable && (
+      {!abierto && !abiertoMobile && plegable && (
         <button type="button" className="btn agente-reabrir" onClick={onAlternar} title="Abrir el Secretario">
           💬 Secretario
         </button>
       )}
-      {abierto && (
+      {visible && (
         <aside className={`agente-panel ${plegable ? 'plegable' : ''} ${abiertoMobile ? 'agente-abierto' : ''}`}>
           <DebugTag nombre="AgenteChatBlock" />
           <ChatAgente perfil="secretario" titulo="El Secretario" onCerrarMobile={cerrar} />

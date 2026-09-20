@@ -5,7 +5,7 @@
 //   catalogo del backend, no una lista escrita aca), el indice compacto de las herramientas para
 //   ajustarlo a mano (descripcion por modulo; las acciones salen del contrato y no se editan desde
 //   aca), la semilla corta y el prompt final que recibe el modelo.
-//   Lo monta la pantalla Kernel > Modelo local.
+//   Lo monta la pantalla Core > LLM > Modelo local.
 //   Regla del laboratorio: lo que el motor usa tiene que poder verse y tocarse desde el front; si
 //   algo no esta en esta pantalla, el vectorHumano no puede accederlo.
 

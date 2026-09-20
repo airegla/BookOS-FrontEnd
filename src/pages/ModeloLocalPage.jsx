@@ -84,8 +84,8 @@ export default function ModeloLocalPage({ esAdmin }) {
       <p className="text-sm text-muted mb-4">
         El modelo chico corre en esta maquina, en el worker del puerto 3011, y solo se usa si sus dos
         interruptores estan encendidos. El registro de sus llamadas (latencia, tokens estimados y
-        errores por proveedor) esta en <strong>Kernel ▾ Salud</strong>; su medicion contra el banco de
-        pruebas, en <strong>Kernel ▾ Banco de pruebas</strong>.
+        errores por proveedor) esta en <strong>Core ▾ Salud</strong>; su medicion contra el banco, en
+        <strong> Core ▾ LLM ▾ Banco del modelo chico</strong>.
       </p>
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
@@ -139,7 +139,8 @@ export default function ModeloLocalPage({ esAdmin }) {
         </div>
         <p className="text-xs text-muted mt-3">
           El worker de embeddings tiene ademas su arranque automatico: si
-          <span className="font-mono"> EMBEDDINGS_WORKER_AUTO</span> esta encendido, el API lo levanta
+          <span className="font-mono"> EMBEDDINGS_WORKER_AUTO</span> esta encendido (se cambia en
+          Core ▾ Kernel ▾ Enriquecimiento), el API lo levanta
           solo al arrancar. El del modelo chico se levanta bajo demanda (carga el modelo la primera vez
           que se le pide una respuesta). El del sync NO se levanta solo: es el unico que corre el sync
           con el legacy, y mientras este levantado sincroniza al arrancar

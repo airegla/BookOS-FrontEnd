@@ -12,6 +12,9 @@ import Toggle from '../ui/Toggle';
 import DebugTag from '../ui/DebugTag';
 import { configApi, kernelApi } from '../api/api';
 
+// NOTA de menu (2026-09-20): este modulo vive en Core ▾ Agent ▾ Agente; el modelo chico en
+// Core ▾ LLM ▾ Modelo local y su banco en Core ▾ LLM ▾ Banco del modelo chico.
+
 export default function AgentePage({ esAdmin }) {
   const [agente, setAgente] = useState(null);
   const [catalogo, setCatalogo] = useState([]);
@@ -92,7 +95,7 @@ export default function AgentePage({ esAdmin }) {
             </div>
             <div className="text-muted text-xs">
               modelos: <span className="font-mono">{Array.isArray(agente.modelos) ? agente.modelos.join(', ') : agente.modelos}</span>
-              {' '}· presupuesto {agente.presupuestoDia} llamadas/día · uso y rutas: Kernel ▾ → Logs
+              {' '}· presupuesto {agente.presupuestoDia} llamadas/día · uso y rutas: Core ▾ Logs ▾ Logs del core
             </div>
             <div className="text-muted text-xs">
               El mismo motor atiende al <strong>Secretario</strong> (todas las herramientas) y al <strong>Asistente de ventas</strong> (perfil de librería): cambia la semilla y las herramientas visibles, no el agente.
@@ -106,7 +109,7 @@ export default function AgentePage({ esAdmin }) {
         <p className="text-xs text-muted mb-3">
           Estos son los toggles del <strong>LLM pago</strong>. El modelo chico local tiene los suyos
           (encendido, modo con herramientas, pasos y chars por resultado) en
-          <strong> Kernel ▾ Modelo local</strong>, con su semilla y su índice.
+          <strong> Core ▾ LLM ▾ Modelo local</strong>, con su semilla y su índice.
         </p>
         <div className="space-y-3">
           {catalogo.map((t) => (

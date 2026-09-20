@@ -7,6 +7,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { agenteApi } from '../api/api';
 
+// Watchdog del stream: 3 minutos SIN NINGUN evento cortan el turno con su aviso. El LLM emite chunks
+// seguido; una espera muda de 3 minutos no es lentitud, es una conexion que ya no responde (el caso
+// medido en el celular: se traba el adjunto y despues el chat no responde mas).
+const SIN_EVENTOS_MS = 180000;
+
 export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
   const [mensajes, setMensajes] = useState([]);
   const [estado, setEstado] = useState('');
@@ -93,6 +98,9 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Al desmontar, un turno en curso se corta: no queda un fetch leyendo con el componente muerto.
+  useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
+
   const enviar = useCallback(async (texto, contexto = null, adjunto = null) => {
     // Un turno a la vez: si el anterior sigue en curso NO se descarta el mensaje en silencio
     // (antes desaparecia sin explicacion y parecia que el agente se habia colgado).
@@ -108,8 +116,13 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
     ultimaRespuestaRef.current = '';
     setMensajes((prev) => [...prev, { rol: 'usuario', texto, adjunto: adjunto ? adjunto.nombre : null }]);
 
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    let watchdog = setTimeout(() => ctrl.abort(), SIN_EVENTOS_MS);
+    const patearWatchdog = () => { clearTimeout(watchdog); watchdog = setTimeout(() => ctrl.abort(), SIN_EVENTOS_MS); };
+
     try {
-      const respuesta = await agenteApi.chat(texto.trim(), contexto, adjunto, conversacionId, perfil);
+      const respuesta = await agenteApi.chat(texto.trim(), contexto, adjunto, conversacionId, perfil, ctrl.signal);
       const reader = respuesta.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -135,6 +148,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
           if (!evento) continue;
           try {
             const payload = datos ? JSON.parse(datos) : {};
+            patearWatchdog();
             if (evento === 'estado') {
               if (payload.fase === 'done') continue;
               setEstado(payload.fase);
@@ -201,9 +215,18 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
       }
       return true;
     } catch (err) {
-      setMensajes((prev) => [...prev, { rol: 'agente', texto: `⚠️ ${err.message}` }]);
+      if (err && err.name === 'AbortError') {
+        setMensajes((prev) => [...prev, {
+          rol: 'agente',
+          texto: '⚠️ La conexión quedó sin respuesta y corté el turno (3 minutos sin eventos). No quedó registrado: mandá el pedido de nuevo.',
+        }]);
+      } else {
+        setMensajes((prev) => [...prev, { rol: 'agente', texto: `⚠️ ${err.message}` }]);
+      }
       return false;
     } finally {
+      clearTimeout(watchdog);
+      abortRef.current = null;
       setEstado('');
       setCargando(false);
     }

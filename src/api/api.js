@@ -400,7 +400,7 @@ export const agenteApi = {
   // adjunto: { nombre, contenido } — el CSV crudo viaja como texto en el body.
   // conversacionId: continuidad del hilo (el backend lo crea y lo devuelve en el evento resultado).
   // perfil: 'secretario' (tecnico) | 'ventas' (asistente de mostrador) — mismo motor, otra semilla/tools.
-  chat: (mensaje, contexto, adjunto, conversacionId = null, perfil = 'secretario') => {
+  chat: (mensaje, contexto, adjunto, conversacionId = null, perfil = 'secretario', signal = null) => {
     const token = localStorage.getItem('bookos_token');
     return fetch(`${import.meta.env.VITE_API_URL || '/api'}/agente/chat`, {
       method: 'POST',
@@ -409,6 +409,9 @@ export const agenteApi = {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ mensaje, contexto, adjunto: adjunto || null, conversacionId: conversacionId || null, perfil }),
+      // El watchdog del chat puede CORTAR la espera: sin `signal`, una conexion muda (celular en red
+      // mala, backend reiniciado) dejaba el turno "Pensando..." para siempre.
+      ...(signal ? { signal } : {}),
     });
   },
   // Confirmacion de una escritura destructiva: misma tool con confirmado:true, sin LLM.

@@ -27,6 +27,7 @@ import NewsletterPage from './pages/NewsletterPage';
 import ParametrosPage from './pages/ParametrosPage';
 import ReferenciasPage from './pages/ReferenciasPage';
 import ConfigPage from './pages/ConfigPage';
+import EnriquecimientoPage from './pages/EnriquecimientoPage';
 import EmpresaPage from './pages/EmpresaPage';
 import UsuariosPage from './pages/UsuariosPage';
 import DesarrolloPage from './pages/DesarrolloPage';
@@ -121,7 +122,7 @@ export default function App() {
         localStorage.removeItem('bookos_usuario_id');
       })
       .finally(() => setCargando(false));
-    // Marcas de debug: el toggle debug_mode del OS manda en caliente (Sistema > Config), sin
+    // Marcas de debug: el toggle debug_mode del OS manda en caliente (Sistema > Desarrollo), sin
     // recompilar el front. VITE_DEBUG_MODE sigue siendo el piso: si esta en true, no lo apaga.
     configApi.obtener()
       .then((res) => {
@@ -206,8 +207,12 @@ export default function App() {
           {vista === 'Agente' && <AgentePage esAdmin={esAdmin} />}
           {vista === 'Perfiles' && <PerfilesPage esAdmin={esAdmin} />}
           {vista === 'Propuestas Kernel' && <PropuestasPage esAdmin={esAdmin} />}
-          {vista === 'Pesos' && <PesosPage esAdmin={esAdmin} />}
-          {vista === 'Banco de pruebas' && <BancoPruebasPage esAdmin={esAdmin} />}
+          {vista === 'Pesos del buscador' && <PesosPage esAdmin={esAdmin} foco="sem" />}
+          {vista === 'Pesos del router' && <PesosPage esAdmin={esAdmin} foco="router" />}
+          {vista === 'Enriquecimiento' && <EnriquecimientoPage esAdmin={esAdmin} />}
+          {vista === 'Banco del buscador' && <BancoPruebasPage esAdmin={esAdmin} foco="sem" />}
+          {vista === 'Banco del router' && <BancoPruebasPage esAdmin={esAdmin} foco="router" />}
+          {vista === 'Banco del modelo chico' && <BancoPruebasPage esAdmin={esAdmin} foco="chico" />}
           {vista === 'Modelo local' && <ModeloLocalPage esAdmin={esAdmin} />}
           {vista === 'Logs' && <LogsPage />}
           {vista === 'Cola' && <ColaPage />}

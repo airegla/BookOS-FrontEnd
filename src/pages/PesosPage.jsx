@@ -1,8 +1,10 @@
 // BookOS - PesosPage.jsx
 // ruta: bookos/frontend/src/pages/PesosPage.jsx
-// descripcion: panel de Pesos del kernel. Edita los pesos vigentes (admin), guardarlos crea
-//   una version nueva que pasa a gobernar el ranking; cualquier version anterior puede
-//   reactivarse (rollback). La medicion (banco de pruebas) vive en Kernel > Banco de pruebas.
+// descripcion: panel de PESOS con DOS duenos en la misma pantalla: el BUSCADOR SEMANTICO
+//   (similitud por intencion + terminos y umbrales del ranking) y el ROUTER (diales del selector
+//   de rutas y su compuerta). El foco entra por prop desde el menu (Core > Kernel > Pesos del
+//   buscador / Core > Router > Pesos del router); guardar crea una version nueva y activa, y la
+//   anterior queda para rollback. La medicion vive en Banco del buscador / Banco del router.
 
 import { useCallback, useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
@@ -58,10 +60,14 @@ function aPayload(form) {
   };
 }
 
-export default function PesosPage({ esAdmin }) {
+export default function PesosPage({ esAdmin, foco = 'sem' }) {
   const [data, setData] = useState(null);
   const [form, setForm] = useState(null);
   const [aviso, setAviso] = useState('');
+  // 'sem' = buscador semantico, 'router' = selector de rutas. El menu trae el foco; las pestañas
+  // permiten cambiarlo sin volver al menu (misma pantalla, mismo formulario de fondo).
+  const [seccion, setSeccion] = useState(foco);
+  useEffect(() => { setSeccion(foco); }, [foco]);
 
   const cargar = useCallback(async () => {
     try {
@@ -120,15 +126,37 @@ export default function PesosPage({ esAdmin }) {
     <div>
       <DebugTag nombre="PesosPage" />
       <div className="flex items-center gap-2 mb-1">
-        <h2 className="text-lg font-semibold">Pesos del ranking</h2>
+        <h2 className="text-lg font-semibold">{seccion === 'router' ? 'Pesos del router' : 'Pesos del buscador semántico'}</h2>
         <span className="agente-badge">versión vigente {data.vigente.version}</span>
       </div>
-      <p className="text-sm text-muted mb-4">
-        score = α·sem + β·sparse + γ·grafo + δ·negocio + ε·flujo + ζ·empatía. Guardar crea una versión nueva
-        (la anterior queda para rollback); la medición antes/después se corre en Kernel ▾ Banco de pruebas.
-      </p>
+      {seccion === 'router' ? (
+        <p className="text-sm text-muted mb-4">
+          Diales del SELECTOR de ruta: con qué se elige la herramienta de cada pedido del turno y cuándo
+          el camino sin LLM de la plantilla puede responder. Guardar crea una versión nueva (la anterior
+          queda para rollback); la medición antes/después se corre en Core ▾ Router ▾ <strong>Banco del router</strong>.
+        </p>
+      ) : (
+        <p className="text-sm text-muted mb-4">
+          score = α·sem + β·sparse + γ·grafo + δ·negocio + ε·flujo + ζ·empatía. Guardar crea una versión nueva
+          (la anterior queda para rollback); la medición antes/después se corre en Core ▾ Kernel ▾ <strong>Banco del buscador</strong>.
+        </p>
+      )}
+      <div className="flex gap-2 mb-4">
+        {[['sem', 'Buscador semántico'], ['router', 'Router']].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={`btn text-sm ${seccion === id ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setSeccion(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {aviso && <p className="text-sm mb-3">{aviso}</p>}
 
+      {seccion === 'sem' && (
+        <>
       <div className="card p-4 mb-4">
         <div className="text-sm font-medium mb-2">Similitud semántica por intención (se normaliza a 1)</div>
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
@@ -169,7 +197,10 @@ export default function PesosPage({ esAdmin }) {
           </div>
         )}
       </div>
+        </>
+      )}
 
+      {seccion === 'router' && (
       <div className="card p-4 mb-4">
         <div className="text-sm font-medium mb-2">Selector de rutas (con qué se elige la herramienta)</div>
         <p className="text-xs text-muted mb-3">
@@ -177,8 +208,8 @@ export default function PesosPage({ esAdmin }) {
           pedido del turno (y si el camino sin LLM de la plantilla puede usarse). <strong>corte</strong> vacío
           significa que la ficha diferencial no entra al ranking. <strong>acuerdo</strong> es cuánto suma la
           segunda evidencia cuando coinciden; el <strong>margen</strong> y exigir el acuerdo son el criterio
-          para <em>delegar</em> una decisión al selector. Todo esto se mide en Kernel ▾ Banco de pruebas,
-          serie <strong>Rutas</strong>.
+          para <em>delegar</em> una decisión al selector. Todo esto se mide en Core ▾ Router ▾
+          <strong> Banco del router</strong>.
         </p>
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
           <label className="block" title="cuánto pesa la descripción técnica de cada herramienta">
@@ -210,19 +241,33 @@ export default function PesosPage({ esAdmin }) {
             <span className="text-xs text-muted">exigir acuerdo</span>
           </label>
         </div>
+        {esAdmin && (
+          <div className="flex items-center gap-2 mt-3">
+            <button type="button" className="btn btn-primary text-sm" onClick={guardar}>Guardar como versión nueva</button>
+            <button type="button" className="btn text-sm" onClick={() => setForm(aFormulario(data.vigente))}>Restaurar valores vigentes</button>
+          </div>
+        )}
       </div>
+      )}
 
       <div className="card p-4 mb-4">
         <div className="text-sm font-medium mb-2">Cómo se mide un cambio de pesos</div>
-        <p className="text-xs text-muted">
-          El banco de pruebas (serie fija + evaluación con LLM, hasta 3 ciclos) y su historial de
-          corridas viven en <strong>Kernel ▾ Banco de pruebas</strong>. Ahí también están la serie del
-          modelo chico local y la serie <strong>Rutas</strong>, que mide el selector con el banco de
-          pedidos (162 casos con su ruta esperada) y dice cuántos se contestan gratis, cuántos se
-          contestarían mal y cuántos se van al modelo. Cambiar los pesos de arriba sin volver a correrla
-          es cambiar el dial sin medir. Guardar acá una versión nueva la activa; la anterior queda para
-          rollback.
-        </p>
+        {seccion === 'router' ? (
+          <p className="text-xs text-muted">
+            El <strong>banco del router</strong> (Core ▾ Router ▾ Banco del router) corre el banco de
+            pedidos con su ruta esperada y dice cuántos se contestan gratis, cuántos se contestarían mal
+            y cuántos se van al modelo. Cambiar los diales de arriba sin volver a correrlo es cambiar el
+            dial sin medir. Guardar acá una versión nueva la activa; la anterior queda para rollback.
+          </p>
+        ) : (
+          <p className="text-xs text-muted">
+            El <strong>banco del buscador</strong> (Core ▾ Kernel ▾ Banco del buscador) corre la serie
+            fija de consultas y la evalúa con el LLM (hasta 3 ciclos); si encuentra mejora, deja una
+            propuesta en <strong>Core ▾ Kernel ▾ Propuestas Kernel</strong>. Cambiar los pesos de arriba
+            sin volver a correrlo es cambiar el dial sin medir. Guardar acá una versión nueva la activa;
+            la anterior queda para rollback.
+          </p>
+        )}
       </div>
 
       <div className="card p-4">

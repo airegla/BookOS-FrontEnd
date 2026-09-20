@@ -314,6 +314,9 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
   const [aviso, setAviso] = useState('');
   const [adjunto, setAdjunto] = useState(null);
   const [resueltas, setResueltas] = useState({});
+  // El adjunto se LEE en el navegador (FileReader): mientras eso pasa el envio queda bloqueado y
+  // avisado. Antes, enviar en el medio mandaba el pedido SIN adjunto y parecia que "se habia trabado".
+  const [leyendoAdjunto, setLeyendoAdjunto] = useState(false);
 
   // Autoscroll: el scroll sigue al agente mientras el operario este abajo. Si subio a leer algo, NO se
   // lo arrastra (el ref se recalcula con su propio scroll): volver a bajar lo reengancha.
@@ -420,6 +423,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     const consulta = texto;
     const adj = adjunto || adjuntoDesdeContexto();
     if (!consulta.trim() && !adj) return;
+    if (leyendoAdjunto) { setAviso('Esperá un momento: estoy leyendo el adjunto.'); return; }
     // Si el pedido vino por micro, la respuesta se lee en voz alta (pedido del vectorHumano): no habla
     // en cada turno escrito, que seria insoportable.
     const dichoPorVoz = vinoDeVoz.current;
@@ -446,6 +450,8 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
   const alAdjuntar = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    setLeyendoAdjunto(true);
+    setAviso(`Leyendo ${file.name}…`);
     const esImagen = /^image\//i.test(file.type || '') || /\.(png|jpe?g|webp|gif)$/i.test(file.name);
     const binario = esImagen || /\.(xlsx|xls|pdf)$/i.test(file.name) || /excel|spreadsheet|pdf/i.test(file.type || '');
     const limite = binario ? 6 * 1024 * 1024 : 2 * 1024 * 1024;
@@ -456,6 +462,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     }
     const reader = new FileReader();
     reader.onload = () => {
+      setLeyendoAdjunto(false);
       if (binario) {
         const texto = String(reader.result || '');
         const b64 = texto.includes(',') ? texto.slice(texto.indexOf(',') + 1) : texto;
@@ -465,7 +472,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
       }
       setAviso(`Adjunto listo (${file.name}). Escribí tu mensaje y envialo.`);
     };
-    reader.onerror = () => setAviso('No se pudo leer el archivo.');
+    reader.onerror = () => { setLeyendoAdjunto(false); setAviso('No se pudo leer el archivo.'); };
     if (binario) reader.readAsDataURL(file);
     else reader.readAsText(file);
     e.target.value = '';
@@ -749,8 +756,8 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
           onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); alEnviar(); } }}
         />
-        <button type="button" className="btn btn-primary w-full" disabled={cargando} onClick={alEnviar}>
-          {cargando ? 'Pensando...' : 'Enviar'}
+        <button type="button" className="btn btn-primary w-full" disabled={cargando || leyendoAdjunto} onClick={alEnviar}>
+          {cargando ? 'Pensando...' : leyendoAdjunto ? 'Leyendo adjunto…' : 'Enviar'}
         </button>
       </div>
     </div>

@@ -1,14 +1,15 @@
 // BookOS - LogsPage.jsx
 // ruta: bookos/frontend/src/pages/LogsPage.jsx
-// descripcion: panel de Logs. Dos vistas ordenadas (mas nuevo primero): actividad del LLM y
-//   del agente (llm_audit_log) y pipeline de enriquecimiento (enriquecimiento_intento).
+// descripcion: panel de Logs. Tres vistas ordenadas (mas nuevo primero): actividad del LLM y
+//   del agente (llm_audit_log), pipeline de enriquecimiento (enriquecimiento_intento) y la
+//   AUDITORIA DEL RANKING (las ultimas busquedas del kernel, que antes vivian en Sistema > Config).
 //   Filtros por modulo/ruta/proveedor/etapa y descarga CSV.
 
 import { useCallback, useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
 import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
-import { kernelApi } from '../api/api';
+import { kernelApi, auditoriaApi } from '../api/api';
 import { descargarCsv, descargarDesdeServidor } from '../utils/exportar';
 
 // Cada dato en su linea: es todo lo que hace falta ver de un log.
@@ -76,6 +77,11 @@ export default function LogsPage() {
         const res = await kernelApi.registro(params);
         setFilas(res.data.filas || []);
         setTotal(res.data.total || 0);
+      } else if (vista === 'ranking') {
+        // Auditoria del ranking: las ultimas busquedas con su intencion, outcome y latencia.
+        const res = await auditoriaApi.ranking(50);
+        setFilas(res.data || []);
+        setTotal((res.data || []).length);
       } else {
         const params = { limit: 150 };
         if (etapa) params.etapa = etapa;
@@ -126,10 +132,11 @@ export default function LogsPage() {
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <button type="button" className={`btn text-sm ${vista === 'actividad' ? 'btn-primary' : ''}`} onClick={() => setVista('actividad')}>Actividad (LLM/agente)</button>
         <button type="button" className={`btn text-sm ${vista === 'enriquecimiento' ? 'btn-primary' : ''}`} onClick={() => setVista('enriquecimiento')}>Enriquecimiento</button>
+        <button type="button" className={`btn text-sm ${vista === 'ranking' ? 'btn-primary' : ''}`} onClick={() => setVista('ranking')}>Ranking (auditoría)</button>
         <button type="button" className="btn btn-ghost text-sm" onClick={cargar} disabled={cargando}>Refrescar</button>
         {vista === 'actividad'
           ? <button type="button" className="btn btn-ghost text-sm" onClick={descargarActividad}>⬇ Descargar (servidor)</button>
-          : filas.length > 0 && <button type="button" className="btn btn-ghost text-sm" onClick={descargarEnriquecimiento}>⬇ Descargar</button>}
+          : vista === 'enriquecimiento' && filas.length > 0 && <button type="button" className="btn btn-ghost text-sm" onClick={descargarEnriquecimiento}>⬇ Descargar</button>}
       </div>
 
       {vista === 'actividad' && (
@@ -162,6 +169,11 @@ export default function LogsPage() {
                   <th className="py-1 pr-3">ruta</th><th className="py-1 pr-3">proveedor</th><th className="py-1 pr-3">modelo</th>
                   <th className="py-1 pr-3">ms</th><th className="py-1 pr-3">tokens</th><th className="py-1">outcome</th>
                 </>
+              ) : vista === 'ranking' ? (
+                <>
+                  <th className="py-1 pr-3">fecha</th><th className="py-1 pr-3">intención</th><th className="py-1 pr-3">consulta</th>
+                  <th className="py-1 pr-3">outcome</th><th className="py-1">ms</th>
+                </>
               ) : (
                 <>
                   <th className="py-1 pr-3">fecha</th><th className="py-1 pr-3">artículo</th><th className="py-1 pr-3">etapa</th>
@@ -175,9 +187,9 @@ export default function LogsPage() {
             {filas.map((f) => (
               <tr
                 key={f.id}
-                style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                title="Ver detalle del log"
-                onClick={() => verDetalle(f)}
+                style={{ borderTop: '1px solid var(--border)', cursor: vista === 'ranking' ? 'default' : 'pointer' }}
+                title={vista === 'ranking' ? '' : 'Ver detalle del log'}
+                onClick={() => { if (vista !== 'ranking') verDetalle(f); }}
               >
                 {vista === 'actividad' ? (
                   <>
@@ -190,6 +202,14 @@ export default function LogsPage() {
                     <td className="py-1 pr-3 font-mono">{f.ms}</td>
                     <td className="py-1 pr-3 font-mono">{f.tokens || 0}</td>
                     <td className="py-1">{f.outcome || '—'}</td>
+                  </>
+                ) : vista === 'ranking' ? (
+                  <>
+                    <td className="py-1 pr-3 font-mono">{f.fecha ? new Date(f.fecha).toLocaleString('es-AR') : '—'}</td>
+                    <td className="py-1 pr-3">{f.intencion}</td>
+                    <td className="py-1 pr-3">{f.consulta}</td>
+                    <td className="py-1 pr-3">{f.outcome || 'SIN_SENAL'}</td>
+                    <td className="py-1 font-mono">{f.ms}</td>
                   </>
                 ) : (
                   <>
@@ -219,7 +239,7 @@ export default function LogsPage() {
       <Modal
         abierto={Boolean(detalle)}
         onClose={() => setDetalle(null)}
-        titulo={detalle ? `${vista === 'actividad' ? 'Actividad' : 'Enriquecimiento'} · log #${detalle.id}` : ''}
+        titulo={detalle ? `${vista === 'actividad' ? 'Actividad' : vista === 'enriquecimiento' ? 'Enriquecimiento' : 'Ranking'} · log #${detalle.id}` : ''}
         ancho="760px"
       >
         {cargandoDetalle && <p className="text-sm text-muted">Trayendo el detalle...</p>}

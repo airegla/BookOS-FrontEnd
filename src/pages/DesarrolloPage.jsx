@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import Input from '../ui/Input';
 import DebugTag from '../ui/DebugTag';
+import ConfigTogglesBlock from '../blocks/ConfigTogglesBlock';
 import { empresaApi } from '../api/api';
 import preguntas from '../utils/desarrolloPreguntas';
 
@@ -82,6 +83,12 @@ export default function DesarrolloPage({ esAdmin }) {
         ))}
         <button type="button" className="btn btn-primary" onClick={instalar}>Instalar</button>
       </div>
+
+      <ConfigTogglesBlock
+        grupo="desarrollo"
+        titulo="Marcas de debug del front"
+        nota="debug_mode se aplica al instante en el navegador (sin recompilar); VITE_DEBUG_MODE del build es el piso: si está en true, este toggle no lo apaga."
+      />
     </div>
   );
 }
