@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
+import CardSistema from '../ui/CardSistema';
 import { kernelApi } from '../api/api';
 import { descargarCsv } from '../utils/exportar';
 
@@ -87,6 +88,8 @@ export default function SaludPage({ esAdmin }) {
       </p>
       {aviso && <p className="text-sm mb-3">{aviso}</p>}
 
+      {/* La foto del SERVIDOR va primero: es lo que se mira cuando algo anda mal (memoria, CPU, disco). */}
+      <CardSistema />
       <div className="flex gap-2 mb-4">
         {esAdmin && (
           <button type="button" className="btn btn-primary text-sm" onClick={correr} disabled={corriendo}>

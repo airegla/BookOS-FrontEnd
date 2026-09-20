@@ -173,6 +173,8 @@ export const kernelApi = {
   comando: (texto) => axiosClient.post('/kernel/comando', { texto }),
   salud: (limit = 30) => axiosClient.get('/kernel/salud', { params: { limit } }),
   saludCorrer: () => axiosClient.post('/kernel/salud/correr'),
+  // Metricas del servidor (memoria, CPU, disco) con la fuente de cada dato: la card de Salud.
+  saludSistema: () => axiosClient.get('/kernel/salud/sistema'),
   pesos: () => axiosClient.get('/kernel/pesos'),
   pesosGuardar: (payload) => axiosClient.post('/kernel/pesos', payload),
   pesosActivar: (id) => axiosClient.post(`/kernel/pesos/${id}/activar`),
