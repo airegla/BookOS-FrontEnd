@@ -20,6 +20,8 @@ export default function AgenteChatBlock({
   extras = null,
   claveArranque = null,
   arranqueDefault = null,
+  // Abre (no alterna) la otra ventana cuando un pedido se le traspasa (spec 21-Sep).
+  onAbrirOtraVentana = null,
   // La puerta del TELEFONO la controla App cuando el boton vive en el navbar. Sin props cae en su
   // estado interno: el bloque sigue sirviendo suelto.
   abiertoMobile: abiertoMobileProp = null,
@@ -51,7 +53,7 @@ export default function AgenteChatBlock({
         <aside className={`agente-panel${claseLado} ${plegable ? 'plegable' : ''} ${abiertoMobile ? 'agente-abierto' : ''}`}>
           <DebugTag nombre={lado === 'izq' ? 'AsistenteVentasBlock' : 'AgenteChatBlock'} />
           {extras}
-          <ChatAgente perfil={perfil} titulo={titulo} onCerrarMobile={cerrar} claveArranque={claveArranqueFinal} arranqueDefault={arranqueDefaultFinal} />
+          <ChatAgente perfil={perfil} titulo={titulo} onCerrarMobile={cerrar} claveArranque={claveArranqueFinal} arranqueDefault={arranqueDefaultFinal} onAbrirOtraVentana={onAbrirOtraVentana} />
         </aside>
       )}
     </>

@@ -416,6 +416,9 @@ export const agenteApi = {
   },
   // Confirmacion de una escritura destructiva: misma tool con confirmado:true, sin LLM.
   confirmar: (herramienta, argumentos, conversacionId = null) => axiosClient.post('/agente/confirmar', { herramienta, argumentos, conversacionId: conversacionId || null }),
+  // Traspaso de un pedido a la OTRA ventana (spec 21-Sep): devuelve la linea de sistema del destino
+  // y el texto para prellenar su input. No gasta modelo.
+  traspaso: (payload) => axiosClient.post('/agente/traspaso', payload),
   // Feedback empatico del turno (D13): pulgar (+1/-1) y/o escala 1-5. No gasta LLM.
   feedback: (evaluacionId, { pulgar = null, score = null } = {}) => axiosClient.post('/agente/feedback', { evaluacionId, pulgar, score }),
   // Perfiles del operario (plan 11 E7): el panel "Ver perfiles" y la privacidad.

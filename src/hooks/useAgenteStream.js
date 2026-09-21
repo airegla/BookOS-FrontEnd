@@ -64,6 +64,9 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
       for (const t of filas) {
         if (t.rol === 'usuario') {
           reconstruidos.push({ rol: 'usuario', texto: t.texto || '' });
+        } else if (t.ruta === 'traspaso') {
+          // Linea de sistema del traspaso entre ventanas: se repinta como nota, no como respuesta.
+          reconstruidos.push({ rol: 'sistema', texto: t.texto || '' });
         } else {
           for (const h of t.herramientas || []) reconstruidos.push({ rol: 'herramienta', nombre: h.nombre, ok: true });
           if (t.texto) reconstruidos.push({ rol: 'agente', texto: t.texto });

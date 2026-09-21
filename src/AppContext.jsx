@@ -30,6 +30,13 @@ export function AppProvider({ children }) {
   }, []);
   // Pedido de consulta programado desde cualquier vista ("Preguntar al Secretario").
   const [consultaAutomatica, setConsultaAutomatica] = useState(null);
+  // PRELLENADO por ventana (traspaso entre chats, spec 21-Sep): el texto aterriza en el input del
+  // chat DESTINO y el operario decide enviarlo (decision D1; no gasta modelo hasta enviar). Va por
+  // PERFIL porque las dos ventanas pueden estar montadas a la vez: un slot unico lo recibiria doble.
+  const [prellenadoChat, setPrellenadoChat] = useState(null);
+  const pedirPrellenado = useCallback((perfil, texto) => {
+    setPrellenadoChat(perfil && texto ? { perfil, texto, ts: Date.now() } : null);
+  }, []);
   // Bus de instrucciones: el Secretario "opera sobre la vista" emitiendo una
   // instruccion que la pagina activa escucha y aplica (refrescar, agregar item...).
   const [instruccionVista, setInstruccionVista] = useState(null);
@@ -51,6 +58,8 @@ export function AppProvider({ children }) {
       setClienteActivo: cambiarClienteActivo,
       consultaAutomatica,
       pedirConsulta: setConsultaAutomatica,
+      prellenadoChat,
+      pedirPrellenado,
       instruccionVista,
       emitirInstruccion,
       csvAdjunto,

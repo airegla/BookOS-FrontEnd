@@ -174,6 +174,16 @@ export default function App() {
     if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches) setSecretarioMobile((v) => !v);
     else setPanelAbierto((v) => !v);
   };
+  // ABRIR (no alternar) la ventana destino de un traspaso: en pantallas chicas el overlay, en
+  // escritorio el panel. Si ya estaba abierta no hace nada (no la cierra).
+  const abrirVentana = (destino) => {
+    const chica = typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches;
+    if (destino === 'ventas') {
+      if (chica) setVendedorMobile(true);
+      else setAsistenteAbierto(true);
+    } else if (chica) setSecretarioMobile(true);
+    else setPanelAbierto(true);
+  };
   const [buscadorTecnico, setBuscadorTecnico] = useState(false);
   const [buscadorSemantico, setBuscadorSemantico] = useState(false);
   const [altaCliente, setAltaCliente] = useState(false);
@@ -219,7 +229,7 @@ export default function App() {
         onAlternarSecretario={alternarSecretario}
       />
       <div className={`bookos-layout${panelAbierto ? '' : ' agente-cerrado'}${asistenteAbierto ? '' : ' asistente-cerrado'}`}>
-        <AsistenteVentasBlock abierto={asistenteAbierto} onAlternar={() => setAsistenteAbierto((v) => !v)} abiertoMobile={vendedorMobile} setAbiertoMobile={setVendedorMobile} />
+        <AsistenteVentasBlock abierto={asistenteAbierto} onAlternar={() => setAsistenteAbierto((v) => !v)} abiertoMobile={vendedorMobile} setAbiertoMobile={setVendedorMobile} onAbrirOtraVentana={abrirVentana} />
         <main className="bookos-main p-6">
           {vista === 'Catalogo' && <CatalogoPage />}
           {vista === 'Facturar' && <VentasPage />}
@@ -264,7 +274,7 @@ export default function App() {
           {vista === 'Config CRM' && <ConfigCrmPage />}
           {vista === 'Plantillas mail' && <PlantillasMailPage />}
         </main>
-        <AgenteChatBlock abierto={panelAbierto} onAlternar={() => setPanelAbierto((v) => !v)} abiertoMobile={secretarioMobile} setAbiertoMobile={setSecretarioMobile} />
+        <AgenteChatBlock abierto={panelAbierto} onAlternar={() => setPanelAbierto((v) => !v)} abiertoMobile={secretarioMobile} setAbiertoMobile={setSecretarioMobile} onAbrirOtraVentana={abrirVentana} />
       </div>
       <BuscadorTecnicoBlock
         abierto={buscadorTecnico}

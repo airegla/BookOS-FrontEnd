@@ -309,8 +309,8 @@ function VotoTurno({ evaluacionId }) {
   );
 }
 
-export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secretario', onCerrarMobile = null, claveArranque = null, arranqueDefault = 'expandido' }) {
-  const { contextoActual, setUltimosRecomendados, consultaAutomatica, pedirConsulta, emitirInstruccion, csvAdjunto, setCsvAdjunto, clienteIdActivo, setClienteActivo } = useAppContext();
+export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secretario', onCerrarMobile = null, claveArranque = null, arranqueDefault = 'expandido', onAbrirOtraVentana = null }) {
+  const { contextoActual, setUltimosRecomendados, consultaAutomatica, pedirConsulta, prellenadoChat, pedirPrellenado, emitirInstruccion, csvAdjunto, setCsvAdjunto, clienteIdActivo, setClienteActivo } = useAppContext();
   const emitirRef = useRef(emitirInstruccion);
   emitirRef.current = emitirInstruccion;
   const setClienteActivoRef = useRef(setClienteActivo);
@@ -453,6 +453,17 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consultaAutomatica]);
 
+  // PRELLENADO del traspaso (D1): el pedido llega al INPUT, no se envia solo — lo revisa el operario
+  // y decide. El slot del contexto es por perfil: aca se consume el de ESTA ventana y se limpia.
+  useEffect(() => {
+    if (prellenadoChat && prellenadoChat.perfil === perfil) {
+      setTexto(prellenadoChat.texto);
+      setAviso('⇄ Pedido recibido de la otra ventana: revisalo y envialo.');
+      pedirPrellenado(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prellenadoChat]);
+
   const alEnviar = async () => {
     const consulta = texto;
     const adj = adjunto || adjuntoDesdeContexto();
@@ -476,6 +487,28 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
       if (dichoPorVoz && soportaLectura && ultimaRespuestaRef.current) hablar(ultimaRespuestaRef.current);
     }
     vinoDeVoz.current = false;
+  };
+
+  // Pasar el pedido a la OTRA ventana (spec 21-Sep): viaja SOLO el pedido (D2) — lo tipeado si hay,
+  // si no el ultimo pedido del hilo. El destino lo recibe PRELLENADO (D1) y se anexa a su hilo
+  // activo (D3). No gasta modelo: el backend solo persiste lineas de sistema.
+  const pasarAlOtro = async () => {
+    const otro = perfil === 'ventas' ? 'secretario' : 'ventas';
+    const rotulo = otro === 'ventas' ? 'Vendedor' : 'Secretario';
+    const ultimo = [...mensajes].reverse().find((m) => m.rol === 'usuario');
+    const pedido = (texto || '').trim() || (ultimo ? String(ultimo.texto || '').trim() : '');
+    if (!pedido) { setAviso('No hay un pedido para pasar todavia.'); return; }
+    try {
+      let activoDestino = null;
+      try { activoDestino = localStorage.getItem(`bookos_conversacion_id_${otro}`); } catch (_) { /* modo privado */ }
+      const res = await agenteApi.traspaso({ origen: perfil, destino: otro, conversacionId, conversacionIdDestino: activoDestino ? Number(activoDestino) : null, texto: pedido });
+      const d = res && res.data !== undefined && !Array.isArray(res) ? res.data : res;
+      pedirPrellenado(otro, (d && d.textoPropuesto) || pedido);
+      agregarMensaje({ rol: 'sistema', texto: `⇄ Pasado al ${rotulo}${d && d.conversacionIdDestino ? ` (hilo #${d.conversacionIdDestino})` : ''}` });
+      if (typeof onAbrirOtraVentana === 'function') onAbrirOtraVentana(otro);
+    } catch (e) {
+      setAviso(`⚠️ No pude pasar el pedido: ${e.message}`);
+    }
   };
 
   // Adjuntos: CSV/TXT como texto (2MB), imagenes y binarios (Excel/PDF) como base64 (6MB). Los
@@ -593,6 +626,14 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
             arranque: {arranqueMinimizado ? 'minimizado' : 'expandido'}
           </button>
         )}
+        <button
+          type="button"
+          className="btn btn-ghost text-xs"
+          onClick={pasarAlOtro}
+          title={`Pasa el ultimo pedido a la otra ventana (${perfil === 'ventas' ? 'Secretario' : 'Vendedor'}): llega PRELLENADO, no se envia solo`}
+        >
+          ⇄ Pasar al {perfil === 'ventas' ? 'Secretario' : 'Vendedor'}
+        </button>
         {contextoActual && (
           <span className="agente-badge" title={JSON.stringify(contextoActual)}>contexto: {resumenContexto(contextoActual)}</span>
         )}
@@ -641,6 +682,11 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
           </div>
         )}
         {mensajes.map((m, i) => {
+          if (m.rol === 'sistema') {
+            return (
+              <div key={i} className="text-xs text-muted text-center my-1">{m.texto}</div>
+            );
+          }
           if (m.rol === 'herramienta') {
             return (
               <div key={i} className="text-xs">
