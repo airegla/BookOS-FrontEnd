@@ -4,14 +4,30 @@
 //   Secretario (ej. el remito que estas viendo) y los ultimos recomendados para
 //   cerrar el ciclo de outcome en la venta.
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [contextoActual, setContextoActual] = useState(null);
   const [ultimosRecomendados, setUltimosRecomendados] = useState([]);
-  const [clienteIdActivo, setClienteIdActivo] = useState(null);
+  // CLIENTE ACTIVO: la variable que comparten TODAS las vistas (el buscador F7 la manda como
+  // contexto.clienteId; la ventana del Vendedor la muestra). Se PERSISTE en este navegador: se
+  // asigna al abrir la ficha del cliente en Clientes y se limpia con la ✕ del Vendedor.
+  const [clienteActivo, setClienteActivo] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bookos_cliente_activo')) || null; } catch (_) { return null; }
+  });
+  const clienteIdActivo = clienteActivo && clienteActivo.id ? clienteActivo.id : null;
+
+  // Acepta { id, nombre } (o null para limpiar) y persiste SOLO lo que sirve fuera de la sesion.
+  const cambiarClienteActivo = useCallback((valor) => {
+    const normalizado = valor && valor.id ? { id: Number(valor.id), nombre: valor.nombre || null } : null;
+    setClienteActivo(normalizado);
+    try {
+      if (normalizado) localStorage.setItem('bookos_cliente_activo', JSON.stringify(normalizado));
+      else localStorage.removeItem('bookos_cliente_activo');
+    } catch (_) { /* modo privado */ }
+  }, []);
   // Pedido de consulta programado desde cualquier vista ("Preguntar al Secretario").
   const [consultaAutomatica, setConsultaAutomatica] = useState(null);
   // Bus de instrucciones: el Secretario "opera sobre la vista" emitiendo una
@@ -31,7 +47,8 @@ export function AppProvider({ children }) {
       ultimosRecomendados,
       setUltimosRecomendados,
       clienteIdActivo,
-      setClienteIdActivo,
+      clienteActivo,
+      setClienteActivo: cambiarClienteActivo,
       consultaAutomatica,
       pedirConsulta: setConsultaAutomatica,
       instruccionVista,

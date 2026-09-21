@@ -17,12 +17,18 @@ export default function AgenteChatBlock({
   lado = 'der',
   etiquetaBoton = '💬 Secretario',
   extras = null,
+  claveArranque = null,
+  arranqueDefault = null,
 }) {
   const [abiertoMobile, setAbiertoMobile] = useState(false);
   const plegable = typeof onAlternar === 'function';
   const visible = abierto || abiertoMobile;
   const claseLado = lado === 'izq' ? ' izquierda' : '';
   const claseBoton = lado === 'izq' ? 'asistente' : 'agente';
+  // Preferencia de arranque por VENTANA (clave + default segun el lado): el mismo par lo usa App
+  // para decidir con que estado abre. Se puede cambiar desde el boton de la cabecera del chat.
+  const claveArranqueFinal = claveArranque || (lado === 'izq' ? 'bookos_arranque_vendedor' : 'bookos_arranque_secretario');
+  const arranqueDefaultFinal = arranqueDefault || (lado === 'izq' ? 'minimizado' : 'expandido');
 
   // En pantallas chicas el panel se muestra como CHAT a pantalla completa: `abiertoMobile` es la
   // puerta propia del telefono, porque el estado de escritorio (`abierto`) puede estar en false
@@ -52,7 +58,7 @@ export default function AgenteChatBlock({
         <aside className={`agente-panel${claseLado} ${plegable ? 'plegable' : ''} ${abiertoMobile ? 'agente-abierto' : ''}`}>
           <DebugTag nombre={lado === 'izq' ? 'AsistenteVentasBlock' : 'AgenteChatBlock'} />
           {extras}
-          <ChatAgente perfil={perfil} titulo={titulo} onCerrarMobile={cerrar} />
+          <ChatAgente perfil={perfil} titulo={titulo} onCerrarMobile={cerrar} claveArranque={claveArranqueFinal} arranqueDefault={arranqueDefaultFinal} />
         </aside>
       )}
     </>

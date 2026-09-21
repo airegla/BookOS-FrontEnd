@@ -21,6 +21,19 @@ import { agenteApi } from '../api/api';
 
 const money = (n) => `$${Number(n || 0).toLocaleString('es-AR')}`;
 
+// Resumen legible del contexto de pantalla (el JSON completo viaja en el title del badge). Las DOS
+// ventanas llevan el MISMO contexto: es la PANTALLA, no el agente.
+function resumenContexto(c) {
+  if (!c || typeof c !== 'object') return 'pantalla';
+  if (c.nombre) return `cliente ${c.nombre}`;
+  if (c.ventaId) return `venta #${c.ventaId}`;
+  if (c.remitoId) return `remito #${c.remitoId}`;
+  if (c.compraId) return `compra #${c.compraId}`;
+  if (c.clienteId) return `cliente #${c.clienteId}`;
+  if (c.vista) return `vista ${c.vista}`;
+  return 'pantalla';
+}
+
 // Claves habituales donde las tools devuelven listas (E5).
 const CLAVES_LISTA = ['items', 'articulos', 'resultados', 'filas', 'movimientos', 'ventas', 'compras',
   'clientes', 'proveedores', 'remitos', 'pedidos', 'devoluciones', 'liquidaciones', 'transferencias',
@@ -251,21 +264,14 @@ function PreguntaCard({ pregunta, resuelta, onConfirmar, onResponder, onDescarta
   );
 }
 
-// Texto de arranque segun el perfil (que puede pedirle al agente).
+// Texto de arranque segun el perfil: CORTO a proposito. El detalle de comandos vive en $ayuda
+// (informacion completa sin recargar la pantalla).
 const AYUDA_VACIA = {
   secretario: (
-    <>
-      <p className="mb-2">Te ayudo desde aca. Si estas viendo un remito o un cliente, ya lo se.</p>
-      <p className="mb-1 font-mono">Marcadores: $autor X · $editorial X · $titulo X · $materia X · $editoriales · $faltantes_remito ID · $ayuda</p>
-      <p>Adjuntá un CSV (sábana del proveedor) y pedime que lo compare.</p>
-    </>
+    <p className="mb-1">Te ayudo desde aca. Escribí <span className="font-mono">$ayuda</span> para más información.</p>
   ),
   ventas: (
-    <>
-      <p className="mb-2">Soy tu asistente de ventas: pedime recomendaciones ("algo de policial para regalar"), búsquedas ("¿tenés Rayuela?") o armemos la propuesta de un cliente.</p>
-      <p className="mb-1 font-mono">Marcadores rápidos: $autor X · $editorial X · $materia X · $precio 10000 25000 · $sinopsis X · $ayuda</p>
-      <p>Si me decís para quién es, tengo en cuenta sus temáticas y lo que ya le vendiste.</p>
-    </>
+    <p className="mb-1">Soy tu asistente de ventas. Escribí <span className="font-mono">$ayuda</span> para más información.</p>
   ),
 };
 
@@ -303,10 +309,12 @@ function VotoTurno({ evaluacionId }) {
   );
 }
 
-export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secretario', onCerrarMobile = null }) {
-  const { contextoActual, setUltimosRecomendados, consultaAutomatica, pedirConsulta, emitirInstruccion, csvAdjunto, setCsvAdjunto } = useAppContext();
+export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secretario', onCerrarMobile = null, claveArranque = null, arranqueDefault = 'expandido' }) {
+  const { contextoActual, setUltimosRecomendados, consultaAutomatica, pedirConsulta, emitirInstruccion, csvAdjunto, setCsvAdjunto, clienteIdActivo, setClienteActivo } = useAppContext();
   const emitirRef = useRef(emitirInstruccion);
   emitirRef.current = emitirInstruccion;
+  const setClienteActivoRef = useRef(setClienteActivo);
+  setClienteActivoRef.current = setClienteActivo;
 
   const textareaRef = useRef(null);
   const inputFileRef = useRef(null);
@@ -317,6 +325,17 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
   // El adjunto se LEE en el navegador (FileReader): mientras eso pasa el envio queda bloqueado y
   // avisado. Antes, enviar en el medio mandaba el pedido SIN adjunto y parecia que "se habia trabado".
   const [leyendoAdjunto, setLeyendoAdjunto] = useState(false);
+  // PREFERENCIA DE ARRANQUE de esta ventana (se elige arriba y se guarda en este navegador): al
+  // abrir la aplicacion, la ventana arranca expandida o minimizada segun esto.
+  const [arranqueMinimizado, setArranqueMinimizado] = useState(() => {
+    try { return (localStorage.getItem(claveArranque) || arranqueDefault) === 'minimizado'; } catch (_) { return arranqueDefault === 'minimizado'; }
+  });
+
+  const alternarArranque = () => {
+    const nuevo = !arranqueMinimizado;
+    setArranqueMinimizado(nuevo);
+    try { localStorage.setItem(claveArranque, nuevo ? 'minimizado' : 'expandido'); } catch (_) { /* modo privado */ }
+  };
 
   // Autoscroll: el scroll sigue al agente mientras el operario este abajo. Si subio a leer algo, NO se
   // lo arrastra (el ref se recalcula con su propio scroll): volver a bajar lo reengancha.
@@ -349,6 +368,12 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
   const onHerramienta = useCallback((resultado, nombre) => {
     const env = resultado || {};
     if (env.ok === false) return;
+    // CAPTURA DEL CLIENTE ACTIVO: si el turno IDENTIFICO o CREO un cliente (ficha, alta, cambio),
+    // ese cliente queda como VARIABLE EN TRANSITO del sistema (buscador F7, Vendedor, venta).
+    if (/^clientes_(ficha|crear|actualizar)$/.test(nombre || '')) {
+      const c = env.data && env.data.cliente ? env.data.cliente : null;
+      if (c && c.id) setClienteActivoRef.current({ id: c.id, nombre: c.nombre });
+    }
     if (/^ventas_(crear|actualizar|confirmar|anular|registrar)/.test(nombre || '')) {
       emitirRef.current({ dominio: 'ventas', accion: 'refrescar', mensaje: `${nombre} ejecutada por el agente ✓` });
     } else if (/^remitos_(crear|confirmar|anular|actualizar)/.test(nombre || '')) {
@@ -407,11 +432,19 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     return { nombre: 'sabana.csv', contenido: lineas.join('\n') };
   }, [csvAdjunto]);
 
+  // EL CLIENTE ACTIVO VIAJA EN TODAS LAS CONSULTAS (fusionado con el contexto de pantalla): es el
+  // MISMO camino del contexto que ya usan las consultas con herramientas — el router/kernel pesan su
+  // perfil cuando clienteId viaja.
+  const contextoDelTurno = () => ({
+    ...(contextoActual || {}),
+    ...(clienteIdActivo ? { clienteId: clienteIdActivo } : {}),
+  });
+
   // Consulta programada desde otra vista (ej. "Preguntar al agente sobre este remito").
   useEffect(() => {
     if (consultaAutomatica) {
       setTexto('');
-      enviar(consultaAutomatica, contextoActual, adjuntoDesdeContexto());
+      enviar(consultaAutomatica, contextoDelTurno(), adjuntoDesdeContexto());
       setCsvAdjunto(null);
       setAdjunto(null);
       pedirConsulta(null);
@@ -431,7 +464,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
     textoAntesDeDictar.current = '';
     // Si el turno anterior sigue en curso el mensaje NO se descarta: se avisa en el chat y el
     // texto queda en el cuadro para reenviarlo cuando termine.
-    const enviado = await enviar(consulta.trim() || 'Analizá el archivo adjunto y contame qué tenés.', contextoActual, adj);
+    const enviado = await enviar(consulta.trim() || 'Analizá el archivo adjunto y contame qué tenés.', contextoDelTurno(), adj);
     if (enviado) {
       setTexto('');
       setAdjunto(null);
@@ -546,11 +579,21 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
 
   return (
     <div className="flex flex-col" style={{ height: '100%', minHeight: 0 }}>
-      <div className="agente-header px-4 py-3 flex items-center gap-2">
+      <div className="agente-header px-4 py-3 flex items-center gap-2 flex-wrap">
         <span className="font-semibold text-sm">{titulo}</span>
         {estado && <span className="agente-badge agente-badge-analizando">{estado}</span>}
+        {claveArranque && (
+          <button
+            type="button"
+            className="btn btn-ghost text-xs"
+            onClick={alternarArranque}
+            title="Cómo ARRANCA esta ventana al abrir la aplicación (se guarda en este navegador)"
+          >
+            arranque: {arranqueMinimizado ? 'minimizado' : 'expandido'}
+          </button>
+        )}
         {contextoActual && (
-          <span className="agente-badge" title={JSON.stringify(contextoActual)}>contexto ✓</span>
+          <span className="agente-badge" title={JSON.stringify(contextoActual)}>contexto: {resumenContexto(contextoActual)}</span>
         )}
         <button
           type="button"
@@ -650,7 +693,7 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
                                 key={String(s)}
                                 type="button"
                                 className="btn text-xs"
-                                onClick={() => enviar(`Ejecutá ${String(s).replace(/_/g, ' ')}`, contextoActual)}
+                                onClick={() => enviar(`Ejecutá ${String(s).replace(/_/g, ' ')}`, contextoDelTurno())}
                               >
                                 {String(s).replace(/_/g, ' ')}
                               </button>

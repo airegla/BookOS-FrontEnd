@@ -138,12 +138,28 @@ export default function App() {
     setContextoActual(null);
   };
 
+  // CONTEXTO DE PANTALLA para los chats: las vistas que no fijan el suyo estrenan uno GENERICO con
+  // su nombre (las que si lo fijan — cliente, venta, remito... — lo pisan con su JSON mas rico,
+  // porque sus efectos corren antes que este). Usuarios y Config quedan EXCLUIDAS: sus datos no
+  // van al modelo. El MISMO contexto viaja a las DOS ventanas: es la pantalla, no el agente.
+  const VISTAS_SIN_CONTEXTO = ['Usuarios', 'Config'];
+  useEffect(() => {
+    if (VISTAS_SIN_CONTEXTO.includes(vista)) return;
+    setContextoActual((prev) => prev || { vista: String(vista).toLowerCase() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista]);
+
   // Teclas del OS (doc 06 D9): F2 = alta rapida de cliente, F6 = busqueda tecnica del mostrador,
   // F7 = busqueda semantica. Dos VENTANAS de chat, una por lado: el Secretario (derecha) y el
   // Vendedor (izquierda: el asistente de ventas que antes era pagina del CRM). Cada una se abre
-  // y se cierra con su boton y no se pisan entre si.
-  const [panelAbierto, setPanelAbierto] = useState(true);
-  const [asistenteAbierto, setAsistenteAbierto] = useState(false);
+  // y se cierra con su boton y no se pisan entre si. CON QUE ARRANCA cada una es preferencia del
+  // operario (boton "arranque:" en la cabecera del chat, guardado en este navegador).
+  const [panelAbierto, setPanelAbierto] = useState(() => {
+    try { return (localStorage.getItem('bookos_arranque_secretario') || 'expandido') !== 'minimizado'; } catch (_) { return true; }
+  });
+  const [asistenteAbierto, setAsistenteAbierto] = useState(() => {
+    try { return (localStorage.getItem('bookos_arranque_vendedor') || 'minimizado') === 'expandido'; } catch (_) { return false; }
+  });
   const [buscadorTecnico, setBuscadorTecnico] = useState(false);
   const [buscadorSemantico, setBuscadorSemantico] = useState(false);
   const [altaCliente, setAltaCliente] = useState(false);

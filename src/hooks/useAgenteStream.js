@@ -13,6 +13,10 @@ import { agenteApi } from '../api/api';
 const SIN_EVENTOS_MS = 180000;
 
 export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
+  // Cada OFICIO tiene su PROPIO hilo guardado: el Vendedor no reanuda la conversacion del
+  // Secretario (dos personalidades en el mismo hilo = esquizofrenia). El listado de conversaciones
+  // del panel sigue siendo compartido hasta que la base guarde el perfil (pendiente declarado).
+  const claveConversacion = `bookos_conversacion_id_${perfil}`;
   const [mensajes, setMensajes] = useState([]);
   const [estado, setEstado] = useState('');
   const [candidatos, setCandidatos] = useState([]);
@@ -21,7 +25,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
   // Continuidad: la conversacion activa sobrevive recargas (el backend guarda el hilo).
   const [conversacionId, setConversacionId] = useState(() => {
     try {
-      return Number(localStorage.getItem('bookos_conversacion_id')) || null;
+      return Number(localStorage.getItem(claveConversacion)) || null;
     } catch (_) {
       return null;
     }
@@ -39,7 +43,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
   const nuevaConversacion = useCallback(() => {
     setConversacionId(null);
     try {
-      localStorage.removeItem('bookos_conversacion_id');
+      localStorage.removeItem(claveConversacion);
     } catch (_) {
       /* modo privado */
     }
@@ -68,7 +72,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
       setMensajes(reconstruidos);
       setConversacionId(Number(id));
       try {
-        localStorage.setItem('bookos_conversacion_id', String(id));
+        localStorage.setItem(claveConversacion, String(id));
       } catch (_) {
         /* modo privado */
       }
@@ -80,7 +84,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
       // defecto real y deja al operario sin saber por que no se reabrio su hilo.
       const status = (err && (err.status || (err.response && err.response.status))) || null;
       if (status === 404) {
-        try { localStorage.removeItem('bookos_conversacion_id'); } catch (_) { /* modo privado */ }
+        try { localStorage.removeItem(claveConversacion); } catch (_) { /* modo privado */ }
         setConversacionId(null);
       } else {
         console.warn('[agente] no se pudo reabrir la conversacion', id, err && err.message);
@@ -168,7 +172,7 @@ export default function useAgenteStream(onHerramienta, perfil = 'secretario') {
               if (payload.conversacionId) {
                 setConversacionId(payload.conversacionId);
                 try {
-                  localStorage.setItem('bookos_conversacion_id', String(payload.conversacionId));
+                  localStorage.setItem(claveConversacion, String(payload.conversacionId));
                 } catch (_) {
                   /* modo privado */
                 }

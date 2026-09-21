@@ -32,9 +32,12 @@ const MARCADORES = [
 ];
 
 export default function AsistenteVentasBlock({ abierto = false, onAlternar = null }) {
-  const { contextoActual, clienteIdActivo, pedirConsulta } = useAppContext();
+  const { contextoActual, clienteIdActivo, clienteActivo, setClienteActivo, pedirConsulta } = useAppContext();
   const [copiado, setCopiado] = useState('');
-  const cliente = contextoActual && contextoActual.nombre ? contextoActual.nombre : null;
+  // Los atajos del mostrador arrancan PLEGADOS: la ventana es para chatear y las cinco acciones
+  // mas los marcadores comian media pantalla. Un boton los despliega cuando hacen falta.
+  const [atajos, setAtajos] = useState(false);
+  const cliente = (contextoActual && contextoActual.nombre) || (clienteActivo && clienteActivo.nombre) || null;
   const hayCliente = Boolean(cliente || clienteIdActivo);
 
   const usarMarcador = async (m) => {
@@ -53,39 +56,62 @@ export default function AsistenteVentasBlock({ abierto = false, onAlternar = nul
 
   const extras = (
     <div className="agente-historial px-4 py-2">
-      <div className="flex items-center gap-2 flex-wrap mb-1">
-        <span className="agente-badge">mostrador</span>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          className="btn btn-ghost text-xs"
+          onClick={() => setAtajos((v) => !v)}
+          title="Pedidos típicos del mostrador y marcadores, sin tipear"
+        >
+          ⚡ Atajos {atajos ? '▴' : '▾'}
+        </button>
         {hayCliente
-          ? <span className="agente-badge" style={{ color: '#15803d' }}>cliente: {cliente || `#${clienteIdActivo}`}</span>
-          : <span className="text-xs text-muted">sin cliente activo: mira una ficha para fijarlo</span>}
+          ? (
+            <span className="agente-badge" style={{ color: '#15803d' }}>
+              cliente: {cliente || `#${clienteIdActivo}`}
+              <button
+                type="button"
+                className="btn btn-ghost text-xs px-1"
+                onClick={() => setClienteActivo(null)}
+                title="Quitar el cliente activo (lo deja de usar el buscador y el asistente)"
+              >
+                ✕
+              </button>
+            </span>
+          )
+          : <span className="text-xs text-muted">sin cliente activo (abrí una ficha en Clientes)</span>}
       </div>
-      <div className="flex gap-1 flex-wrap">
-        {ACCIONES.map((a) => (
-          <button
-            key={a.etiqueta}
-            type="button"
-            className="btn btn-ghost text-xs"
-            disabled={a.etiqueta === 'Que le ofrezco a este cliente' && !hayCliente}
-            onClick={() => pedirConsulta(a.pedido)}
-            title={a.pedido}
-          >
-            {a.etiqueta}
-          </button>
-        ))}
-      </div>
-      <div className="lista-chips mt-2">
-        {MARCADORES.map((m) => (
-          <button
-            key={m.comando}
-            type="button"
-            className="chip-tema"
-            title={`${m.detalle}${m.comando === '$ayuda' ? '' : ' · se copia y se completa en el chat'}`}
-            onClick={() => usarMarcador(m)}
-          >
-            {copiado === m.comando ? 'copiado ✓' : m.comando}
-          </button>
-        ))}
-      </div>
+      {atajos && (
+        <>
+          <div className="flex gap-1 flex-wrap mt-2">
+            {ACCIONES.map((a) => (
+              <button
+                key={a.etiqueta}
+                type="button"
+                className="btn btn-ghost text-xs"
+                disabled={a.etiqueta === 'Que le ofrezco a este cliente' && !hayCliente}
+                onClick={() => pedirConsulta(a.pedido)}
+                title={a.pedido}
+              >
+                {a.etiqueta}
+              </button>
+            ))}
+          </div>
+          <div className="lista-chips mt-2">
+            {MARCADORES.map((m) => (
+              <button
+                key={m.comando}
+                type="button"
+                className="chip-tema"
+                title={`${m.detalle}${m.comando === '$ayuda' ? '' : ' · se copia y se completa en el chat'}`}
+                onClick={() => usarMarcador(m)}
+              >
+                {copiado === m.comando ? 'copiado ✓' : m.comando}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 

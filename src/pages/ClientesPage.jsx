@@ -29,7 +29,7 @@ export default function ClientesPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [perfiles, setPerfiles] = useState([]);
-  const { setContextoActual, pedirConsulta } = useAppContext();
+  const { setContextoActual, pedirConsulta, setClienteActivo } = useAppContext();
 
   // Perfiles vigentes de tematicas (los que usa la siembra y el segmento de campanas).
   useEffect(() => { crmApi.perfiles().then((res) => setPerfiles(res.data || [])).catch(() => {}); }, []);
@@ -64,6 +64,8 @@ export default function ClientesPage() {
       const res = await clientesApi.interacciones(cliente.id);
       setGrafo({ cliente, interacciones: res.data || [] });
       setContextoActual({ clienteId: cliente.id, nombre: cliente.nombre });
+      // Ver el grafo de un cliente lo deja ACTIVO para todas las vistas (variable compartida).
+      setClienteActivo({ id: cliente.id, nombre: cliente.nombre });
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
@@ -76,6 +78,8 @@ export default function ClientesPage() {
       const cuenta = res.data || res;
       setFicha({ cliente, cuenta });
       setContextoActual({ clienteId: cliente.id, nombre: cliente.nombre });
+      // Abrir la ficha de un cliente lo deja ACTIVO para todas las vistas (variable compartida).
+      setClienteActivo({ id: cliente.id, nombre: cliente.nombre });
     } catch (err) { setMensaje(`⚠️ ${err.message}`); }
   };
 
