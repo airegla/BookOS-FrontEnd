@@ -23,7 +23,7 @@ function camposDe(f, vista) {
     ];
   }
   const campos = [
-    ['fecha', fecha], ['id', f.id], ['modulo', f.modulo], ['accion', f.accion], ['ruta', f.ruta || '—'],
+    ['fecha', fecha], ['id', f.id], ['modulo', f.modulo], ['perfil', f.perfil || '—'], ['accion', f.accion], ['ruta', f.ruta || '—'],
     ['turno', f.turno || '—'], ['proveedor', f.proveedor || '—'], ['modelo', f.modelo || '—'],
     ['ms', f.ms], ['tokens', f.tokens || 0], ['outcome', f.outcome || '—'], ['usuarioId', f.usuarioId == null ? '—' : f.usuarioId],
   ];
@@ -42,7 +42,7 @@ export default function LogsPage() {
   const [filas, setFilas] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [filtros, setFiltros] = useState({ modulo: '', ruta: '', proveedor: '', q: '' });
+  const [filtros, setFiltros] = useState({ modulo: '', ruta: '', proveedor: '', perfil: '', q: '' });
   const [etapa, setEtapa] = useState('');
   const [soloOk, setSoloOk] = useState('');
   const [aviso, setAviso] = useState('');
@@ -144,6 +144,11 @@ export default function LogsPage() {
           <input className="input-os" style={{ maxWidth: 160 }} placeholder="módulo" value={filtros.modulo} onChange={(e) => setFiltros({ ...filtros, modulo: e.target.value })} />
           <input className="input-os" style={{ maxWidth: 160 }} placeholder="ruta" value={filtros.ruta} onChange={(e) => setFiltros({ ...filtros, ruta: e.target.value })} />
           <input className="input-os" style={{ maxWidth: 160 }} placeholder="proveedor" value={filtros.proveedor} onChange={(e) => setFiltros({ ...filtros, proveedor: e.target.value })} />
+          <select className="input-os" style={{ maxWidth: 160 }} value={filtros.perfil} onChange={(e) => setFiltros({ ...filtros, perfil: e.target.value })} title="Qué ventana habló">
+            <option value="">perfil: todos</option>
+            <option value="secretario">Secretario</option>
+            <option value="ventas">Vendedor</option>
+          </select>
           <input className="input-os" style={{ maxWidth: 220 }} placeholder="acción (contiene)" value={filtros.q} onChange={(e) => setFiltros({ ...filtros, q: e.target.value })} />
           <span className="text-xs text-muted">{total} filas</span>
         </div>
@@ -165,7 +170,7 @@ export default function LogsPage() {
             <tr className="text-left text-muted">
               {vista === 'actividad' ? (
                 <>
-                  <th className="py-1 pr-3">fecha</th><th className="py-1 pr-3">módulo</th><th className="py-1 pr-3">acción</th>
+                  <th className="py-1 pr-3">fecha</th><th className="py-1 pr-3">perfil</th><th className="py-1 pr-3">módulo</th><th className="py-1 pr-3">acción</th>
                   <th className="py-1 pr-3">ruta</th><th className="py-1 pr-3">proveedor</th><th className="py-1 pr-3">modelo</th>
                   <th className="py-1 pr-3">ms</th><th className="py-1 pr-3">tokens</th><th className="py-1">outcome</th>
                 </>
@@ -194,6 +199,7 @@ export default function LogsPage() {
                 {vista === 'actividad' ? (
                   <>
                     <td className="py-1 pr-3 font-mono">{new Date(f.fecha).toLocaleString('es-AR')}</td>
+                    <td className="py-1 pr-3">{f.perfil === 'ventas' ? 'Vendedor' : f.perfil === 'secretario' ? 'Secretario' : '—'}</td>
                     <td className="py-1 pr-3">{f.modulo}</td>
                     <td className="py-1 pr-3">{f.accion}</td>
                     <td className="py-1 pr-3">{f.ruta || '—'}</td>

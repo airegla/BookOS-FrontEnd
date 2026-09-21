@@ -43,7 +43,7 @@ const PINNADOS = [
   { vista: 'Catalogo', label: 'Catálogo', icono: '📚' },
 ];
 
-export default function Navbar({ vista, onCambiarVista, usuario, onLogout, asistenteAbierto = false, onAlternarAsistente = null }) {
+export default function Navbar({ vista, onCambiarVista, usuario, onLogout, asistenteAbierto = false, onAlternarAsistente = null, secretarioAbierto = false, onAlternarSecretario = null }) {
   const [abierto, setAbierto] = useState(null);
   const [subAbierto, setSubAbierto] = useState(null);
   const ref = useRef(null);
@@ -70,7 +70,7 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout, asist
     <>
     <header
       ref={ref}
-      className="relative flex items-center gap-1 px-4 py-3"
+      className="relative flex items-center gap-1 px-4 py-3 flex-wrap"
       style={{ borderBottom: '1px solid var(--border)', background: 'var(--card)', zIndex: 50 }}
     >
       <span className="font-black tracking-tight mr-4">Book<span style={{ color: 'var(--accent)' }}>OS</span></span>
@@ -162,17 +162,27 @@ export default function Navbar({ vista, onCambiarVista, usuario, onLogout, asist
       {typeof onAlternarAsistente === 'function' && (
         <button
           type="button"
-          className={`btn ${asistenteAbierto ? 'btn-primary' : 'btn-ghost'} hidden md:inline-flex`}
+          className={`btn text-xs whitespace-nowrap ${asistenteAbierto ? 'btn-primary' : 'btn-ghost'}`}
           onClick={onAlternarAsistente}
           title={asistenteAbierto ? 'Cerrar el Vendedor' : 'Abrir el Vendedor (asistente de ventas, ventana izquierda)'}
         >
           💬 Vendedor
         </button>
       )}
-      <button type="button" className="btn btn-ghost" onClick={abrirManual}>Manual</button>
+      <button type="button" className="btn btn-ghost text-xs whitespace-nowrap" onClick={abrirManual}>Manual</button>
+      {typeof onAlternarSecretario === 'function' && (
+        <button
+          type="button"
+          className={`btn text-xs whitespace-nowrap ${secretarioAbierto ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={onAlternarSecretario}
+          title={secretarioAbierto ? 'Cerrar el Secretario' : 'Abrir el Secretario (ventana derecha)'}
+        >
+          💬 Secretario
+        </button>
+      )}
       <button type="button" className="btn btn-ghost text-muted" onClick={onLogout}>Salir</button>
 
-      <ManualBlock abierto={manualAbierto} onClose={() => setManualAbierto(false)} />
+      <ManualBlock abierto={manualAbierto} onClose={() => setManualAbierto(false)} esAdmin={Boolean(usuario && usuario.rol === 'admin')} />
     </header>
 
     {/* Barra inferior movil (estilo SO): lanzador + accesos fijos, al alcance del pulgar. */}

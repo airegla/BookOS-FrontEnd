@@ -161,14 +161,15 @@ export default function CatalogoPage() {
   return (
     <div>
       <DebugTag nombre="CatalogoPage" />
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-lg font-semibold">Catalogo enriquecido</h2>
         <button type="button" className="btn btn-primary" onClick={abrirNuevo}>Nuevo articulo</button>
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         <input
           className="input-os"
+          style={{ minWidth: 200, flex: '1 1 200px' }}
           placeholder="Buscar titulo, autor, editorial, EAN..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); if (page !== 1) setPage(1); }}

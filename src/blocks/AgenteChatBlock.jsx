@@ -3,7 +3,9 @@
 // descripcion: VENTANA de chat del agente, reutilizable por LADO y PERFIL. El Secretario (perfil
 //   'secretario', lado derecho) y el Vendedor (perfil 'ventas', lado izquierdo: ex pagina del CRM)
 //   son la MISMA pieza: en escritorio el aside es una columna del layout; en pantallas chicas se
-//   abre a pantalla completa desde su boton flotante.
+//   abre a pantalla completa. UNA sola puerta por ventana en todas las medidas: su boton vive en la
+//   barra de arriba (navbar) y el boton flotante de adentro se saco el 21-Sep-2026 porque se
+//   duplicaba con el de la barra y tapaba el contenido (medido en el celular).
 
 import { useState } from 'react';
 import ChatAgente from './ChatAgente';
@@ -15,16 +17,20 @@ export default function AgenteChatBlock({
   perfil = 'secretario',
   titulo = 'El Secretario',
   lado = 'der',
-  etiquetaBoton = '💬 Secretario',
   extras = null,
   claveArranque = null,
   arranqueDefault = null,
+  // La puerta del TELEFONO la controla App cuando el boton vive en el navbar. Sin props cae en su
+  // estado interno: el bloque sigue sirviendo suelto.
+  abiertoMobile: abiertoMobileProp = null,
+  setAbiertoMobile: setAbiertoMobileProp = null,
 }) {
-  const [abiertoMobile, setAbiertoMobile] = useState(false);
+  const [abiertoMobileInterno, setAbiertoMobileInterno] = useState(false);
+  const abiertoMobile = abiertoMobileProp === null ? abiertoMobileInterno : abiertoMobileProp;
+  const setAbiertoMobile = setAbiertoMobileProp || setAbiertoMobileInterno;
   const plegable = typeof onAlternar === 'function';
   const visible = abierto || abiertoMobile;
   const claseLado = lado === 'izq' ? ' izquierda' : '';
-  const claseBoton = lado === 'izq' ? 'asistente' : 'agente';
   // Preferencia de arranque por VENTANA (clave + default segun el lado): el mismo par lo usa App
   // para decidir con que estado abre. Se puede cambiar desde el boton de la cabecera del chat.
   const claveArranqueFinal = claveArranque || (lado === 'izq' ? 'bookos_arranque_vendedor' : 'bookos_arranque_secretario');
@@ -39,21 +45,8 @@ export default function AgenteChatBlock({
     if (plegable && abierto) onAlternar();
   };
 
-  const abrirMobile = () => {
-    setAbiertoMobile(true);
-    if (plegable && !abierto) onAlternar();
-  };
-
   return (
     <>
-      <button type="button" className={`btn btn-primary ${claseBoton}-toggle`} onClick={abrirMobile} title={`Abrir ${titulo}`}>
-        {etiquetaBoton}
-      </button>
-      {!abierto && !abiertoMobile && plegable && (
-        <button type="button" className={`btn ${claseBoton}-reabrir`} onClick={onAlternar} title={`Abrir ${titulo}`}>
-          {etiquetaBoton}
-        </button>
-      )}
       {visible && (
         <aside className={`agente-panel${claseLado} ${plegable ? 'plegable' : ''} ${abiertoMobile ? 'agente-abierto' : ''}`}>
           <DebugTag nombre={lado === 'izq' ? 'AsistenteVentasBlock' : 'AgenteChatBlock'} />

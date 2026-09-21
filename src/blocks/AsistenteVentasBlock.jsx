@@ -31,7 +31,7 @@ const MARCADORES = [
   { comando: '$ayuda', detalle: 'todos los comandos' },
 ];
 
-export default function AsistenteVentasBlock({ abierto = false, onAlternar = null }) {
+export default function AsistenteVentasBlock({ abierto = false, onAlternar = null, abiertoMobile = null, setAbiertoMobile = null }) {
   const { contextoActual, clienteIdActivo, clienteActivo, setClienteActivo, pedirConsulta } = useAppContext();
   const [copiado, setCopiado] = useState('');
   // Los atajos del mostrador arrancan PLEGADOS: la ventana es para chatear y las cinco acciones
@@ -119,10 +119,11 @@ export default function AsistenteVentasBlock({ abierto = false, onAlternar = nul
     <AgenteChatBlock
       abierto={abierto}
       onAlternar={onAlternar}
+      abiertoMobile={abiertoMobile}
+      setAbiertoMobile={setAbiertoMobile}
       perfil="ventas"
       titulo="Asistente de ventas"
       lado="izq"
-      etiquetaBoton="💬 Vendedor"
       extras={extras}
     />
   );

@@ -203,11 +203,9 @@ body {
   color: var(--accent);
 }
 
-/* En pantallas chicas el panel queda oculto detras de un boton flotante y se abre
-   a pantalla completa (overlay). En desktop es siempre visible. */
-.agente-toggle {
-  display: none;
-}
+/* En pantallas chicas el panel queda oculto y se abre a pantalla completa (overlay) desde su boton
+   de la barra de arriba (navbar); en desktop es una columna del layout. Los botones flotantes se
+   sacaron el 21-Sep-2026: se duplicaban con el de la barra y tapaban el contenido en el celular. */
 .agente-cerrar {
   display: none;
 }
@@ -224,44 +222,13 @@ body {
   border-left: none;
   border-right: 1px solid var(--border);
 }
-/* La ventana del Vendedor replica el boton flotante del Secretario, del otro lado. */
-.asistente-toggle { display: none; }
-.asistente-reabrir {
-  position: fixed;
-  left: 16px;
-  bottom: 16px;
-  z-index: 70;
-  box-shadow: var(--shadow-card);
-}
-@media (max-width: 1024px) {
-  .asistente-reabrir { display: none; }
-}
-.agente-reabrir {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 70;
-  box-shadow: var(--shadow-card);
-}
+/* La ventana del Vendedor replica el layout del Secretario, del otro lado. */
 @media (min-width: 1025px) {
   .agente-panel.plegable .agente-cerrar {
     display: inline-flex;
   }
 }
 @media (max-width: 1024px) {
-  .agente-reabrir {
-    display: none;
-  }
-}
-@media (max-width: 1024px) {
-  .agente-toggle {
-    display: inline-flex;
-    position: fixed;
-    right: 16px;
-    bottom: 16px;
-    z-index: 70;
-    box-shadow: var(--shadow-card);
-  }
   .agente-panel {
     display: none;
   }
@@ -592,16 +559,5 @@ body {
   .nav-movil-icono { font-size: 16px; line-height: 1; }
   /* El contenido no puede quedar debajo de la barra. */
   .bookos-main { padding-bottom: 96px; }
-  /* Los flotantes suben arriba de la barra para no taparse. */
-  .agente-toggle { bottom: 84px; }
-  .agente-reabrir { bottom: 84px; }
-  .asistente-toggle {
-    display: inline-flex;
-    position: fixed;
-    left: 16px;
-    bottom: 84px;
-    z-index: 70;
-    box-shadow: var(--shadow-card);
-  }
   .debug-watermark::after { bottom: 84px; }
 }

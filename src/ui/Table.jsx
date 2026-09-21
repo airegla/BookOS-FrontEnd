@@ -24,24 +24,28 @@ export default function Table({ columnas, filas, vacio = 'Sin resultados', expor
           <button type="button" className="btn btn-ghost text-xs" onClick={exportar}>Exportar CSV</button>
         </div>
       )}
-      <table className="table-os">
-        <thead>
-          <tr>
-            {columnas.map((c) => <th key={c.clave}>{c.titulo}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {filas.length === 0 ? (
+      {/* En pantallas chicas la tabla puede ser mas ancha que la tarjeta: se desplaza en horizontal
+          en vez de recortarse (antes el overflow-hidden mostraba solo una franja de la 1a columna). */}
+      <div className="overflow-x-auto">
+        <table className="table-os">
+          <thead>
             <tr>
-              <td colSpan={columnas.length} className="text-muted text-center py-8">{vacio}</td>
+              {columnas.map((c) => <th key={c.clave}>{c.titulo}</th>)}
             </tr>
-          ) : filas.map((fila, i) => (
-            <tr key={fila.id || i}>
-              {columnas.map((c) => <td key={c.clave}>{c.render ? c.render(fila) : fila[c.clave]}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filas.length === 0 ? (
+              <tr>
+                <td colSpan={columnas.length} className="text-muted text-center py-8">{vacio}</td>
+              </tr>
+            ) : filas.map((fila, i) => (
+              <tr key={fila.id || i}>
+                {columnas.map((c) => <td key={c.clave}>{c.render ? c.render(fila) : fila[c.clave]}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

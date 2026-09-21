@@ -8,13 +8,13 @@ import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
 import MermaidDiagram from '../ui/MermaidDiagram';
-import { manualApi } from '../api/api';
+import { manualApi, kernelApi } from '../api/api';
 
 // Negritas: **texto** -> <strong>.
 const conNegritas = (texto) => String(texto).split(/\*\*(.+?)\*\*/g).map((parte, i) => (i % 2 === 1 ? <strong key={`b-${i}`}>{parte}</strong> : parte));
 
 // Parser del formato del manual (las mismas marcas que emite el backend).
-function renderContenido(contenido) {
+function renderContenido(contenido, esAdmin = false) {
   const lineas = String(contenido || '').split('\n');
   const out = [];
   let i = 0;
@@ -80,6 +80,12 @@ function renderContenido(contenido) {
       );
       continue;
     }
+    if (trim.startsWith('> EDITABLE: ')) {
+      const claveEdit = trim.slice('> EDITABLE: '.length).trim();
+      out.push(<EditorPrompt key={claveEdit} clave={claveEdit} esAdmin={esAdmin} />);
+      i += 1;
+      continue;
+    }
     if (trim.startsWith('> ')) {
       out.push(
         <blockquote key={clave++} className="text-sm my-2 pl-3 py-1" style={{ borderLeft: '3px solid var(--accent)', opacity: 0.9 }}>
@@ -106,7 +112,76 @@ function renderContenido(contenido) {
   return out;
 }
 
-export default function ManualBlock({ abierto, onClose }) {
+// Editor de la parte EDITABLE de un prompt: la semilla del modelo chico vive en config (no en el
+// codigo), asi que el manual la muestra editable y el guardado rige en el proximo turno. El resto
+// de los prompts es codigo versionado y solo se muestra. Solo el administrador puede guardarla.
+function EditorPrompt({ clave, esAdmin }) {
+  const [valor, setValor] = useState(null);
+  const [valorDefault, setValorDefault] = useState('');
+  const [aviso, setAviso] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (clave !== 'LLM_CHICO_TOOLS_SEMILLA') return;
+    kernelApi.chicoEstado()
+      .then((res) => {
+        const d = res && res.data !== undefined && !Array.isArray(res) ? res.data : res;
+        setValor(d.semilla || '');
+        setValorDefault(d.semillaDefault || '');
+      })
+      .catch((e) => setAviso(`⚠️ ${e.message}`));
+  }, [clave]);
+
+  if (clave !== 'LLM_CHICO_TOOLS_SEMILLA') {
+    return (
+      <blockquote className="text-xs my-2 pl-3 py-1" style={{ borderLeft: '3px solid var(--accent)' }}>
+        La clave <span className="font-mono">{clave}</span> se edita desde su modulo del Core.
+      </blockquote>
+    );
+  }
+  if (!esAdmin) {
+    return (
+      <blockquote className="text-xs my-2 pl-3 py-1" style={{ borderLeft: '3px solid var(--accent)' }}>
+        La semilla del modelo chico (<span className="font-mono">{clave}</span>) la edita el administrador.
+      </blockquote>
+    );
+  }
+  const guardar = async (payload) => {
+    setGuardando(true);
+    setAviso('');
+    try {
+      const res = await kernelApi.chicoGuardar(payload);
+      const d = res && res.data !== undefined && !Array.isArray(res) ? res.data : res;
+      setValor((d && d.semilla !== undefined ? d.semilla : (payload.reset ? valorDefault : valor)) || '');
+      setAviso('✓ Guardada: rige en el proximo turno del modelo chico');
+    } catch (e) {
+      setAviso(`⚠️ ${e.message}`);
+    } finally {
+      setGuardando(false);
+    }
+  };
+  return (
+    <div className="card p-3 my-2">
+      <div className="text-xs text-muted mb-1">
+        Semilla del modelo chico (<span className="font-mono">{clave}</span>) — editable aca: se guarda en config y rige al instante.
+      </div>
+      {valor == null ? (
+        <p className="text-xs text-muted">Cargando... {aviso}</p>
+      ) : (
+        <>
+          <textarea className="input-os" rows={4} value={valor} onChange={(e) => setValor(e.target.value)} />
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <button type="button" className="btn btn-primary text-xs" disabled={guardando} onClick={() => guardar({ semilla: valor })}>Guardar semilla</button>
+            <button type="button" className="btn btn-ghost text-xs" disabled={guardando} onClick={() => guardar({ reset: true })}>Volver al default</button>
+            <span className="text-xs text-muted">{aviso}</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function ManualBlock({ abierto, onClose, esAdmin = false }) {
   const [solapas, setSolapas] = useState([]);
   const [activa, setActiva] = useState(null);
   const [error, setError] = useState('');
@@ -146,7 +221,7 @@ export default function ManualBlock({ abierto, onClose }) {
       {!actual && !error && <p className="text-sm text-muted">Cargando manual...</p>}
       {actual && (
         <div style={{ maxHeight: '72vh', overflowY: 'auto', paddingRight: 8 }}>
-          {renderContenido(actual.contenido)}
+          {renderContenido(actual.contenido, esAdmin)}
         </div>
       )}
     </Modal>

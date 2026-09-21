@@ -160,6 +160,20 @@ export default function App() {
   const [asistenteAbierto, setAsistenteAbierto] = useState(() => {
     try { return (localStorage.getItem('bookos_arranque_vendedor') || 'minimizado') === 'expandido'; } catch (_) { return false; }
   });
+  // Botones de las DOS ventanas de chat: viven en la barra de arriba (navbar), una sola puerta por
+  // ventana en todas las medidas. En pantallas chicas el mismo boton abre el panel a pantalla
+  // completa: ese estado lo controla App (el boton flotante de adentro se saco el 21-Sep-2026
+  // porque se duplicaba con el de la barra y tapaba el contenido en el celular).
+  const [vendedorMobile, setVendedorMobile] = useState(false);
+  const [secretarioMobile, setSecretarioMobile] = useState(false);
+  const alternarVendedor = () => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches) setVendedorMobile((v) => !v);
+    else setAsistenteAbierto((v) => !v);
+  };
+  const alternarSecretario = () => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches) setSecretarioMobile((v) => !v);
+    else setPanelAbierto((v) => !v);
+  };
   const [buscadorTecnico, setBuscadorTecnico] = useState(false);
   const [buscadorSemantico, setBuscadorSemantico] = useState(false);
   const [altaCliente, setAltaCliente] = useState(false);
@@ -199,11 +213,13 @@ export default function App() {
         onCambiarVista={cambiarVista}
         usuario={usuario}
         onLogout={salir}
-        asistenteAbierto={asistenteAbierto}
-        onAlternarAsistente={() => setAsistenteAbierto((v) => !v)}
+        asistenteAbierto={asistenteAbierto || vendedorMobile}
+        onAlternarAsistente={alternarVendedor}
+        secretarioAbierto={panelAbierto || secretarioMobile}
+        onAlternarSecretario={alternarSecretario}
       />
       <div className={`bookos-layout${panelAbierto ? '' : ' agente-cerrado'}${asistenteAbierto ? '' : ' asistente-cerrado'}`}>
-        <AsistenteVentasBlock abierto={asistenteAbierto} onAlternar={() => setAsistenteAbierto((v) => !v)} />
+        <AsistenteVentasBlock abierto={asistenteAbierto} onAlternar={() => setAsistenteAbierto((v) => !v)} abiertoMobile={vendedorMobile} setAbiertoMobile={setVendedorMobile} />
         <main className="bookos-main p-6">
           {vista === 'Catalogo' && <CatalogoPage />}
           {vista === 'Facturar' && <VentasPage />}
@@ -248,7 +264,7 @@ export default function App() {
           {vista === 'Config CRM' && <ConfigCrmPage />}
           {vista === 'Plantillas mail' && <PlantillasMailPage />}
         </main>
-        <AgenteChatBlock abierto={panelAbierto} onAlternar={() => setPanelAbierto((v) => !v)} />
+        <AgenteChatBlock abierto={panelAbierto} onAlternar={() => setPanelAbierto((v) => !v)} abiertoMobile={secretarioMobile} setAbiertoMobile={setSecretarioMobile} />
       </div>
       <BuscadorTecnicoBlock
         abierto={buscadorTecnico}

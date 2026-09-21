@@ -385,13 +385,14 @@ export default function ChatAgente({ perfil = 'secretario', titulo = 'El Secreta
   const [panelConvs, setPanelConvs] = useState(false);
   const [listaConvs, setListaConvs] = useState([]);
 
-  // Panel de conversaciones guardadas: reabrir una (repinta el hilo) o borrarla.
+  // Panel de conversaciones guardadas: reabrir una (repinta el hilo) o borrarla. Cada ventana ve
+  // SOLO sus hilos: el perfil viaja como filtro y el backend separa Secretario de Vendedor.
   const abrirPanelConvs = async () => {
     const abrir = !panelConvs;
     setPanelConvs(abrir);
     if (!abrir) return;
     try {
-      const res = await agenteApi.conversaciones({ limite: 20 });
+      const res = await agenteApi.conversaciones({ limite: 20, perfil });
       // axiosClient desempaqueta el envelope: `res` ya es el payload (la lista).
       const payload = res && res.data !== undefined && !Array.isArray(res) ? res.data : res;
       const filas = Array.isArray(payload) ? payload : payload && Array.isArray(payload.data) ? payload.data : [];
