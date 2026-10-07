@@ -144,7 +144,9 @@ export default function CatalogoPage() {
 
   const columnas = [
     { clave: 'ean13', titulo: 'EAN13', render: (f) => <span className="font-mono text-xs">{f.ean13}</span> },
-    { clave: 'titulo', titulo: 'Titulo' },
+    // En el celular el titulo encabeza la tarjeta de cada articulo (el EAN13 es identidad, no
+    // lectura: va como un dato mas, rotulado).
+    { clave: 'titulo', titulo: 'Titulo', movil: 'titulo' },
     { clave: 'autor', titulo: 'Autor' },
     { clave: 'editorial', titulo: 'Editorial' },
     { clave: 'precio', titulo: 'Precio', render: (f) => `$${Number(f.precio).toLocaleString('es-AR')}` },

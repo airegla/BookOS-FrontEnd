@@ -2,7 +2,8 @@
 // ruta: bookos/frontend/src/ui/Table.jsx
 // descripcion: tabla base del OS (clase .table-os del globals.css). Si recibe
 //   exportable=true, agrega un boton "Exportar CSV" que descarga el listado que
-//   se esta viendo (usa los datos crudos de cada fila).
+//   se esta viendo (usa los datos crudos de cada fila). En pantallas chicas la
+//   grilla se abandona y cada fila se lee como una tarjeta (clase .tabla-cards).
 
 import { descargarCsv } from '../utils/exportar';
 
@@ -17,6 +18,17 @@ export default function Table({ columnas, filas, vacio = 'Sin resultados', expor
     descargarCsv(exportarNombre, cols.map((c) => ({ titulo: c.titulo, clave: c.clave })), filasCrudas);
   };
 
+  // En pantallas chicas (clase .tabla-cards) cada fila es una tarjeta. La etiqueta de cada dato
+  // sale del titulo de su columna: no se escribe de nuevo, viaja en el `data-label` de la celda.
+  // El `data-rol` distingue el encabezado de la tarjeta, los datos y la fila de acciones (la
+  // columna sin titulo). Encabeza la primera columna de datos, salvo que una columna pida el
+  // encabezado con `movil: 'titulo'`; una columna con `movil: 'oculto'` no viaja al celular.
+  const esAcciones = (c) => !c.titulo;
+  const columnasDeDatos = columnas.filter((c) => c.movil !== 'oculto' && !esAcciones(c));
+  const conTitulo = columnas.find((c) => c.movil === 'titulo' && !esAcciones(c));
+  const claveTitulo = conTitulo ? conTitulo.clave : (columnasDeDatos[0] || {}).clave;
+  const rolDe = (c) => (c.clave === claveTitulo ? 'titulo' : esAcciones(c) ? 'acciones' : 'dato');
+
   return (
     <div className="card overflow-hidden">
       {exportable && (
@@ -27,7 +39,7 @@ export default function Table({ columnas, filas, vacio = 'Sin resultados', expor
       {/* En pantallas chicas la tabla puede ser mas ancha que la tarjeta: se desplaza en horizontal
           en vez de recortarse (antes el overflow-hidden mostraba solo una franja de la 1a columna). */}
       <div className="overflow-x-auto">
-        <table className="table-os">
+        <table className="table-os tabla-cards">
           <thead>
             <tr>
               {columnas.map((c) => <th key={c.clave}>{c.titulo}</th>)}
@@ -36,11 +48,15 @@ export default function Table({ columnas, filas, vacio = 'Sin resultados', expor
           <tbody>
             {filas.length === 0 ? (
               <tr>
-                <td colSpan={columnas.length} className="text-muted text-center py-8">{vacio}</td>
+                <td colSpan={columnas.length} data-rol="vacio" className="text-muted text-center py-8">{vacio}</td>
               </tr>
             ) : filas.map((fila, i) => (
               <tr key={fila.id || i}>
-                {columnas.map((c) => <td key={c.clave}>{c.render ? c.render(fila) : fila[c.clave]}</td>)}
+                {columnas.map((c) => (
+                  <td key={c.clave} data-rol={rolDe(c)} data-label={rolDe(c) === 'dato' ? c.titulo : undefined}>
+                    {c.render ? c.render(fila) : fila[c.clave]}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
