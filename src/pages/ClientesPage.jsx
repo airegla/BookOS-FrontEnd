@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Paginador from '../ui/Paginador';
@@ -256,7 +257,7 @@ export default function ClientesPage() {
           <p className="text-sm text-muted">Sin interacciones registradas todavia: el grafo se alimenta solo con el uso.</p>
         )}
         {grafo && grafo.interacciones.length > 0 && (
-          <table className="table-os">
+          <TablaTarjetas>
             <thead><tr><th>Relacion</th><th>Entidad</th><th>Peso</th><th>Origen</th></tr></thead>
             <tbody>
               {grafo.interacciones.map((i) => (
@@ -268,7 +269,7 @@ export default function ClientesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </TablaTarjetas>
         )}
       </Modal>
     </div>

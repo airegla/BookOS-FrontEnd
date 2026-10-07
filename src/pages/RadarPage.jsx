@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import DebugTag from '../ui/DebugTag';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import { crmApi } from '../api/api';
 
 const ORDEN = ['Pendiente', 'Solicitado', 'Ingresado', 'Notificado', 'Agotado', 'Cancelado'];
@@ -122,7 +123,7 @@ export default function RadarPage() {
       {grupos.length > 0 && (
         <div className="card p-4">
           <h3 className="font-semibold mb-3">Grupos que se despacharían ({grupos.length})</h3>
-          <table className="table-os">
+          <TablaTarjetas>
             <thead>
               <tr><th>Proveedor</th><th>Email</th><th>Títulos</th><th>Unidades</th><th>Umbral</th></tr>
             </thead>
@@ -137,7 +138,7 @@ export default function RadarPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </TablaTarjetas>
         </div>
       )}
     </div>

@@ -61,7 +61,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `AsistenteVentasBlock.jsx` — el VENDEDOR: la VENTANA IZQUIERDA del asistente de ventas (perfil 'ventas' del agente). Antes era una pagina dentro de CRM; ahora es una ventana propia que convive con el Secretario (derecha) y comparte el MISMO motor y los MISMOS ajustes (adjuntos, voto del turno, conversaciones, voz, watchdog del stream). Los chips de arriba son los pedidos tipicos del mostrador y los marcadores a la vista.
 - `BuscadorArticuloBlock.jsx` — buscador de articulos para agregar a un comprobante (EAN, titulo, autor o editorial) con debounce 300 ms y sugerencias (patron bookerp). Se usa en ventas, compras y remitos para no depender de tipear el EAN de memoria.
 - `BuscadorSemanticoBlock.jsx` — F7 — el buscador SEMANTICO del kernel como modal global, con las MISMAS tarjetas del asistente (titulo, score, autor/editorial, precio y stock) y sus acciones: agregar el renglon cuando se esta facturando y preguntarle al Secretario. Desde aca tambien se abre la pagina del Asistente de ventas (hoy: la ventana izquierda del Vendedor). PERSISTENTE: cerrar no pierde nada (texto, resultados y consulta se conservan; una busqueda en curso sigue viva y al volver con F7 esta ahi). El boton Limpiar arranca de cero.
-- `BuscadorTecnicoBlock.jsx` — F6 — el buscador TECNICO del mostrador (la busqueda F7 del bookerp): modal global con la sintaxis T titulo / A autor / * codigo / X contiene contra /api/catalogo/f7. Es rapido y practico: LISTADO (no tarjetas), navegacion con flechas, Enter agrega el renglon cuando se esta facturando, y el resultado tecnico (EAN, precio, stock) siempre a la vista.
+- `BuscadorTecnicoBlock.jsx` — F6 — el buscador TECNICO del mostrador (la busqueda F7 del bookerp): modal global con la sintaxis T titulo / A autor / * codigo / X contiene contra /api/catalogo/f7. Es rapido y practico: LISTADO compacto en escritorio (donde se navega con las flechas), navegacion con flechas, Enter agrega el renglon cuando se esta facturando, y el resultado tecnico (EAN, precio, stock) siempre a la vista. En pantallas chicas cada fila se lee como tarjeta, como en el resto de las tablas del OS.
 - `CargarDocumentoBlock.jsx` — carga el contenido de un comprobante de otro modulo dentro del que se esta armando (patron bookerp): elegis un remito/pedido/compra recuperable y sus renglones se copian al borrador actual. Muestra preview antes de cargar.
 - `ChatAgente.jsx` — chat del agente, reutilizable por perfil. El Secretario (panel lateral) y el Asistente de ventas (la ventana izquierda del Vendedor) comparten este componente: mismo motor, misma conversacion persistente y mismo render del envelope; cambia la semilla/tools del backend (perfil) y el texto de arranque. Tres zonas: cabecera fija, mensajes con scroll y entrada. Bajo la respuesta viaja el voto del turno (pulgar + escala, plan-rediseno/11 E3): el operario manda sobre cualquier inferencia del evaluador. 18-Sep-2026: (a) el scroll SIGUE al agente —cada mensaje y cada pedazo de texto en streaming se ven sin tocar nada— salvo que el operario haya subido a leer algo: ahi no se lo arrastra; (b) VOZ con lo nativo del navegador (hooks/useVoz.js): micro para dictar el pedido y lectura en voz alta, que se activa sola SOLO si el pedido vino por micro (mas un boton 🔊 por respuesta); (c) IMAGENES: se pueden adjuntar fotos y capturas (el modelo las mira, ver agente.service).
 - `ConfigTogglesBlock.jsx` — bloque reutilizable del CATALOGO de interruptores en caliente (runtimeConfig). Cada pagina lo monta con su GRUPO y el backend decide que claves entran: una clave nueva del backend aparece sola en su pantalla, sin tocar el front. Cablea debug_mode al front al vuelo (activarDebug) porque ese toggle es del navegador y los demas son del backend.
@@ -145,6 +145,7 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `Paginador.jsx` — controles de paginacion server-side (page / limite / total) para los listados del OS. Patron bookerp: el backend pagina, la vista solo navega.
 - `SelectBuscador.jsx` — selector asincronico para maestros grandes (clientes, proveedores, autores, materias, editoriales). Busca en el servidor con debounce a partir de 2 letras (nunca precarga la tabla entera), navega con teclado (flechas/Enter/Escape) y permite limpiar la seleccion. En modo libre, el texto tipeado tambien vale sin elegir sugerencia.
 - `TablaItemsPaginada.jsx` — vista de renglones de un documento (modales de detalle: Ver remito, Ver venta, Ver compra, Ver liquidacion...) con paginacion local de a 25 filas: los documentos largos no rompen el modal. Recibe los headers y una funcion que arma cada fila (el indice es el global).
+- `TablaTarjetas.jsx` — tabla para las vistas que escriben su grilla a mano. Envuelve la tabla y le copia a cada celda el titulo de su columna (`data-label`) mas el rol de la celda (`data-rol`), asi el MISMO markup se lee como una tarjeta por fila en pantallas chicas (clase .tabla-cards del globals.css). La etiqueta no se escribe de nuevo: sale del <th> que ya esta en la vista. Convenciones (las mismas de `Table`): la primera columna encabeza la tarjeta y una columna sin titulo es la de acciones (botones al pie, separados con una linea de puntos).
 - `Table.jsx` — tabla base del OS (clase .table-os del globals.css). Si recibe exportable=true, agrega un boton "Exportar CSV" que descarga el listado que se esta viendo (usa los datos crudos de cada fila). En pantallas chicas la grilla se abandona y cada fila se lee como una tarjeta (clase .tabla-cards).
 - `Toggle.jsx` — switch del OS (clases .toggle-track del globals.css).
 
@@ -496,8 +497,31 @@ contando nodos REALES del render (ancho del `main`, desborde horizontal, tarjeta
 que desbordan), no el HTML que devuelve el servidor. Las capturas quedaron en
 `backend/logs/mobile-2026-10-07/` (antes y despues).
 
-**Pendiente declarado**: las tablas escritas a mano en paginas y bloques (ConsignaPage, VentasPage,
-InventarioPage, RadarPage, PropuestasVentaPage, TransportesPage, Remisiones, `TablaItemsPaginada`,
-`ItemsEditorBlock`...) siguen siendo grillas: se leen, pero arrastrando de costado. Se convierten
-migrandolas a `Table` o marcando sus celdas. Tambien queda un desborde de 5px en la cabecera de
-Clientes medido a 284px (la fila "Buscar | Nuevo cliente"), que es de esa pagina y no de la tabla.
+**Cierre de las tablas a mano (7-Oct-2026, segunda vuelta)**: las tablas que se escribian a mano en
+paginas y bloques (Consigna, Ventas, Inventario, Radar, PropuestasVenta, Transportes, Remitos,
+Clientes, Importar *, Manual, `TablaItemsPaginada`, `ItemsEditorBlock`...) pasaron a
+**`TablaTarjetas`**, una pieza nueva en `ui/` que envuelve la tabla, lee las etiquetas de su PROPIO
+`<thead>` y se las copia a cada celda (`data-label`) junto con el rol de la celda (`data-rol`): da la
+misma tarjeta que `Table` sin duplicar el texto de cada columna. Con `titulo="Titulo"` se elige cual
+encabeza la tarjeta (en el catalogo y en el buscador F6 lo hace el titulo del libro, no el EAN).
+**Medido en las 6+1 vistas tocadas** (viewport fijado en 390 y verificado en cada corrida): todas las
+tablas son tarjetas, ninguna se arrastra y el desborde de pagina es 0. **Regla que queda: una tabla
+nueva del OS usa `Table` (datos) o `TablaTarjetas` (markup a mano); no se escribe
+`<table className="table-os">` suelto.**
+
+**Dos tablas NO se convierten (no aplica, con motivo)**: la de `LogsPage` (10 columnas de log) y la de
+`PlantillasMailPage` (variables del manual) ya viven dentro de su propio contenedor con scroll
+horizontal y no usan la clase base: son tablas de referencia densas donde la tarjeta empeoraria la
+lectura, y no desbordan la pagina.
+
+**La barra inferior queda SIEMPRE visible (7-Oct-2026)**: medido, con el panel del menu abierto y con
+una ventana de chat a pantalla completa la barra quedaba tapada (con un modal abierto no: z 60 contra
+50). Ahora el panel del menu y las ventanas de chat ocupan el alto de la pantalla MENOS la franja de
+la barra (`--nav-movil-alto`, declarada una sola vez), asi la barra se ve y se toca siempre y el
+cuadro de escritura del chat sigue tocable (medido). Ademas, tocar la barra con un chat abierto
+navega Y cierra la ventana: si no, la vista cambiaria por debajo y el toque quedaria en el aire.
+
+**Cabeceras que desbordaban (medidas, no supuestas)**: `Caja` (129px: "Secretario · Ventas del
+periodo · Turnos (Z) · Cierre Z"), `Consigna` (348px: las solapas mas los botones) y `Transportes`
+(92px: el "+ Transporte") tenian filas de botones que no envolvian; ahora envuelven (`flex-wrap`) y
+las tres miden **0** de desborde de pagina.

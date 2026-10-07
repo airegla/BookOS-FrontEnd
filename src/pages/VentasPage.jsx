@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import TablaItemsPaginada from '../ui/TablaItemsPaginada';
 import DebugTag from '../ui/DebugTag';
@@ -768,7 +769,7 @@ export default function VentasPage() {
             {(detalle.pagos || []).length > 0 && (
               <div className="mt-4">
                 <h4 className="font-semibold text-sm mb-1">Formas de pago</h4>
-                <table className="table-os">
+                <TablaTarjetas>
                   <thead><tr><th>Metodo</th><th>Sub-forma</th><th>Nro</th><th>Monto</th><th>Costo est.</th></tr></thead>
                   <tbody>
                     {detalle.pagos.map((p) => (
@@ -781,7 +782,7 @@ export default function VentasPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </TablaTarjetas>
               </div>
             )}
           </div>
@@ -803,7 +804,7 @@ export default function VentasPage() {
               Cantidades que vuelven: el stock se repone con la regla FIFE (consigna primero, firme despues) y
               {detalle.clienteId ? ' queda saldo a favor en la cuenta corriente del cliente.' : ' sale del efectivo como egreso de caja.'}
             </p>
-            <table className="table-os">
+            <TablaTarjetas>
               <thead><tr><th>Titulo</th><th>Vendido</th><th>Devolver</th></tr></thead>
               <tbody>
                 {(detalle.items || []).map((it) => (
@@ -824,7 +825,7 @@ export default function VentasPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TablaTarjetas>
             <label className="block mt-3">
               <span className="block text-xs uppercase tracking-widest text-muted mb-1">Motivo</span>
               <input className="input-os" value={ncMotivo} onChange={(e) => setNcMotivo(e.target.value)} placeholder="Devolucion, error de precio..." />

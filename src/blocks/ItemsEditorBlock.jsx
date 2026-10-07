@@ -6,6 +6,7 @@
 //   no rompen la pantalla): los indices que recibe el padre son SIEMPRE los globales del array.
 
 import { useState } from 'react';
+import TablaTarjetas from '../ui/TablaTarjetas';
 
 const POR_PAGINA = 20;
 
@@ -22,7 +23,7 @@ export default function ItemsEditorBlock({ items, onChange, onRemove, columnas, 
 
   return (
     <>
-      <table className="table-os w-full">
+      <TablaTarjetas className="w-full">
         <thead>
           <tr>
             {columnas.map((c) => <th key={c.clave} style={c.style}>{c.titulo}</th>)}
@@ -61,7 +62,7 @@ export default function ItemsEditorBlock({ items, onChange, onRemove, columnas, 
             );
           })}
         </tbody>
-      </table>
+      </TablaTarjetas>
       {totalPaginas > 1 && (
         <div className="flex justify-between items-center mt-2 text-xs text-muted">
           <span>Mostrando {offset + 1}–{Math.min(offset + POR_PAGINA, items.length)} de {items.length} renglones</span>

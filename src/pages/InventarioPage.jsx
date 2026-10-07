@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
 import DebugTag from '../ui/DebugTag';
@@ -295,7 +296,7 @@ export default function InventarioPage() {
               <div><span className="text-muted">Referencia: </span>{ajusteVer.referenciaId || '-'}</div>
               {ajusteVer.observaciones && <div className="col-span-2"><span className="text-muted">Motivo: </span>{ajusteVer.observaciones}</div>}
             </div>
-            <table className="table-os">
+            <TablaTarjetas>
               <thead><tr><th>Articulo</th><th>Firme</th><th>Consigna</th><th>Original</th><th>Stock previo (F/C/O)</th></tr></thead>
               <tbody>
                 {(ajusteVer.items || []).map((i) => (
@@ -308,7 +309,7 @@ export default function InventarioPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TablaTarjetas>
           </>
         )}
       </Modal>

@@ -2,10 +2,13 @@
 // ruta: bookos/frontend/src/blocks/BuscadorTecnicoBlock.jsx
 // descripcion: F6 — el buscador TECNICO del mostrador (la busqueda F7 del bookerp): modal global
 //   con la sintaxis T titulo / A autor / * codigo / X contiene contra /api/catalogo/f7. Es rapido
-//   y practico: LISTADO (no tarjetas), navegacion con flechas, Enter agrega el renglon cuando se
-//   esta facturando, y el resultado tecnico (EAN, precio, stock) siempre a la vista.
+//   y practico: LISTADO compacto en escritorio (donde se navega con las flechas), navegacion con
+//   flechas, Enter agrega el renglon cuando se esta facturando, y el resultado tecnico (EAN,
+//   precio, stock) siempre a la vista. En pantallas chicas cada fila se lee como tarjeta, como en
+//   el resto de las tablas del OS.
 
 import { useEffect, useRef, useState } from 'react';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import BotonSecretario from '../ui/BotonSecretario';
 import usePersistentWork from '../hooks/usePersistentWork';
@@ -137,7 +140,7 @@ export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = f
       {buscado && !error && <p className="text-xs text-muted mb-1">{filas.length} resultado(s) para «{buscado}»</p>}
       <div ref={listaRef} style={{ maxHeight: '52vh', overflowY: 'auto' }}>
         {filas.length ? (
-          <table className="table-os w-full text-sm">
+          <TablaTarjetas className="w-full text-sm" titulo="Titulo">
             <thead>
               <tr>
                 <th>EAN</th>
@@ -177,7 +180,7 @@ export default function BuscadorTecnicoBlock({ abierto, onCerrar, enFacturar = f
                 </tr>
               ))}
             </tbody>
-          </table>
+            </TablaTarjetas>
         ) : (
           !error && <p className="text-sm text-muted">{buscado ? 'Sin resultados.' : 'Escribi una busqueda y apreta Enter.'}</p>
         )}

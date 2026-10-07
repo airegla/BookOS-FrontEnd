@@ -5,6 +5,7 @@
 //   (secciones, listas, tablas, notas) y los diagramas Mermaid como graficos.
 
 import { useEffect, useState } from 'react';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
 import MermaidDiagram from '../ui/MermaidDiagram';
@@ -47,7 +48,7 @@ function renderContenido(contenido, esAdmin = false) {
       const cabecera = celdas[0] || [];
       const cuerpo = celdas.slice(2); // la fila 1 es el separador ---|---
       out.push(
-        <table key={clave++} className="table-os my-3">
+        <TablaTarjetas key={clave++} className="my-3">
           <thead>
             <tr>{cabecera.map((c, idx) => <th key={idx}>{conNegritas(c)}</th>)}</tr>
           </thead>
@@ -56,7 +57,7 @@ function renderContenido(contenido, esAdmin = false) {
               <tr key={fi}>{fila.map((c, ci) => <td key={ci}>{conNegritas(c)}</td>)}</tr>
             ))}
           </tbody>
-        </table>
+        </TablaTarjetas>
       );
       continue;
     }

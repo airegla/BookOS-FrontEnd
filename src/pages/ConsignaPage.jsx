@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import Paginador from '../ui/Paginador';
 import TablaItemsPaginada from '../ui/TablaItemsPaginada';
@@ -508,8 +509,8 @@ export default function ConsignaPage() {
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex gap-1">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex flex-wrap gap-1">
           <button type="button" className={`btn ${tab === 'liquidaciones' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('liquidaciones')}>Liquidaciones</button>
           <button type="button" className={`btn ${tab === 'conciliador' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('conciliador')}>Conciliador</button>
           <button type="button" className={`btn ${tab === 'devoluciones' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('devoluciones')}>Devoluciones</button>
@@ -696,7 +697,7 @@ export default function ConsignaPage() {
             <p className="text-xs text-muted mb-3">
               Subir: +{concAplicar.totales.subir} · Bajar: {concAplicar.totales.bajar} · No aplicables: {concAplicar.totales.noAplicables}
             </p>
-            <table className="table-os">
+            <TablaTarjetas titulo="Titulo">
               <thead><tr><th>EAN</th><th>Titulo</th><th>Acción</th><th>Actual</th><th>Original</th><th>Estado</th></tr></thead>
               <tbody>
                 {concAplicar.filas.map((f, i) => (
@@ -713,7 +714,7 @@ export default function ConsignaPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TablaTarjetas>
           </>
         )}
       </Modal>
@@ -822,7 +823,7 @@ export default function ConsignaPage() {
         </div>
         {prepCruce ? (
           <>
-            <table className="table-os">
+            <TablaTarjetas titulo="Título">
               <thead>
                 <tr>
                   <th>Solicitado</th><th>EAN</th><th>Título</th>
@@ -846,7 +847,7 @@ export default function ConsignaPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TablaTarjetas>
             <p className="text-xs text-muted mt-2">
               {prepCruce.renglones} renglones · {prepCruce.unidades} unidades solicitadas · {prepCruce.faltantes} sin encontrar.
               Al emitir se guarda esta foto del stock (el CSV después se descarga igual a como se ve acá).

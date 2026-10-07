@@ -5,6 +5,7 @@
 //   búsqueda, selección con vista previa y carga de los libros al trabajo actual.
 
 import { useEffect, useState } from 'react';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import { comprasApi, remitosApi, ventasApi, consignaApi, mayoristaApi } from '../api/api';
 
@@ -197,7 +198,7 @@ export default function ImportarDocumentoBlock({ onCargar, etiqueta = 'Importar 
           ) : filtrados.length === 0 ? (
             <p className="text-sm text-muted py-6 text-center">Sin documentos en este módulo.</p>
           ) : (
-            <table className="table-os">
+            <TablaTarjetas>
               <thead>
                 <tr><th style={{ width: 30 }} /><th>Nro</th><th>Fecha</th><th>Entidad</th><th>Tipo</th><th>Items</th></tr>
               </thead>
@@ -217,7 +218,7 @@ export default function ImportarDocumentoBlock({ onCargar, etiqueta = 'Importar 
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TablaTarjetas>
           )}
         </div>
 

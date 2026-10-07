@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Paginador from '../ui/Paginador';
 import Modal from '../ui/Modal';
 import DebugTag from '../ui/DebugTag';
@@ -141,8 +142,8 @@ export default function TransportesPage() {
 
       {mensaje && <p className="text-sm mb-3">{mensaje}</p>}
 
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex gap-1">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex flex-wrap gap-1">
           <button type="button" className={`btn ${tab === 'transportes' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('transportes')}>Transportes</button>
           <button type="button" className={`btn ${tab === 'depositos' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('depositos')}>Depósitos</button>
         </div>
@@ -203,7 +204,7 @@ export default function TransportesPage() {
 
       <Modal abierto={Boolean(stockDeposito)} onClose={() => setStockDeposito(null)} titulo={stockDeposito ? `Stock de ${stockDeposito.deposito.nombre}` : ''} ancho="640px">
         {stockDeposito && (
-          <table className="table-os">
+          <TablaTarjetas>
             <thead>
               <tr><th>EAN13</th><th>Firme</th><th>Consigna</th><th>Consigna orig.</th></tr>
             </thead>
@@ -220,7 +221,7 @@ export default function TransportesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </TablaTarjetas>
         )}
       </Modal>
     </div>

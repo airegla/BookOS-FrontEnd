@@ -133,9 +133,14 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  // Cambiar de vista desde la barra inferior del celular CIERRA las ventanas de chat abiertas a
+  // pantalla completa: si no, la barra navegaria por debajo de la ventana y el toque quedaria en el
+  // aire (la vista cambia, pero el operario sigue viendo el chat).
   const cambiarVista = (nueva) => {
     setVista(nueva);
     setContextoActual(null);
+    setVendedorMobile(false);
+    setSecretarioMobile(false);
   };
 
   // CONTEXTO DE PANTALLA para los chats: las vistas que no fijan el suyo estrenan uno GENERICO con

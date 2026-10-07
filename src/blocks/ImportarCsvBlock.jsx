@@ -7,6 +7,7 @@
 //      agente que lo procese con la herramienta que corresponda.
 
 import { useRef, useState } from 'react';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import { parsearCsv } from '../utils/csv';
 import { useAppContext } from '../AppContext';
@@ -60,14 +61,14 @@ export default function ImportarCsvBlock({ onCargar, etiqueta = 'Importar CSV', 
         }
       >
         {preview && (
-          <table className="table-os">
+          <TablaTarjetas>
             <thead><tr>{preview.encabezados.map((h) => <th key={h}>{h}</th>)}</tr></thead>
             <tbody>
               {preview.filas.slice(0, 8).map((f, i) => (
                 <tr key={i}>{preview.encabezados.map((h) => <td key={h} className="text-xs">{f[h]}</td>)}</tr>
               ))}
             </tbody>
-          </table>
+          </TablaTarjetas>
         )}
       </Modal>
     </>

@@ -10,6 +10,7 @@
 
 import { useState } from 'react';
 import SelectBuscador from '../ui/SelectBuscador';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import ImportarCsvBlock from './ImportarCsvBlock';
 import { buscarArticulos } from '../utils/selectores';
 
@@ -85,7 +86,7 @@ export default function MayoristaTablaBlock({ items = [], onItems, conTipoStock 
         <ImportarCsvBlock etiqueta="Importar CSV" onCargar={importarCsv} />
       </div>
 
-      <table className="table-os">
+      <TablaTarjetas titulo="Título">
         <thead>
           <tr>
             <th>EAN</th>
@@ -145,7 +146,7 @@ export default function MayoristaTablaBlock({ items = [], onItems, conTipoStock 
             );
           })}
         </tbody>
-      </table>
+      </TablaTarjetas>
       {totalPaginas > 1 && (
         <div className="flex justify-between items-center mt-2 text-xs text-muted">
           <span>Mostrando {offset + 1}–{Math.min(offset + POR_PAGINA, items.length)} de {items.length} renglones</span>

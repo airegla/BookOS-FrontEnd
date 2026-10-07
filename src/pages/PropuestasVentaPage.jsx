@@ -7,6 +7,7 @@
 //   queda a la vista en la columna Resultado.
 
 import { useEffect, useState } from 'react';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Paginador from '../ui/Paginador';
@@ -124,7 +125,7 @@ export default function PropuestasVentaPage() {
       </div>
 
       <div className="card p-3">
-        <table className="table-os">
+        <TablaTarjetas titulo="Cliente">
           <thead>
             <tr><th>#</th><th>Cliente</th><th>Estado</th><th>Títulos</th><th>Resultado</th><th>Asunto</th><th></th></tr>
           </thead>
@@ -163,7 +164,7 @@ export default function PropuestasVentaPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </TablaTarjetas>
         <Paginador page={page} total={total} limite={20} onCambiar={setPage} etiqueta="propuestas" />
       </div>
 

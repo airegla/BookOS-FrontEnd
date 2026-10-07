@@ -185,7 +185,7 @@ export default function CajaPage() {
   return (
     <div>
       <DebugTag nombre="CajaPage" />
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold">Caja</h2>
           <BorradorRestaurado visible={restaurado} onLimpiar={limpiarUltimoMov} />

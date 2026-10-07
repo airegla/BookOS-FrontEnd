@@ -5,6 +5,7 @@
 //   rompen el modal. Recibe los headers y una funcion que arma cada fila (el indice es el global).
 
 import { useState } from 'react';
+import TablaTarjetas from './TablaTarjetas';
 
 const POR_PAGINA = 25;
 
@@ -17,7 +18,7 @@ export default function TablaItemsPaginada({ items = [], headers, fila, vacio = 
 
   return (
     <>
-      <table className="table-os">
+      <TablaTarjetas>
         <thead>
           <tr>{headers}</tr>
         </thead>
@@ -27,7 +28,7 @@ export default function TablaItemsPaginada({ items = [], headers, fila, vacio = 
           )}
           {visibles.map((it, i) => fila(it, offset + i))}
         </tbody>
-      </table>
+      </TablaTarjetas>
       {totalPaginas > 1 && (
         <div className="flex justify-between items-center mt-2 text-xs text-muted">
           <span>Mostrando {offset + 1}–{Math.min(offset + POR_PAGINA, items.length)} de {items.length} renglones</span>

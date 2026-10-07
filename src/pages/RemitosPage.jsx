@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import Table from '../ui/Table';
+import TablaTarjetas from '../ui/TablaTarjetas';
 import Modal from '../ui/Modal';
 import TablaItemsPaginada from '../ui/TablaItemsPaginada';
 import DebugTag from '../ui/DebugTag';
@@ -334,7 +335,7 @@ export default function RemitosPage() {
           <p className="text-sm text-muted">Sin faltantes: todo el remito esta cubierto por el stock.</p>
         )}
         {detalle && (detalle.faltantes || []).length > 0 && (
-          <table className="table-os">
+          <TablaTarjetas titulo="Titulo">
             <thead>
               <tr><th>EAN13</th><th>Titulo</th><th>Recibido</th><th>Stock</th><th>Pedir</th></tr>
             </thead>
@@ -349,7 +350,7 @@ export default function RemitosPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </TablaTarjetas>
         )}
       </Modal>
     </div>
