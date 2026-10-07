@@ -141,11 +141,11 @@ _Generado desde el encabezado de cada archivo (`node scripts/arbol-readmes.js`).
 - `Input.jsx` — input estandarizado del OS (clase .input-os).
 - `MermaidDiagram.jsx` — renderiza un diagrama Mermaid (texto) como SVG dentro del manual.
 - `Modal.jsx` — modal base del OS. Todo lo que crea/edita pasa por aca para no perder trabajo al navegar. Cierra con ESC.
-- `Navbar.jsx` — navegacion del OS agrupada en bloques semanticos. En escritorio cada grupo es un desplegable (el grupo que contiene la vista actual queda resaltado); en pantallas chicas la navegacion se muda a una BARRA INFERIOR estilo SO (KDE): lanzador "Menú" + accesos fijos, y el menu completo se abre como panel agrupado por modulos. Cambiar de pagina NO borra trabajo.
+- `Navbar.jsx` — navegacion del OS agrupada en bloques semanticos. En escritorio cada grupo es un desplegable (el grupo que contiene la vista actual queda resaltado); en pantallas chicas la navegacion se muda a una BARRA INFERIOR al alcance del pulgar (lanzador "Menú" + accesos fijos del mostrador) y el lanzador abre un panel a PANTALLA COMPLETA con buscador de vistas, usadas hace poco y grupos plegables. Cambiar de pagina NO borra trabajo.
 - `Paginador.jsx` — controles de paginacion server-side (page / limite / total) para los listados del OS. Patron bookerp: el backend pagina, la vista solo navega.
 - `SelectBuscador.jsx` — selector asincronico para maestros grandes (clientes, proveedores, autores, materias, editoriales). Busca en el servidor con debounce a partir de 2 letras (nunca precarga la tabla entera), navega con teclado (flechas/Enter/Escape) y permite limpiar la seleccion. En modo libre, el texto tipeado tambien vale sin elegir sugerencia.
 - `TablaItemsPaginada.jsx` — vista de renglones de un documento (modales de detalle: Ver remito, Ver venta, Ver compra, Ver liquidacion...) con paginacion local de a 25 filas: los documentos largos no rompen el modal. Recibe los headers y una funcion que arma cada fila (el indice es el global).
-- `Table.jsx` — tabla base del OS (clase .table-os del globals.css). Si recibe exportable=true, agrega un boton "Exportar CSV" que descarga el listado que se esta viendo (usa los datos crudos de cada fila).
+- `Table.jsx` — tabla base del OS (clase .table-os del globals.css). Si recibe exportable=true, agrega un boton "Exportar CSV" que descarga el listado que se esta viendo (usa los datos crudos de cada fila). En pantallas chicas la grilla se abandona y cada fila se lee como una tarjeta (clase .tabla-cards).
 - `Toggle.jsx` — switch del OS (clases .toggle-track del globals.css).
 
 **src/utils/**
@@ -428,6 +428,76 @@ vhost (`.../tecnozenit/bookos/frontend/dist`, asi que no hay que copiar nada).
 BookOS vive en esa subcarpeta, y `/tecnozenit/api/` (el otro del vhost) apunta a la app vieja en
 `localhost:3001`. El `.env` del VPS lo declara; el resto del build es igual que en desarrollo.
 
+**La ruta base del deploy va en el comando, no en el archivo (7-Oct-2026)**: `vite.config.js` NO
+declara `base`, asi que el build del VPS es
+
+```
+npm run build -- --base=/tecnozenit/bookos/
+```
+
+Hasta hoy esa ruta vivia como una **edicion a mano sin commitear** del `vite.config.js` del VPS
+(18-Sep): un `git pull` ahi chocaba, y un build limpio con el comando documentado antes
+(`npm ci && npm run build`) generaba un `index.html` apuntando a `/assets/...` — o sea, un sitio en
+blanco. Pasarla por parametro deja el repo limpio y el deploy reproducible. **Verificacion**: el
+`dist/index.html` tiene que referenciar `/tecnozenit/bookos/assets/index-*.js` y `*.css` (si dice
+`/assets/`, el build salio sin la ruta).
+
+**Alternativa medida (7-Oct-2026)**: el build tambien se puede hacer en la maquina de desarrollo y
+subir el `dist` (`scp -r dist root@vps:.../frontend/dist-nuevo` y despues el `mv`), que fue como se
+publico esta etapa: compilar en el VPS con el frontend pesado lo dejo sin CPU (no contestaba ni el
+`ssh`, ni la web) y hubo que reiniciarlo. Si se compila en el VPS, conviene limitarlo
+(`NODE_OPTIONS=--max-old-space-size=384 nice -n 19`) y respaldar el `dist` antes: `vite build` vacia
+la carpeta de salida.
+
 Verificado abriendo la URL publica: el login entra, el catalogo lista articulos reales de la base del
 VPS y las acciones (Ver/Editar/Baja) se dibujan â€” se conto lo que el navegador RENDERIZA, no lo que
 devuelve la API.
+
+## Mobile: layout, tablas y menu (7-Oct-2026)
+
+Tres defectos medidos con capturas del sitio vivo en un viewport de celular (390x844 y tambien a
+284px, que es mas angosto que cualquier telefono).
+
+**1. El contenido quedaba en 48px (la causa raiz).** `.bookos-layout` seguia con la grilla de
+escritorio (`48px 360px`: el panel plegado y el del Secretario) porque las reglas de los paneles
+(`.bookos-layout.asistente-cerrado`, dos clases) **pisaban por especificidad** el `1fr` del bloque
+movil (una clase), sin importar que estuviera despues en el archivo. Medido antes del arreglo:
+`main` de **48px**, tabla de 907px mostrada como una astilla de 2px, el titulo partido en dos lineas.
+Ahora esas reglas viven dentro de `@media (min-width: 1025px)` (son exclusivas de escritorio: en el
+celular los paneles son overlays a pantalla completa). Medido despues: `main` de **380px** y **cero**
+desborde horizontal de pagina.
+
+**2. Las tablas como tarjetas.** La grilla de escritorio no se puede leer en un telefono (hay que
+arrastrarla para ver precio o stock). `Table.jsx` agrega la clase `.tabla-cards` y copia el titulo de
+cada columna al `data-label` de su celda, con `data-rol` para distinguir encabezado / dato / acciones:
+en pantallas chicas cada fila es una tarjeta con sus datos rotulados, sin arrastre y sin perder
+ningun dato. La etiqueta NO se escribe de nuevo: sale del titulo de la columna. Una columna puede
+pedir el encabezado con `movil: 'titulo'` (en el catalogo lo hace el titulo del libro, que es lo que
+se lee) o no viajar al celular con `movil: 'oculto'`. Medido en Catalogo: 20 filas = 20 tarjetas,
+`thead` oculto, 0 de arrastre; en Clientes: 25 tarjetas, 0 filas que desbordan.
+**Segundo arreglo, tambien medido**: la fila de acciones venia dentro de un `div.flex.gap-2` propio
+y ese div no heredaba el `flex-wrap` (303px de botones en una celda de 189px) → empujaba la tarjeta y
+volvia el arrastre. Ahora el contenido de las celdas se encoge (`min-width: 0`, `overflow-wrap:
+anywhere`) y los hijos directos de la celda de acciones envuelven.
+
+**3. El menu.** La grilla de chips agrupada por modulos (estilo SO/KDE) obligaba a barrer el panel
+entero con la vista y quedaba cortada al pie. Ahora el lanzador abre un panel a **pantalla completa**
+con el **buscador de vistas** arriba (filtra por nombre y por grupo, sin acentos), "Usadas hace poco"
+(localStorage, 5, se llena al navegar) y los grupos **plegables** con una fila por vista; el grupo de
+la vista actual arranca abierto. Medido: panel 284x638 = pantalla completa, filas de 46px, buscador de
+16px (menos que eso el celular hace zoom al enfocar); "caja" → Caja (Ventas); "catalogo" sin acento
+→ el grupo Catalogo; sin coincidencias avisa. La barra inferior (lanzador + Facturar + Caja +
+Catalogo) se mantiene: esta al alcance del pulgar. Ademas la barra de arriba queda en **una fila**
+(medida: 54px; antes eran dos, con "Salir" solo abajo): los dos chats en icono y Manual/Salir dentro
+del "...".
+
+**Instrumento de esta etapa**: capturas y mediciones contra el sitio vivo en viewport de celular,
+contando nodos REALES del render (ancho del `main`, desborde horizontal, tarjetas por fila, celdas
+que desbordan), no el HTML que devuelve el servidor. Las capturas quedaron en
+`backend/logs/mobile-2026-10-07/` (antes y despues).
+
+**Pendiente declarado**: las tablas escritas a mano en paginas y bloques (ConsignaPage, VentasPage,
+InventarioPage, RadarPage, PropuestasVentaPage, TransportesPage, Remisiones, `TablaItemsPaginada`,
+`ItemsEditorBlock`...) siguen siendo grillas: se leen, pero arrastrando de costado. Se convierten
+migrandolas a `Table` o marcando sus celdas. Tambien queda un desborde de 5px en la cabecera de
+Clientes medido a 284px (la fila "Buscar | Nuevo cliente"), que es de esa pagina y no de la tabla.
