@@ -160,6 +160,10 @@ body {
     padding: 3px 0;
     border: none;
     text-align: right;
+    /* Un dato largo (un email, un titulo) tiene que poder encogerse y cortarse: si no, empuja la
+       tarjeta y vuelve el arrastre horizontal que este modo vino a sacar. */
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .tabla-cards td::before {
     content: attr(data-label);
@@ -184,6 +188,13 @@ body {
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px dashed var(--border);
+  }
+  /* Las acciones vienen envueltas en un div propio (`flex gap-2`) en varias vistas: el wrap del
+     `td` no alcanza, porque ese div es otro contenedor flex y no envuelve por su cuenta. */
+  .tabla-cards td[data-rol='acciones'] > * {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
   }
   .tabla-cards td[data-rol='vacio'] {
     justify-content: center;
